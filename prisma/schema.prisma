@@ -21,27 +21,38 @@ model User {
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  casesCreated  Case[]       @relation("CreatedBy")
-  casesAssigned Case[]       @relation("AssignedDesigner")
+  casesCreated  Case[]         @relation("CreatedBy")
+  casesAssigned Case[]         @relation("AssignedDesigner")
   filesUploaded CaseFile[]
   reviews       CaseReview[]
+  notifications Notification[]
+}
+
+model Doctor {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  cases Case[]
 }
 
 model Case {
-  id             String   @id @default(cuid())
-  doctorName     String
+  id             String    @id @default(cuid())
   patientName    String
   unitsUpper     Int?
   unitsLower     Int?
   material       String?
   system         String?
   shade          String?
-  status         String   @default("READY_FOR_DESIGN")
-  entryDate      DateTime @default(now())
+  status         String    @default("READY_FOR_DESIGN")
+  entryDate      DateTime  @default(now())
   dueDate        DateTime?
   notes          String?
   driveFolderId  String?
   driveFolderUrl String?
+
+  doctorId String
+  doctor   Doctor @relation(fields: [doctorId], references: [id])
 
   createdById String
   createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
@@ -49,8 +60,9 @@ model Case {
   assignedDesignerId String?
   assignedDesigner   User?   @relation("AssignedDesigner", fields: [assignedDesignerId], references: [id])
 
-  files   CaseFile[]
-  reviews CaseReview[]
+  files         CaseFile[]
+  reviews       CaseReview[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -89,4 +101,17 @@ model CaseReview {
   reviewedBy   User   @relation(fields: [reviewedById], references: [id])
 
   createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  caseId String?
+  case   Case?   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 }

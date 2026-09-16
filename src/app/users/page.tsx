@@ -63,6 +63,9 @@ export default async function UsersPage() {
           <UserPlus size={16} />
           Add user
         </h2>
+        <p className="mb-4 text-xs text-slate-500">
+          They can sign in with this email/password, or with Google using the same email address.
+        </p>
         <form action={createUser} className="grid grid-cols-2 gap-4">
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Name

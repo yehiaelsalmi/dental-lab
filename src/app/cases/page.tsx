@@ -11,7 +11,7 @@ export default async function CasesPage() {
 
   const cases = await prisma.case.findMany({
     where: role === "DESIGNER" ? { assignedDesignerId: userId } : undefined,
-    include: { assignedDesigner: true },
+    include: { assignedDesigner: true, doctor: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -32,7 +32,7 @@ export default async function CasesPage() {
             {role === "DESIGNER" ? "Cases assigned to you" : "All lab cases"}
           </p>
         </div>
-        {(role === "DATA_ENTRY" || role === "LAB_LEADER") && (
+        {(role === "TECHNICIAN" || role === "LAB_LEADER") && (
           <Link
             href="/cases/new"
             className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-hover"
@@ -71,7 +71,7 @@ export default async function CasesPage() {
                     {c.patientName}
                   </Link>
                 </td>
-                <td className="px-5 py-4 text-slate-500">{c.doctorName}</td>
+                <td className="px-5 py-4 text-slate-500">{c.doctor.name}</td>
                 <td className="px-5 py-4 text-slate-500">
                   {c.assignedDesigner?.name ?? (
                     <span className="text-slate-300">Unassigned</span>

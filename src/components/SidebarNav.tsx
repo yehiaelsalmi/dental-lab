@@ -6,7 +6,7 @@ import { LayoutGrid, Users, Cloud } from "lucide-react";
 import type { Role } from "@/lib/constants";
 
 const LINKS = [
-  { href: "/cases", label: "Cases", icon: LayoutGrid, roles: ["DATA_ENTRY", "DESIGNER", "LAB_LEADER"] },
+  { href: "/cases", label: "Cases", icon: LayoutGrid, roles: ["TECHNICIAN", "DESIGNER", "LAB_LEADER"] },
   { href: "/users", label: "Users", icon: Users, roles: ["LAB_LEADER"] },
   { href: "/settings/google", label: "Drive Settings", icon: Cloud, roles: ["LAB_LEADER"] },
 ] as const;

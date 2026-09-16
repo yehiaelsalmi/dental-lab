@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/constants";
@@ -34,6 +35,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
   ],
   callbacks: {
     authorized({ auth, request }) {
@@ -42,10 +47,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (isOnLogin) return true;
       return isLoggedIn;
     },
-    jwt({ token, user }) {
-      if (user) {
+    async signIn({ user, account }) {
+      // Sign-in with Google only works for accounts a Lab Leader already
+      // created — this app doesn't let people self-register.
+      if (account?.provider === "google") {
+        if (!user.email) return false;
+        const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
+        if (!dbUser || !dbUser.active) return "/login?error=not_registered";
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (account?.provider === "credentials" && user) {
         token.id = user.id as string;
         token.role = (user as { role: Role }).role;
+      } else if (account?.provider === "google" && user?.email) {
+        const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role as Role;
+        }
       }
       return token;
     },

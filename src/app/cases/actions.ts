@@ -6,10 +6,12 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { createCaseFolder, uploadFileToDrive } from "@/lib/googleDrive";
+import { notifyDesignerAssigned, notifyLabLeadersReviewReady } from "@/lib/notifications";
 import type { CaseFileType, ReviewDecision } from "@/lib/constants";
 
 const createCaseSchema = z.object({
-  doctorName: z.string().min(1, "Doctor name is required"),
+  doctorId: z.string().min(1, "Select a doctor"),
+  newDoctorName: z.string().optional(),
   patientName: z.string().min(1, "Patient name is required"),
   unitsUpper: z.coerce.number().int().nonnegative().optional().nullable(),
   unitsLower: z.coerce.number().int().nonnegative().optional().nullable(),
@@ -58,10 +60,11 @@ async function attachFile(
 }
 
 export async function createCase(formData: FormData) {
-  const session = await requireRole("DATA_ENTRY", "LAB_LEADER");
+  const session = await requireRole("TECHNICIAN", "LAB_LEADER");
 
   const parsed = createCaseSchema.safeParse({
-    doctorName: formData.get("doctorName"),
+    doctorId: formData.get("doctorId"),
+    newDoctorName: emptyToUndefined(formData.get("newDoctorName")),
     patientName: formData.get("patientName"),
     unitsUpper: emptyToUndefined(formData.get("unitsUpper")),
     unitsLower: emptyToUndefined(formData.get("unitsLower")),
@@ -82,11 +85,20 @@ export async function createCase(formData: FormData) {
 
   let createdId: string;
   try {
-    const folder = await createCaseFolder(`${data.patientName} - ${data.doctorName}`);
+    const doctor =
+      data.doctorId === "__new__"
+        ? await (async () => {
+            const name = data.newDoctorName?.trim();
+            if (!name) throw new Error("Enter the new doctor's name.");
+            return prisma.doctor.upsert({ where: { name }, create: { name }, update: {} });
+          })()
+        : await prisma.doctor.findUniqueOrThrow({ where: { id: data.doctorId } });
+
+    const folder = await createCaseFolder(`${data.patientName} - ${doctor.name}`);
 
     const created = await prisma.case.create({
       data: {
-        doctorName: data.doctorName,
+        doctorId: doctor.id,
         patientName: data.patientName,
         unitsUpper: data.unitsUpper ?? null,
         unitsLower: data.unitsLower ?? null,
@@ -106,6 +118,10 @@ export async function createCase(formData: FormData) {
       await attachFile(created.id, folder.id, scanFile, "SCAN", session.user.id);
     }
 
+    if (data.assignedDesignerId) {
+      await notifyDesignerAssigned(created.id, data.assignedDesignerId, data.patientName);
+    }
+
     createdId = created.id;
   } catch (error) {
     redirect(`/cases/new?error=${encodeURIComponent(errorMessage(error))}`);
@@ -116,13 +132,19 @@ export async function createCase(formData: FormData) {
 }
 
 export async function assignDesigner(caseId: string, designerId: string | null) {
-  await requireRole("LAB_LEADER", "DATA_ENTRY");
+  await requireRole("LAB_LEADER", "TECHNICIAN");
 
   try {
+    const previous = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+
     await prisma.case.update({
       where: { id: caseId },
       data: { assignedDesignerId: designerId },
     });
+
+    if (designerId && designerId !== previous.assignedDesignerId) {
+      await notifyDesignerAssigned(caseId, designerId, previous.patientName);
+    }
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -179,6 +201,8 @@ export async function submitForReview(caseId: string, formData: FormData) {
       where: { id: caseId },
       data: { status: "WAITING_FOR_REVIEW" },
     });
+
+    await notifyLabLeadersReviewReady(caseId, caseRecord.patientName);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }

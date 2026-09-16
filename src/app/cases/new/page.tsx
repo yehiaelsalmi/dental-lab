@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { FileDropField } from "@/components/FileDropField";
+import { DoctorSelect } from "@/components/DoctorSelect";
 import { createCase } from "../actions";
 
 export default async function NewCasePage({
@@ -10,13 +11,13 @@ export default async function NewCasePage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requireRole("DATA_ENTRY", "LAB_LEADER");
+  await requireRole("TECHNICIAN", "LAB_LEADER");
   const { error } = await searchParams;
 
-  const designers = await prisma.user.findMany({
-    where: { role: "DESIGNER", active: true },
-    orderBy: { name: "asc" },
-  });
+  const [designers, doctors] = await Promise.all([
+    prisma.user.findMany({ where: { role: "DESIGNER", active: true }, orderBy: { name: "asc" } }),
+    prisma.doctor.findMany({ orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl px-8 py-10">
@@ -42,7 +43,7 @@ export default async function NewCasePage({
         <div>
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Case details</h2>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Doctor" name="doctorName" required />
+            <DoctorSelect doctors={doctors} />
             <Field label="Patient" name="patientName" required />
             <Field label="Units (Upper)" name="unitsUpper" type="number" />
             <Field label="Units (Lower)" name="unitsLower" type="number" />

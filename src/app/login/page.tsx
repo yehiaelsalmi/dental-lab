@@ -1,5 +1,11 @@
 import { KeyRound } from "lucide-react";
-import { loginAction } from "./actions";
+import { loginAction, loginWithGoogle } from "./actions";
+
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid: "Invalid email or password.",
+  not_registered:
+    "That Google account isn't set up yet. Ask your Lab Leader to add you as a user first.",
+};
 
 export default async function LoginPage({
   searchParams,
@@ -7,6 +13,7 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const googleConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 px-4">
@@ -22,8 +29,28 @@ export default async function LoginPage({
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           {error && (
             <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-              Invalid email or password.
+              {ERROR_MESSAGES[error] ?? "Something went wrong signing you in."}
             </p>
+          )}
+
+          {googleConfigured && (
+            <>
+              <form action={loginWithGoogle}>
+                <button
+                  type="submit"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                >
+                  <GoogleIcon />
+                  Sign in with Google
+                </button>
+              </form>
+
+              <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+                <div className="h-px flex-1 bg-slate-200" />
+                or
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+            </>
           )}
 
           <form action={loginAction} className="flex flex-col gap-4">
@@ -33,7 +60,7 @@ export default async function LoginPage({
                 type="email"
                 name="email"
                 required
-                autoFocus
+                autoFocus={!googleConfigured}
                 className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none transition-shadow focus:border-brand focus:ring-2 focus:ring-brand/20"
               />
             </label>
@@ -57,5 +84,28 @@ export default async function LoginPage({
         </div>
       </div>
     </div>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.26v3.11A12 12 0 0 0 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28V6.61H1.26A12 12 0 0 0 0 12c0 1.94.46 3.77 1.26 5.39l4.01-3.11Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.26 6.61l4.01 3.11C6.22 6.86 8.87 4.75 12 4.75Z"
+      />
+    </svg>
   );
 }

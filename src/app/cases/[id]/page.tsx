@@ -39,6 +39,7 @@ export default async function CaseDetailPage({
     include: {
       assignedDesigner: true,
       createdBy: true,
+      doctor: true,
       files: { orderBy: { createdAt: "asc" } },
       reviews: { orderBy: { createdAt: "desc" }, include: { reviewedBy: true } },
     },
@@ -47,7 +48,7 @@ export default async function CaseDetailPage({
   if (!caseRecord) notFound();
 
   const designers =
-    role === "LAB_LEADER" || role === "DATA_ENTRY"
+    role === "LAB_LEADER" || role === "TECHNICIAN"
       ? await prisma.user.findMany({ where: { role: "DESIGNER", active: true } })
       : [];
 
@@ -67,7 +68,7 @@ export default async function CaseDetailPage({
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">{caseRecord.patientName}</h1>
-          <p className="mt-1 text-sm text-slate-500">{caseRecord.doctorName}</p>
+          <p className="mt-1 text-sm text-slate-500">{caseRecord.doctor.name}</p>
         </div>
         <StatusBadge status={status} />
       </div>
@@ -105,7 +106,7 @@ export default async function CaseDetailPage({
         )}
       </section>
 
-      {(role === "LAB_LEADER" || role === "DATA_ENTRY") && status !== "COMPLETED" && (
+      {(role === "LAB_LEADER" || role === "TECHNICIAN") && status !== "COMPLETED" && (
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
           <form action={assignDesignerAction} className="flex items-end gap-3">
             <input type="hidden" name="caseId" value={caseRecord.id} />

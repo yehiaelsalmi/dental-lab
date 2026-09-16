@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 const SEED_USERS = [
   { name: "Lab Leader", email: "leader@lab.local", password: "ChangeMe123!", role: "LAB_LEADER" },
-  { name: "Data Entry", email: "entry@lab.local", password: "ChangeMe123!", role: "DATA_ENTRY" },
+  { name: "Technician", email: "entry@lab.local", password: "ChangeMe123!", role: "TECHNICIAN" },
   { name: "Designer One", email: "designer1@lab.local", password: "ChangeMe123!", role: "DESIGNER" },
 ];
 

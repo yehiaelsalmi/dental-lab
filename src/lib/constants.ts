@@ -1,4 +1,4 @@
-export const ROLES = ["DATA_ENTRY", "DESIGNER", "LAB_LEADER"] as const;
+export const ROLES = ["TECHNICIAN", "DESIGNER", "LAB_LEADER"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const CASE_STATUSES = [
