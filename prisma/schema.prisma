@@ -1,0 +1,92 @@
+// Prisma schema for the dental lab case management system
+//
+// SQLite has no native enum type, so Role/CaseStatus/CaseFileType/ReviewDecision
+// are plain strings constrained at the application layer — see src/lib/constants.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  casesCreated  Case[]       @relation("CreatedBy")
+  casesAssigned Case[]       @relation("AssignedDesigner")
+  filesUploaded CaseFile[]
+  reviews       CaseReview[]
+}
+
+model Case {
+  id             String   @id @default(cuid())
+  doctorName     String
+  patientName    String
+  unitsUpper     Int?
+  unitsLower     Int?
+  material       String?
+  system         String?
+  shade          String?
+  status         String   @default("READY_FOR_DESIGN")
+  entryDate      DateTime @default(now())
+  dueDate        DateTime?
+  notes          String?
+  driveFolderId  String?
+  driveFolderUrl String?
+
+  createdById String
+  createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
+
+  assignedDesignerId String?
+  assignedDesigner   User?   @relation("AssignedDesigner", fields: [assignedDesignerId], references: [id])
+
+  files   CaseFile[]
+  reviews CaseReview[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CaseFile {
+  id          String @id @default(cuid())
+  caseId      String
+  case        Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  type        String
+  fileName    String
+  driveFileId String
+  driveLink   String
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// Runtime settings edited from the admin UI (e.g. Google Drive connection),
+// as opposed to deploy-time secrets which stay in .env.
+model AppSetting {
+  key   String @id
+  value String
+}
+
+model CaseReview {
+  id       String  @id @default(cuid())
+  caseId   String
+  case     Case    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  decision String
+  comment  String?
+
+  reviewedById String
+  reviewedBy   User   @relation(fields: [reviewedById], references: [id])
+
+  createdAt DateTime @default(now())
+}
