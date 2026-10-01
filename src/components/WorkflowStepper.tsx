@@ -5,7 +5,10 @@ const STEPS: { key: CaseStatus; label: string }[] = [
   { key: "READY_FOR_DESIGN", label: "Ready for Design" },
   { key: "IN_DESIGN", label: "In Design" },
   { key: "WAITING_FOR_REVIEW", label: "Waiting for Review" },
+  { key: "MILLING", label: "Milling" },
+  { key: "STAIN_AND_GLAZE", label: "Stain & Glaze" },
   { key: "COMPLETED", label: "Completed" },
+  { key: "DELIVERED", label: "Delivered" },
 ];
 
 export function WorkflowStepper({ status }: { status: CaseStatus }) {
@@ -23,7 +26,7 @@ export function WorkflowStepper({ status }: { status: CaseStatus }) {
 
         return (
           <div key={step.key} className="flex flex-1 items-center last:flex-none">
-            <div className="flex flex-col items-center">
+            <div className="flex w-16 flex-col items-center">
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
                   isChangesStep
@@ -38,7 +41,7 @@ export function WorkflowStepper({ status }: { status: CaseStatus }) {
                 {isPast ? <Check size={16} /> : i + 1}
               </div>
               <span
-                className={`mt-2 max-w-[6.5rem] text-center text-xs font-medium ${
+                className={`mt-2 text-center text-[11px] font-medium leading-tight ${
                   isChangesStep
                     ? "text-rose-600"
                     : isCurrent || isPast
@@ -50,7 +53,7 @@ export function WorkflowStepper({ status }: { status: CaseStatus }) {
               </span>
             </div>
             {i < STEPS.length - 1 && (
-              <div className={`mx-2 h-0.5 flex-1 ${isPast ? "bg-brand" : "bg-slate-100"}`} />
+              <div className={`mx-1 h-0.5 flex-1 ${isPast ? "bg-brand" : "bg-slate-100"}`} />
             )}
           </div>
         );

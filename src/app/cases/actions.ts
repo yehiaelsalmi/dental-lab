@@ -6,16 +6,23 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { createCaseFolder, uploadFileToDrive } from "@/lib/googleDrive";
-import { notifyDesignerAssigned, notifyLabLeadersReviewReady } from "@/lib/notifications";
+import {
+  notifyDesignerAssigned,
+  notifyLabLeadersAssigned,
+  notifyLabLeadersReviewReady,
+} from "@/lib/notifications";
 import type { CaseFileType, ReviewDecision } from "@/lib/constants";
 
 const createCaseSchema = z.object({
   doctorId: z.string().min(1, "Select a doctor"),
   newDoctorName: z.string().optional(),
+  materialId: z.string().min(1, "Select a material"),
+  metalTypeId: z.string().optional(),
+  ibarDesignerId: z.string().optional(),
+  newIbarDesignerName: z.string().optional(),
   patientName: z.string().min(1, "Patient name is required"),
   unitsUpper: z.coerce.number().int().nonnegative().optional().nullable(),
   unitsLower: z.coerce.number().int().nonnegative().optional().nullable(),
-  material: z.string().optional(),
   system: z.string().optional(),
   shade: z.string().optional(),
   dueDate: z.string().optional(),
@@ -23,9 +30,19 @@ const createCaseSchema = z.object({
   assignedDesignerId: z.string().optional(),
 });
 
+const CERAMIST_ASSIGNABLE_STATUSES = ["WAITING_FOR_REVIEW", "MILLING", "STAIN_AND_GLAZE", "COMPLETED"];
+
 function emptyToUndefined(value: FormDataEntryValue | null) {
   if (typeof value !== "string" || value.trim() === "") return undefined;
   return value;
+}
+
+function parseUnits(formData: FormData): { code: string }[] {
+  return formData
+    .getAll("unitCode")
+    .map((v) => String(v).trim())
+    .filter(Boolean)
+    .map((code) => ({ code }));
 }
 
 function errorMessage(error: unknown): string {
@@ -65,10 +82,13 @@ export async function createCase(formData: FormData) {
   const parsed = createCaseSchema.safeParse({
     doctorId: formData.get("doctorId"),
     newDoctorName: emptyToUndefined(formData.get("newDoctorName")),
+    materialId: formData.get("materialId"),
+    metalTypeId: emptyToUndefined(formData.get("metalTypeId")),
+    ibarDesignerId: emptyToUndefined(formData.get("ibarDesignerId")),
+    newIbarDesignerName: emptyToUndefined(formData.get("newIbarDesignerName")),
     patientName: formData.get("patientName"),
     unitsUpper: emptyToUndefined(formData.get("unitsUpper")),
     unitsLower: emptyToUndefined(formData.get("unitsLower")),
-    material: emptyToUndefined(formData.get("material")),
     system: emptyToUndefined(formData.get("system")),
     shade: emptyToUndefined(formData.get("shade")),
     dueDate: emptyToUndefined(formData.get("dueDate")),
@@ -85,6 +105,8 @@ export async function createCase(formData: FormData) {
 
   let createdId: string;
   try {
+    const units = parseUnits(formData);
+
     const doctor =
       data.doctorId === "__new__"
         ? await (async () => {
@@ -94,15 +116,48 @@ export async function createCase(formData: FormData) {
           })()
         : await prisma.doctor.findUniqueOrThrow({ where: { id: data.doctorId } });
 
-    const folder = await createCaseFolder(`${data.patientName} - ${doctor.name}`);
+    const ibarDesigner =
+      data.ibarDesignerId === "__new__"
+        ? await (async () => {
+            const name = data.newIbarDesignerName?.trim();
+            if (!name) throw new Error("Enter the new ibar designer's name.");
+            return prisma.ibarDesigner.upsert({ where: { name }, create: { name }, update: {} });
+          })()
+        : data.ibarDesignerId
+          ? await prisma.ibarDesigner.findUniqueOrThrow({ where: { id: data.ibarDesignerId } })
+          : null;
+
+    const material = await prisma.material.findUniqueOrThrow({ where: { id: data.materialId } });
+    const metalType = data.metalTypeId
+      ? await prisma.metalType.findUniqueOrThrow({ where: { id: data.metalTypeId } })
+      : null;
+
+    const unitCount = (data.unitsUpper ?? 0) + (data.unitsLower ?? 0);
+    const totalPrice =
+      material.pricePerUnit * unitCount + (material.extraFee ?? 0) - (material.deduction ?? 0);
+    const ibarFee =
+      ibarDesigner && material.ibarFeePerUnit != null ? material.ibarFeePerUnit * unitCount : null;
+    const designerFee = data.assignedDesignerId ? material.designerFeePerUnit * unitCount : null;
+    const metalCost = metalType ? metalType.cost * unitCount : null;
+
+    const folder = await createCaseFolder(doctor.name, data.patientName);
 
     const created = await prisma.case.create({
       data: {
         doctorId: doctor.id,
+        ibarDesignerId: ibarDesigner?.id ?? null,
+        materialId: material.id,
+        metalTypeId: metalType?.id ?? null,
+        totalPrice,
+        extraFee: material.extraFee,
+        deduction: material.deduction,
+        ibarFee,
+        designerFee,
+        metalCost,
+        units: { create: units },
         patientName: data.patientName,
         unitsUpper: data.unitsUpper ?? null,
         unitsLower: data.unitsLower ?? null,
-        material: data.material,
         system: data.system,
         shade: data.shade,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
@@ -120,6 +175,12 @@ export async function createCase(formData: FormData) {
 
     if (data.assignedDesignerId) {
       await notifyDesignerAssigned(created.id, data.assignedDesignerId, data.patientName);
+      await notifyLabLeadersAssigned(
+        created.id,
+        data.patientName,
+        data.assignedDesignerId,
+        session.user.id
+      );
     }
 
     createdId = created.id;
@@ -132,18 +193,30 @@ export async function createCase(formData: FormData) {
 }
 
 export async function assignDesigner(caseId: string, designerId: string | null) {
-  await requireRole("LAB_LEADER", "TECHNICIAN");
+  const session = await requireRole("LAB_LEADER", "TECHNICIAN");
 
   try {
     const previous = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
 
+    let designerFee = previous.designerFee;
+    if (designerId && designerId !== previous.assignedDesignerId) {
+      const unitCount = (previous.unitsUpper ?? 0) + (previous.unitsLower ?? 0);
+      const material = previous.materialId
+        ? await prisma.material.findUnique({ where: { id: previous.materialId } })
+        : null;
+      designerFee = material ? material.designerFeePerUnit * unitCount : null;
+    } else if (!designerId) {
+      designerFee = null;
+    }
+
     await prisma.case.update({
       where: { id: caseId },
-      data: { assignedDesignerId: designerId },
+      data: { assignedDesignerId: designerId, designerFee },
     });
 
     if (designerId && designerId !== previous.assignedDesignerId) {
       await notifyDesignerAssigned(caseId, designerId, previous.patientName);
+      await notifyLabLeadersAssigned(caseId, previous.patientName, designerId, session.user.id);
     }
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
@@ -234,11 +307,98 @@ export async function reviewCase(
 
     await prisma.case.update({
       where: { id: caseId },
-      data: { status: decision === "APPROVED" ? "COMPLETED" : "CHANGES_REQUESTED" },
+      data: { status: decision === "APPROVED" ? "MILLING" : "CHANGES_REQUESTED" },
     });
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
 
   revalidatePath(`/cases/${caseId}`);
+}
+
+export async function assignCeramist(
+  caseId: string,
+  ceramistId: string | undefined,
+  newCeramistName: string | undefined
+) {
+  await requireRole("LAB_LEADER", "TECHNICIAN");
+
+  try {
+    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    if (!CERAMIST_ASSIGNABLE_STATUSES.includes(caseRecord.status)) {
+      throw new Error("The ceramist can be assigned once the design has been submitted.");
+    }
+
+    let resolvedId: string | null = null;
+    if (ceramistId === "__new__") {
+      const name = newCeramistName?.trim();
+      if (!name) throw new Error("Enter the new ceramist's name.");
+      const ceramist = await prisma.ceramist.upsert({
+        where: { name },
+        create: { name },
+        update: {},
+      });
+      resolvedId = ceramist.id;
+    } else if (ceramistId) {
+      resolvedId = (await prisma.ceramist.findUniqueOrThrow({ where: { id: ceramistId } })).id;
+    }
+
+    let ceramistFee: number | null = null;
+    if (resolvedId) {
+      const unitCount = (caseRecord.unitsUpper ?? 0) + (caseRecord.unitsLower ?? 0);
+      const material = caseRecord.materialId
+        ? await prisma.material.findUnique({ where: { id: caseRecord.materialId } })
+        : null;
+      ceramistFee = material ? material.ceramistFeePerUnit * unitCount : null;
+    }
+
+    await prisma.case.update({
+      where: { id: caseId },
+      data: { ceramistId: resolvedId, ceramistFee },
+    });
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function markDelivered(caseId: string) {
+  await requireRole("LAB_LEADER", "TECHNICIAN");
+
+  try {
+    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    if (caseRecord.status !== "COMPLETED") {
+      throw new Error("Only completed cases can be marked as delivered.");
+    }
+    await prisma.case.update({ where: { id: caseId }, data: { status: "DELIVERED" } });
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/cases");
+}
+
+// Milling -> Stain & Glaze -> Completed.
+export async function advanceProduction(caseId: string) {
+  await requireRole("LAB_LEADER", "TECHNICIAN");
+
+  try {
+    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const next =
+      caseRecord.status === "MILLING"
+        ? "STAIN_AND_GLAZE"
+        : caseRecord.status === "STAIN_AND_GLAZE"
+          ? "COMPLETED"
+          : null;
+    if (!next) throw new Error("This case isn't in milling or stain & glaze.");
+
+    await prisma.case.update({ where: { id: caseId }, data: { status: next } });
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/cases");
 }

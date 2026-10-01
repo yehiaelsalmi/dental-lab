@@ -2,12 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Users, Cloud } from "lucide-react";
+import { LayoutGrid, Users, Cloud, Tag, FileSpreadsheet, Receipt, PenTool, Brush } from "lucide-react";
 import type { Role } from "@/lib/constants";
 
 const LINKS = [
   { href: "/cases", label: "Cases", icon: LayoutGrid, roles: ["TECHNICIAN", "DESIGNER", "LAB_LEADER"] },
+  { href: "/designers", label: "Designers", icon: PenTool, roles: ["LAB_LEADER"] },
+  { href: "/ceramists", label: "Ceramists", icon: Brush, roles: ["LAB_LEADER"] },
+  { href: "/reports", label: "Reports", icon: FileSpreadsheet, roles: ["LAB_LEADER"] },
+  { href: "/invoices", label: "Invoices", icon: Receipt, roles: ["LAB_LEADER"] },
   { href: "/users", label: "Users", icon: Users, roles: ["LAB_LEADER"] },
+  { href: "/settings/pricing", label: "Pricing", icon: Tag, roles: ["LAB_LEADER"] },
   { href: "/settings/google", label: "Drive Settings", icon: Cloud, roles: ["LAB_LEADER"] },
 ] as const;
 

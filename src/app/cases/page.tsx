@@ -5,7 +5,15 @@ import { requireSession } from "@/lib/session";
 import { CASE_STATUSES, CASE_STATUS_LABELS, type CaseStatus } from "@/lib/constants";
 import { StatusBadge } from "@/components/StatusBadge";
 
-export default async function CasesPage() {
+export default async function CasesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const { status: statusParam } = await searchParams;
+  const activeStatus = (CASE_STATUSES as readonly string[]).includes(statusParam ?? "")
+    ? (statusParam as CaseStatus)
+    : null;
   const session = await requireSession();
   const { role, id: userId } = session.user;
 
@@ -22,6 +30,8 @@ export default async function CasesPage() {
     },
     {} as Record<CaseStatus, number>
   );
+
+  const visibleCases = activeStatus ? cases.filter((c) => c.status === activeStatus) : cases;
 
   return (
     <div className="mx-auto max-w-6xl px-8 py-10">
@@ -43,14 +53,43 @@ export default async function CasesPage() {
         )}
       </div>
 
-      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {CASE_STATUSES.map((status) => (
-          <div key={status} className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-2xl font-semibold text-slate-900">{counts[status]}</p>
-            <p className="mt-1 text-xs font-medium text-slate-500">{CASE_STATUS_LABELS[status]}</p>
-          </div>
-        ))}
+      <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {CASE_STATUSES.map((status) => {
+          const active = status === activeStatus;
+          return (
+            <Link
+              key={status}
+              href={active ? "/cases" : `/cases?status=${status}`}
+              className={`rounded-xl border p-4 transition-colors ${
+                active
+                  ? "border-brand bg-brand-soft"
+                  : "border-slate-200 bg-white hover:border-brand/40 hover:bg-slate-50"
+              }`}
+            >
+              <p className={`text-2xl font-semibold ${active ? "text-brand" : "text-slate-900"}`}>
+                {counts[status]}
+              </p>
+              <p className={`mt-1 text-xs font-medium ${active ? "text-brand" : "text-slate-500"}`}>
+                {CASE_STATUS_LABELS[status]}
+              </p>
+            </Link>
+          );
+        })}
       </div>
+
+      <p className="mb-4 text-sm text-slate-500">
+        {activeStatus ? (
+          <>
+            Showing {visibleCases.length} case{visibleCases.length === 1 ? "" : "s"} in{" "}
+            <span className="font-medium text-slate-900">{CASE_STATUS_LABELS[activeStatus]}</span>.{" "}
+            <Link href="/cases" className="font-medium text-brand hover:text-brand-hover">
+              Show all
+            </Link>
+          </>
+        ) : (
+          "Click a status to see only the cases in it."
+        )}
+      </p>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-left text-sm">
@@ -64,7 +103,7 @@ export default async function CasesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {cases.map((c) => (
+            {visibleCases.map((c) => (
               <tr key={c.id} className="transition-colors hover:bg-slate-50">
                 <td className="px-5 py-4">
                   <Link href={`/cases/${c.id}`} className="font-medium text-slate-900 hover:text-brand">
@@ -85,11 +124,11 @@ export default async function CasesPage() {
                 </td>
               </tr>
             ))}
-            {cases.length === 0 && (
+            {visibleCases.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-5 py-16 text-center text-slate-400">
                   <Inbox className="mx-auto mb-3 text-slate-300" size={28} />
-                  No cases yet.
+                  {activeStatus ? "No cases in this status." : "No cases yet."}
                 </td>
               </tr>
             )}

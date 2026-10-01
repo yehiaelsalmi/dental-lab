@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
 import { SidebarNav } from "@/components/SidebarNav";
 import { SignOutButton } from "@/components/SignOutButton";
 
@@ -23,15 +24,14 @@ export async function Nav() {
   });
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white print:hidden">
       <div className="flex items-center justify-between gap-2.5 border-b border-slate-100 px-5 py-5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
-            DL
+            {LAB_INITIALS}
           </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">Dental Lab</p>
-            <p className="text-xs text-slate-400">Case Management</p>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight text-slate-900">{LAB_NAME}</p>
           </div>
         </div>
         <Link

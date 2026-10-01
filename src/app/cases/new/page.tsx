@@ -3,7 +3,8 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { FileDropField } from "@/components/FileDropField";
-import { DoctorSelect } from "@/components/DoctorSelect";
+import { EntitySelect } from "@/components/EntitySelect";
+import { UnitCodesField } from "@/components/UnitCodesField";
 import { createCase } from "../actions";
 
 export default async function NewCasePage({
@@ -14,9 +15,12 @@ export default async function NewCasePage({
   await requireRole("TECHNICIAN", "LAB_LEADER");
   const { error } = await searchParams;
 
-  const [designers, doctors] = await Promise.all([
+  const [designers, doctors, ibarDesigners, materials, metalTypes] = await Promise.all([
     prisma.user.findMany({ where: { role: "DESIGNER", active: true }, orderBy: { name: "asc" } }),
     prisma.doctor.findMany({ orderBy: { name: "asc" } }),
+    prisma.ibarDesigner.findMany({ orderBy: { name: "asc" } }),
+    prisma.material.findMany({ orderBy: { name: "asc" } }),
+    prisma.metalType.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -43,15 +47,71 @@ export default async function NewCasePage({
         <div>
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Case details</h2>
           <div className="grid grid-cols-2 gap-4">
-            <DoctorSelect doctors={doctors} />
+            <EntitySelect
+              label="Doctor"
+              idField="doctorId"
+              newNameField="newDoctorName"
+              items={doctors}
+              addLabel="+ Add new doctor"
+            />
             <Field label="Patient" name="patientName" required />
             <Field label="Units (Upper)" name="unitsUpper" type="number" />
             <Field label="Units (Lower)" name="unitsLower" type="number" />
-            <Field label="Material" name="material" placeholder="e.g. Zirconia" />
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+              Material
+              <select
+                name="materialId"
+                required
+                defaultValue=""
+                className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="" disabled>
+                  {materials.length === 0 ? "No materials set up yet" : "Select material"}
+                </option>
+                {materials.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              {materials.length === 0 && (
+                <span className="text-xs font-normal text-amber-600">
+                  Add materials and their rates in Pricing first.
+                </span>
+              )}
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+              Metal
+              <select
+                name="metalTypeId"
+                defaultValue=""
+                className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="">None</option>
+                {metalTypes.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Field label="System" name="system" placeholder="e.g. Roott, natural" />
             <Field label="Shade" name="shade" />
             <Field label="Due date" name="dueDate" type="date" />
+            <EntitySelect
+              label="Ibar designer"
+              idField="ibarDesignerId"
+              newNameField="newIbarDesignerName"
+              items={ibarDesigners}
+              addLabel="+ Add new ibar designer"
+              optional
+            />
           </div>
+        </div>
+
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Unit codes</h2>
+          <UnitCodesField />
         </div>
 
         <div>

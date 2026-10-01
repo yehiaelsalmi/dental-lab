@@ -7,15 +7,23 @@ import {
   CheckCircle2,
   XCircle,
   User,
+  Printer,
 } from "lucide-react";
+import QRCode from "qrcode";
+import { caseUrl } from "@/lib/email";
+import { formatEGP } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import type { CaseStatus } from "@/lib/constants";
+import { DESIGN_PHASE_STATUSES, type CaseStatus } from "@/lib/constants";
 import { StatusBadge } from "@/components/StatusBadge";
 import { WorkflowStepper } from "@/components/WorkflowStepper";
 import { FileDropField } from "@/components/FileDropField";
+import { EntitySelect } from "@/components/EntitySelect";
 import {
+  advanceProductionAction,
+  assignCeramistAction,
   assignDesignerAction,
+  markDeliveredAction,
   requestChangesAction,
   approveAction,
   startDesignAction,
@@ -40,19 +48,36 @@ export default async function CaseDetailPage({
       assignedDesigner: true,
       createdBy: true,
       doctor: true,
+      ceramist: true,
+      ibarDesigner: true,
+      material: true,
+      metalType: true,
+      units: { orderBy: { createdAt: "asc" } },
       files: { orderBy: { createdAt: "asc" } },
       reviews: { orderBy: { createdAt: "desc" }, include: { reviewedBy: true } },
     },
   });
 
   if (!caseRecord) notFound();
+  if (role === "DESIGNER" && caseRecord.assignedDesignerId !== userId) notFound();
+
+  const status = caseRecord.status as CaseStatus;
+  const canManage = role === "LAB_LEADER" || role === "TECHNICIAN";
+  const canAssignCeramist =
+    canManage &&
+    (["WAITING_FOR_REVIEW", "MILLING", "STAIN_AND_GLAZE", "COMPLETED"] as CaseStatus[]).includes(status);
+
+  const ceramists = canAssignCeramist
+    ? await prisma.ceramist.findMany({ orderBy: { name: "asc" } })
+    : [];
+
+  const qrDataUrl = await QRCode.toDataURL(caseUrl(caseRecord.id), { margin: 1, width: 220 });
 
   const designers =
     role === "LAB_LEADER" || role === "TECHNICIAN"
       ? await prisma.user.findMany({ where: { role: "DESIGNER", active: true } })
       : [];
 
-  const status = caseRecord.status as CaseStatus;
   const isAssignedDesigner = role === "DESIGNER" && caseRecord.assignedDesignerId === userId;
 
   return (
@@ -83,15 +108,18 @@ export default async function CaseDetailPage({
 
       <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm">
         <Info label="Units (Upper / Lower)" value={`${caseRecord.unitsUpper ?? "-"} / ${caseRecord.unitsLower ?? "-"}`} />
-        <Info label="Material" value={caseRecord.material ?? "-"} />
+        <Info label="Material" value={caseRecord.material?.name ?? "-"} />
+        <Info label="Metal" value={caseRecord.metalType?.name ?? "-"} />
+        <Info label="Ibar designer" value={caseRecord.ibarDesigner?.name ?? "-"} />
         <Info label="System" value={caseRecord.system ?? "-"} />
         <Info label="Shade" value={caseRecord.shade ?? "-"} />
         <Info label="Entry date" value={new Date(caseRecord.entryDate).toLocaleDateString()} />
         <Info label="Due date" value={caseRecord.dueDate ? new Date(caseRecord.dueDate).toLocaleDateString() : "-"} />
         <Info label="Created by" value={caseRecord.createdBy.name} />
         <Info label="Designer" value={caseRecord.assignedDesigner?.name ?? "Unassigned"} />
+        <Info label="Ceramist" value={caseRecord.ceramist?.name ?? "-"} />
         {caseRecord.notes && <Info label="Notes" value={caseRecord.notes} full />}
-        {caseRecord.driveFolderUrl && (
+        {caseRecord.driveFolderUrl && role !== "DESIGNER" && (
           <div className="col-span-2 border-t border-slate-100 pt-4">
             <a
               href={caseRecord.driveFolderUrl}
@@ -106,7 +134,132 @@ export default async function CaseDetailPage({
         )}
       </section>
 
-      {(role === "LAB_LEADER" || role === "TECHNICIAN") && status !== "COMPLETED" && (
+      {role === "LAB_LEADER" && (
+        <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm sm:grid-cols-3">
+          <Money label="Price to doctor" value={caseRecord.totalPrice} />
+          <Money label="Extra fees (included)" value={caseRecord.extraFee} />
+          <Money label="Deduction (included)" value={caseRecord.deduction} />
+          <Money label="Ceramist fee" value={caseRecord.ceramistFee} />
+          <Money label="Designer fee" value={caseRecord.designerFee} />
+          <Money label="Ibar fee" value={caseRecord.ibarFee} />
+          <Money label="Metal cost" value={caseRecord.metalCost} />
+          <Money
+            label="Profit"
+            value={
+              caseRecord.totalPrice == null
+                ? null
+                : caseRecord.totalPrice -
+                  (caseRecord.ceramistFee ?? 0) -
+                  (caseRecord.designerFee ?? 0) -
+                  (caseRecord.ibarFee ?? 0) -
+                  (caseRecord.metalCost ?? 0)
+            }
+            emphasize
+          />
+        </section>
+      )}
+
+      <section className="mb-6 flex items-center gap-5 rounded-xl border border-slate-200 bg-white p-5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={qrDataUrl} alt="Case QR code" width={96} height={96} className="rounded-md" />
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Case QR code</h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Scan it to open this case. Print the label and keep it with the physical work.
+          </p>
+          <Link
+            href={`/cases/${caseRecord.id}/label`}
+            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover"
+          >
+            <Printer size={15} />
+            Print label
+          </Link>
+        </div>
+      </section>
+
+      {caseRecord.units.length > 0 && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Unit codes</h2>
+          <div className="flex flex-wrap gap-2">
+            {caseRecord.units.map((u) => (
+              <span
+                key={u.id}
+                className="rounded-md bg-slate-100 px-2.5 py-1 text-sm font-medium text-slate-700"
+              >
+                {u.code}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {canManage && (status === "MILLING" || status === "STAIN_AND_GLAZE") && (
+        <section className="mb-6 rounded-xl border border-orange-200 bg-orange-50/50 p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">
+            {status === "MILLING" ? "Milling" : "Stain & glaze"}
+          </h2>
+          <p className="mb-3 text-sm text-slate-500">
+            {status === "MILLING"
+              ? "When milling is finished, send the case on to the ceramist for stain & glaze."
+              : "When the ceramist has finished stain & glaze, mark the case as completed."}
+          </p>
+          <form action={advanceProductionAction}>
+            <input type="hidden" name="caseId" value={caseRecord.id} />
+            <button
+              type="submit"
+              className="rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-orange-700"
+            >
+              {status === "MILLING" ? "Milling done: send to Stain & Glaze" : "Stain & glaze done: mark Completed"}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {canManage && caseRecord.status === "COMPLETED" && (
+        <section className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">Deliver to the doctor</h2>
+          <p className="mb-3 text-sm text-slate-500">
+            Once the doctor has approved the work and it has been delivered, mark the case as
+            delivered.
+          </p>
+          <form action={markDeliveredAction}>
+            <input type="hidden" name="caseId" value={caseRecord.id} />
+            <button
+              type="submit"
+              className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+            >
+              Mark as Delivered
+            </button>
+          </form>
+        </section>
+      )}
+
+      {canAssignCeramist && (
+          <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+            <form action={assignCeramistAction} className="flex items-end gap-3">
+              <input type="hidden" name="caseId" value={caseRecord.id} />
+              <div className="flex-1">
+                <EntitySelect
+                  label="Ceramist"
+                  idField="ceramistId"
+                  newNameField="newCeramistName"
+                  items={ceramists}
+                  addLabel="+ Add new ceramist"
+                  optional
+                  defaultId={caseRecord.ceramistId ?? ""}
+                />
+              </div>
+              <button
+                type="submit"
+                className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+              >
+                Save
+              </button>
+            </form>
+          </section>
+      )}
+
+      {canManage && DESIGN_PHASE_STATUSES.includes(status) && (
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
           <form action={assignDesignerAction} className="flex items-end gap-3">
             <input type="hidden" name="caseId" value={caseRecord.id} />
@@ -204,9 +357,8 @@ export default async function CaseDetailPage({
           {caseRecord.files.map((f) => (
             <li key={f.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
               <a
-                href={f.driveLink}
-                target="_blank"
-                rel="noreferrer"
+                href={role === "DESIGNER" ? `/api/files/${f.id}` : f.driveLink}
+                {...(role === "DESIGNER" ? {} : { target: "_blank", rel: "noreferrer" })}
                 className="flex items-center gap-2 text-slate-700 hover:text-brand"
               >
                 <FileText size={15} className="shrink-0 text-slate-400" />
@@ -264,6 +416,25 @@ function Info({ label, value, full }: { label: string; value: string; full?: boo
     <div className={full ? "col-span-2" : undefined}>
       <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
       <p className="mt-0.5 text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function Money({
+  label,
+  value,
+  emphasize,
+}: {
+  label: string;
+  value: number | null | undefined;
+  emphasize?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+      <p className={emphasize ? "mt-0.5 font-semibold text-slate-900" : "mt-0.5 text-slate-800"}>
+        {formatEGP(value)}
+      </p>
     </div>
   );
 }

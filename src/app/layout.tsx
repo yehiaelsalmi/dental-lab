@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dental Lab System",
-  description: "Case management for the lab",
+  title: "Alexandria All on four Lab",
+  description: "Case management for Alexandria All on four Lab",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

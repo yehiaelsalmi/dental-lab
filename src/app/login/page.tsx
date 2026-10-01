@@ -1,4 +1,5 @@
 import { KeyRound } from "lucide-react";
+import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
 import { loginAction, loginWithGoogle } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -20,9 +21,9 @@ export default async function LoginPage({
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-lg font-bold text-white shadow-lg shadow-brand/30">
-            DL
+            {LAB_INITIALS}
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">Dental Lab System</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{LAB_NAME}</h1>
           <p className="mt-1 text-sm text-slate-500">Sign in to manage cases</p>
         </div>
 

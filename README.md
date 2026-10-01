@@ -1,4 +1,4 @@
-# Dental Lab System
+# Alexandria All on four Lab — Case Management
 
 Case management for the lab: Technicians log cases from doctors, Designers work
 them in Exocad and submit for review, and the Lab Leader approves or sends
@@ -14,8 +14,72 @@ Google Drive.
 ## Status flow
 
 `READY_FOR_DESIGN` → `IN_DESIGN` → `WAITING_FOR_REVIEW` → Lab Leader review →
-`COMPLETED`, or `CHANGES_REQUESTED` (designer re-submits, looping back to
-`WAITING_FOR_REVIEW`).
+`MILLING` → `STAIN_AND_GLAZE` → `COMPLETED` → `DELIVERED`, or
+`CHANGES_REQUESTED` (designer re-submits, looping back to `WAITING_FOR_REVIEW`).
+
+Approving a design sends the case to **Milling**. A Technician or Lab Leader
+then moves it on to **Stain & Glaze** (the ceramist's step) and from there to
+**Completed**.
+
+A Technician or Lab Leader marks a completed case **Delivered** once the doctor
+has approved the work. The **ceramist** is optional when creating a case and can
+be assigned (or changed) by a Technician or Lab Leader once the design has been
+submitted, up to and including Completed. Each case can also list **unit codes**.
+
+On the Cases screen the status counters are clickable: each one filters the
+list to the cases in that status. The **Designers** page (Lab Leader only)
+shows every designer's open and total case counts and lists their cases. The
+**Ceramists** page does the same per ceramist, with the fee each case earned.
+
+Amounts are shown everywhere (screens, PDFs, Excel) as whole Egyptian pounds,
+for example `30,000 EGP`; the formatter is `formatEGP` in `src/lib/money.ts`.
+
+Every case has a **QR code** on its page that opens the case when scanned, with
+a printable label (`/cases/<id>/label`). The code encodes `APP_URL` (falling
+back to `NEXTAUTH_URL`), so it only works from a phone once the app is served
+from a real address rather than `localhost`.
+
+## Pricing
+
+Lab Leaders set fixed rates on the **Pricing** page: each **Material** has a
+price-per-unit (billed to the doctor) plus a ceramist/designer/ibar fee-per-unit,
+and each **Metal type** has a cost-per-unit. Technicians pick Material (required),
+Metal (optional), and Ibar Designer (optional, grows like Doctor/Ceramist) on
+the New Case form — Material and Metal must already exist in Pricing, they're
+not created on the fly.
+
+The price and each fee are calculated automatically and locked onto the case
+the moment they're actually incurred: price, ibar fee, and (if assigned then)
+designer fee at creation; designer/ceramist fee whenever that person actually
+gets assigned, using the case's material rate at that time. Changing a
+material's rate later never changes already-locked cases. A material can also
+carry optional **extra fees** and a **deduction**, both flat amounts per case:
+case price = price per unit x units + extra fees - deduction. A material's ibar
+fee-per-unit is optional — leave it blank for materials that never need an
+ibar designer. All figures are visible only to the Lab Leader, on the case
+page and on **Reports** — a sheet-style table of every case with a totals
+row, replacing the old Excel sheet, plus a per-person breakdown (total
+revenue per doctor, total fees per ceramist/designer/ibar designer).
+
+**Reports** can be downloaded as Excel (one sheet per breakdown, plus the
+full case table) or PDF from the Reports page.
+
+## Invoices
+
+The **Invoices** page generates a monthly invoice per doctor: pick a doctor
+and a month, and it pulls every priced case (Material set) with an entry
+date in that month into an invoice, downloadable as PDF. Line amounts are
+snapshotted at generation time, so editing a case afterward doesn't change
+an already-generated invoice. Only one invoice per doctor per month is
+allowed — delete the existing one first to regenerate it.
+
+This isn't automatic yet — a Lab Leader has to visit the page and click
+Generate each month, rather than it happening on its own on the 1st. True
+automation (a scheduled task that generates and/or emails every doctor's
+invoice on a fixed date) is a reasonable next step if wanted, but needs a
+scheduler wired up outside of Next.js itself (e.g. Windows Task Scheduler
+hitting a protected route), plus a decision on whether invoices should be
+emailed automatically or just prepared for the Lab Leader to review first.
 
 ## Notifications
 
@@ -24,6 +88,18 @@ no email/SMS setup required:
 
 - A designer is notified when a case is assigned to them (at creation, or later via "Assign designer").
 - Lab Leaders are notified when a designer submits a case for review.
+
+### Email notifications
+
+Every notification above is also emailed, once SMTP is configured in `.env`
+(`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, optional `SMTP_FROM` and
+`APP_URL`). With `SMTP_HOST` empty, email is simply off and the in-app bell
+still works. For Gmail use `smtp.gmail.com`, port `587`, and an app password
+(Google Account → Security → 2-Step Verification → App passwords). Emails go to
+each user's account email, and a failed send never blocks the action itself.
+
+Recipients: the designer when a case is assigned to them; Lab Leaders when a case
+is assigned (except the person who assigned it) and when a designer submits it.
 
 ## First-time setup
 
@@ -69,7 +145,7 @@ If sign-in with Google isn't showing on the login page, `GOOGLE_CLIENT_ID`/`GOOG
 
 ## Connecting Google Drive
 
-Case files are stored in a "Dental Lab Cases" folder in the lab's own Google
+Case files are stored in a folder named after the lab in the lab's own Google
 Drive (a personal account with enough storage works fine — this uses OAuth
 against that one account, not a Workspace/service account). This part needs
 a one-time setup in Google Cloud Console that only the developer/owner of the
@@ -92,8 +168,21 @@ Google account can do:
 
 6. Restart the app, sign in as a Lab Leader, go to **Drive Settings**, and click **Connect Google Drive**. Sign in with the lab's Google account and approve access.
 
-From then on the app creates a folder per case and uploads scans/design
-files there automatically — no more manual link copy-pasting.
+From then on the app uploads scans/design files to Drive automatically — no more
+manual link copy-pasting.
+
+### Folder layout
+
+Files are filed as **main folder → doctor folder → patient folder**. Existing
+folders are matched by name (case-insensitive) and reused; missing ones are
+created. On **Drive Settings**, paste the link to the client's existing main
+folder (the one holding the doctor folders), then click **Import doctors from
+Drive** so the doctor dropdown matches the folder names exactly. If no main
+folder is set, the app creates a folder named after the lab.
+
+This needs the full `drive` permission (the narrower `drive.file` scope can't
+see folders the app didn't create). A connection made under the old scope shows
+"Reconnect needed" on Drive Settings.
 
 ## Environment variables
 

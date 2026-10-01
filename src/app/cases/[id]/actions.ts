@@ -1,6 +1,14 @@
 "use server";
 
-import { assignDesigner, startDesign, submitForReview, reviewCase } from "../actions";
+import {
+  advanceProduction,
+  assignCeramist,
+  assignDesigner,
+  markDelivered,
+  startDesign,
+  submitForReview,
+  reviewCase,
+} from "../actions";
 
 export async function assignDesignerAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
@@ -28,4 +36,21 @@ export async function requestChangesAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
   const comment = (formData.get("comment") as string) || undefined;
   await reviewCase(caseId, "CHANGES_REQUESTED", comment);
+}
+
+export async function assignCeramistAction(formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  const ceramistId = (formData.get("ceramistId") as string) || undefined;
+  const newName = (formData.get("newCeramistName") as string) || undefined;
+  await assignCeramist(caseId, ceramistId, newName);
+}
+
+export async function markDeliveredAction(formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  await markDelivered(caseId);
+}
+
+export async function advanceProductionAction(formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  await advanceProduction(caseId);
 }

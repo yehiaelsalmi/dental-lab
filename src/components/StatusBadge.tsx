@@ -5,7 +5,10 @@ const STYLES: Record<CaseStatus, string> = {
   IN_DESIGN: "bg-amber-50 text-amber-700 ring-amber-600/20",
   WAITING_FOR_REVIEW: "bg-violet-50 text-violet-700 ring-violet-600/20",
   CHANGES_REQUESTED: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  MILLING: "bg-orange-50 text-orange-700 ring-orange-600/20",
+  STAIN_AND_GLAZE: "bg-pink-50 text-pink-700 ring-pink-600/20",
   COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  DELIVERED: "bg-slate-100 text-slate-700 ring-slate-500/20",
 };
 
 const DOT_STYLES: Record<CaseStatus, string> = {
@@ -13,7 +16,10 @@ const DOT_STYLES: Record<CaseStatus, string> = {
   IN_DESIGN: "bg-amber-500",
   WAITING_FOR_REVIEW: "bg-violet-500",
   CHANGES_REQUESTED: "bg-rose-500",
+  MILLING: "bg-orange-500",
+  STAIN_AND_GLAZE: "bg-pink-500",
   COMPLETED: "bg-emerald-500",
+  DELIVERED: "bg-slate-500",
 };
 
 export function StatusBadge({ status }: { status: CaseStatus }) {

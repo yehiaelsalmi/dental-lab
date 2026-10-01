@@ -26,11 +26,56 @@ model User {
   filesUploaded CaseFile[]
   reviews       CaseReview[]
   notifications Notification[]
+  invoices      Invoice[]
 }
 
 model Doctor {
   id        String   @id @default(cuid())
   name      String   @unique
+  createdAt DateTime @default(now())
+
+  cases    Case[]
+  invoices Invoice[]
+}
+
+model Ceramist {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  cases Case[]
+}
+
+model IbarDesigner {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  cases Case[]
+}
+
+// Fixed rate card, managed by the Lab Leader. Rates are per unit and get
+// locked onto the case at the moment each fee is actually incurred, so
+// later rate changes never retroactively change past cases.
+model Material {
+  id                  String   @id @default(cuid())
+  name                String   @unique
+  pricePerUnit        Float
+  ceramistFeePerUnit  Float
+  designerFeePerUnit  Float
+  ibarFeePerUnit      Float?
+  // Flat amounts per case, added to / taken off the price billed to the doctor.
+  extraFee            Float?
+  deduction           Float?
+  createdAt           DateTime @default(now())
+
+  cases Case[]
+}
+
+model MetalType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  cost      Float
   createdAt DateTime @default(now())
 
   cases Case[]
@@ -41,7 +86,6 @@ model Case {
   patientName    String
   unitsUpper     Int?
   unitsLower     Int?
-  material       String?
   system         String?
   shade          String?
   status         String    @default("READY_FOR_DESIGN")
@@ -54,6 +98,28 @@ model Case {
   doctorId String
   doctor   Doctor @relation(fields: [doctorId], references: [id])
 
+  ceramistId String?
+  ceramist   Ceramist? @relation(fields: [ceramistId], references: [id])
+
+  ibarDesignerId String?
+  ibarDesigner   IbarDesigner? @relation(fields: [ibarDesignerId], references: [id])
+
+  materialId String?
+  material   Material? @relation(fields: [materialId], references: [id])
+
+  metalTypeId String?
+  metalType   MetalType? @relation(fields: [metalTypeId], references: [id])
+
+  // Locked-in amounts, filled in as each fee is actually incurred (see the
+  // comment on Material above).
+  totalPrice Float?
+  extraFee    Float?
+  deduction   Float?
+  ceramistFee Float?
+  designerFee Float?
+  ibarFee     Float?
+  metalCost   Float?
+
   createdById String
   createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
 
@@ -63,9 +129,20 @@ model Case {
   files         CaseFile[]
   reviews       CaseReview[]
   notifications Notification[]
+  units         CaseUnit[]
+  invoiceLines  InvoiceLine[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model CaseUnit {
+  id        String   @id @default(cuid())
+  code      String
+  createdAt DateTime @default(now())
+
+  caseId String
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 }
 
 model CaseFile {
@@ -114,4 +191,37 @@ model Notification {
 
   caseId String?
   case   Case?   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+// One per doctor per calendar month. Snapshots line amounts at generation
+// time, so later edits to a case never change an already-generated invoice.
+model Invoice {
+  id          String   @id @default(cuid())
+  periodStart DateTime
+  periodEnd   DateTime
+  totalAmount Float
+  createdAt   DateTime @default(now())
+
+  doctorId String
+  doctor   Doctor @relation(fields: [doctorId], references: [id])
+
+  generatedById String
+  generatedBy   User   @relation(fields: [generatedById], references: [id])
+
+  lines InvoiceLine[]
+
+  @@unique([doctorId, periodStart])
+}
+
+model InvoiceLine {
+  id          String @id @default(cuid())
+  patientName String
+  units       Int
+  amount      Float
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  caseId String?
+  case   Case?   @relation(fields: [caseId], references: [id], onDelete: SetNull)
 }
