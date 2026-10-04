@@ -44,8 +44,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
       const isOnLogin = request.nextUrl.pathname.startsWith("/login");
-      if (isOnLogin) return true;
-      return isLoggedIn;
+      if (isOnLogin || isLoggedIn) return true;
+      // Remember where the user was going (e.g. a case link from an email) so
+      // they land there after signing in instead of on the case list.
+      const loginUrl = new URL("/login", request.nextUrl);
+      loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+      return Response.redirect(loginUrl);
     },
     async signIn({ user, account }) {
       // Sign-in with Google only works for accounts a Lab Leader already

@@ -27,7 +27,7 @@ export default async function CaseLabelPage({ params }: { params: Promise<{ id: 
     .join(" - ");
 
   return (
-    <div className="mx-auto max-w-md px-8 py-10">
+    <div className="mx-auto max-w-md px-4 py-6 sm:px-8 sm:py-10">
       <div className="mb-6 flex items-center justify-between print:hidden">
         <Link
           href={`/cases/${caseRecord.id}`}

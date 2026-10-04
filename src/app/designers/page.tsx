@@ -33,7 +33,7 @@ export default async function DesignersPage() {
     .sort((a, b) => b.open.length - a.open.length);
 
   return (
-    <div className="mx-auto max-w-4xl px-8 py-10">
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Designers</h1>
       <p className="mb-6 text-sm text-slate-500">
         How many cases each designer has, and which ones. &quot;Open&quot; means the case is still
@@ -53,7 +53,7 @@ export default async function DesignersPage() {
             key={designer.id}
             className="overflow-hidden rounded-xl border border-slate-200 bg-white"
           >
-            <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-slate-900">
                   {designer.name}
@@ -78,7 +78,8 @@ export default async function DesignersPage() {
             {designer.casesAssigned.length === 0 ? (
               <p className="px-5 py-5 text-sm text-slate-400">No cases assigned.</p>
             ) : (
-              <table className="w-full table-fixed text-left text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] table-fixed text-left text-sm">
                 <colgroup>
                   <col className="w-[38%]" />
                   <col className="w-[24%]" />
@@ -107,6 +108,7 @@ export default async function DesignersPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </section>
         ))}

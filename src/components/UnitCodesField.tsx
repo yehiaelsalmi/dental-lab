@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 
-export function UnitCodesField() {
-  const [rows, setRows] = useState([0]);
-  const [nextId, setNextId] = useState(1);
+export function UnitCodesField({ defaultCodes = [] }: { defaultCodes?: string[] }) {
+  const [rows, setRows] = useState(() =>
+    defaultCodes.length > 0 ? defaultCodes.map((_, i) => i) : [0]
+  );
+  const [nextId, setNextId] = useState(Math.max(defaultCodes.length, 1));
 
   return (
     <div className="flex flex-col gap-2">
@@ -14,6 +16,7 @@ export function UnitCodesField() {
           <input
             name="unitCode"
             placeholder="Unit code"
+            defaultValue={defaultCodes[rowId] ?? ""}
             className="flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           />
           <button

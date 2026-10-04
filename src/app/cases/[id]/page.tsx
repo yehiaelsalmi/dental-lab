@@ -8,6 +8,7 @@ import {
   XCircle,
   User,
   Printer,
+  Pencil,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { caseUrl } from "@/lib/email";
@@ -81,7 +82,7 @@ export default async function CaseDetailPage({
   const isAssignedDesigner = role === "DESIGNER" && caseRecord.assignedDesignerId === userId;
 
   return (
-    <div className="mx-auto max-w-3xl px-8 py-10">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-10">
       <Link
         href="/cases"
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900"
@@ -90,19 +91,30 @@ export default async function CaseDetailPage({
         Back to cases
       </Link>
 
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{caseRecord.patientName}</h1>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-semibold text-slate-900">{caseRecord.patientName}</h1>
           <p className="mt-1 text-sm text-slate-500">{caseRecord.doctor.name}</p>
         </div>
-        <StatusBadge status={status} />
+        <div className="flex items-center gap-3">
+          {canManage && (
+            <Link
+              href={`/cases/${caseRecord.id}/edit`}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <Pencil size={14} />
+              Edit
+            </Link>
+          )}
+          <StatusBadge status={status} />
+        </div>
       </div>
 
       {error && (
         <p className="mb-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
-      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
+      <section className="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
         <WorkflowStepper status={status} />
       </section>
 

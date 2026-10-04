@@ -1,4 +1,7 @@
+import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { requireRole } from "@/lib/session";
+import { RateInput } from "@/components/RateInput";
 import { formatEGP } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { createMaterial, createMetalType } from "./actions";
@@ -17,7 +20,7 @@ export default async function PricingSettingsPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl px-8 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Pricing</h1>
       <p className="mb-6 text-sm text-slate-500">
         Fixed rates used to calculate each case&apos;s price and costs automatically.
@@ -27,8 +30,8 @@ export default async function PricingSettingsPage({
         <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
-      <section className="mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <section className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-3 font-medium">Material</th>
@@ -38,6 +41,7 @@ export default async function PricingSettingsPage({
               <th className="px-5 py-3 text-right font-medium">Ibar fee / unit</th>
               <th className="px-5 py-3 text-right font-medium">Extra fees / case</th>
               <th className="px-5 py-3 text-right font-medium">Deduction / case</th>
+              <th className="px-5 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -56,11 +60,14 @@ export default async function PricingSettingsPage({
                 <td className="px-5 py-3 text-right text-slate-700">
                   {formatEGP(m.deduction)}
                 </td>
+                <td className="px-5 py-3 text-right">
+                  <EditLink href={`/settings/pricing/materials/${m.id}`} />
+                </td>
               </tr>
             ))}
             {materials.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-6 text-center text-slate-400">
+                <td colSpan={8} className="px-5 py-6 text-center text-slate-400">
                   No materials yet.
                 </td>
               </tr>
@@ -68,7 +75,7 @@ export default async function PricingSettingsPage({
           </tbody>
         </table>
         <form action={createMaterial} className="border-t border-slate-100 p-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <RateInput name="name" label="Name" type="text" required />
             <RateInput name="pricePerUnit" label="Price / unit" required />
             <RateInput name="ceramistFeePerUnit" label="Ceramist fee / unit" required />
@@ -91,12 +98,13 @@ export default async function PricingSettingsPage({
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full min-w-[420px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-3 font-medium">Metal type</th>
               <th className="px-5 py-3 text-right font-medium">Cost / unit</th>
+              <th className="px-5 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -104,18 +112,21 @@ export default async function PricingSettingsPage({
               <tr key={m.id}>
                 <td className="px-5 py-3 font-medium text-slate-900">{m.name}</td>
                 <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.cost)}</td>
+                <td className="px-5 py-3 text-right">
+                  <EditLink href={`/settings/pricing/metals/${m.id}`} />
+                </td>
               </tr>
             ))}
             {metalTypes.length === 0 && (
               <tr>
-                <td colSpan={2} className="px-5 py-6 text-center text-slate-400">
+                <td colSpan={3} className="px-5 py-6 text-center text-slate-400">
                   No metal types yet.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-        <form action={createMetalType} className="flex gap-3 border-t border-slate-100 p-4">
+        <form action={createMetalType} className="flex flex-wrap gap-3 border-t border-slate-100 p-4">
           <input
             name="name"
             required
@@ -143,27 +154,15 @@ export default async function PricingSettingsPage({
   );
 }
 
-function RateInput({
-  name,
-  label,
-  type = "number",
-  required,
-}: {
-  name: string;
-  label: string;
-  type?: "number" | "text";
-  required?: boolean;
-}) {
+
+function EditLink({ href }: { href: string }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-      {label}
-      <input
-        name={name}
-        type={type}
-        required={required}
-        {...(type === "number" ? { step: "0.01", min: "0" } : {})}
-        className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-      />
-    </label>
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-brand"
+    >
+      <Pencil size={13} />
+      Edit
+    </Link>
   );
 }

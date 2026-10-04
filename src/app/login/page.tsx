@@ -11,9 +11,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
   const googleConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
   return (
@@ -37,6 +37,7 @@ export default async function LoginPage({
           {googleConfigured && (
             <>
               <form action={loginWithGoogle}>
+                {next && <input type="hidden" name="next" value={next} />}
                 <button
                   type="submit"
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
@@ -55,6 +56,7 @@ export default async function LoginPage({
           )}
 
           <form action={loginAction} className="flex flex-col gap-4">
+            {next && <input type="hidden" name="next" value={next} />}
             <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
               Email
               <input

@@ -18,7 +18,7 @@ export function WorkflowStepper({ status }: { status: CaseStatus }) {
     : STEPS.findIndex((s) => s.key === status);
 
   return (
-    <div className="flex items-center">
+    <div className="flex min-w-[540px] items-center">
       {STEPS.map((step, i) => {
         const isCurrent = i === currentIndex;
         const isPast = i < currentIndex;

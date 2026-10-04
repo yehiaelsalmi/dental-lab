@@ -31,7 +31,7 @@ export default async function InvoicesPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl px-8 py-10">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Invoices</h1>
       <p className="mb-6 text-sm text-slate-500">
         Generate a monthly invoice per doctor from that doctor&apos;s priced cases.
@@ -43,7 +43,7 @@ export default async function InvoicesPage({
 
       <section className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-slate-900">Generate an invoice</h2>
-        <form action={generateInvoice} className="flex items-end gap-3">
+        <form action={generateInvoice} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="flex flex-1 flex-col gap-1.5 text-sm font-medium text-slate-700">
             Doctor
             <select
@@ -85,8 +85,8 @@ export default async function InvoicesPage({
         </p>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full min-w-[520px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-3 font-medium">Doctor</th>

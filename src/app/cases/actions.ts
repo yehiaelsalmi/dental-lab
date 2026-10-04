@@ -12,6 +12,7 @@ import {
   notifyLabLeadersReviewReady,
 } from "@/lib/notifications";
 import type { CaseFileType, ReviewDecision } from "@/lib/constants";
+import { computeCasePricing } from "@/lib/pricing";
 
 const createCaseSchema = z.object({
   doctorId: z.string().min(1, "Select a doctor"),
@@ -132,13 +133,14 @@ export async function createCase(formData: FormData) {
       ? await prisma.metalType.findUniqueOrThrow({ where: { id: data.metalTypeId } })
       : null;
 
-    const unitCount = (data.unitsUpper ?? 0) + (data.unitsLower ?? 0);
-    const totalPrice =
-      material.pricePerUnit * unitCount + (material.extraFee ?? 0) - (material.deduction ?? 0);
-    const ibarFee =
-      ibarDesigner && material.ibarFeePerUnit != null ? material.ibarFeePerUnit * unitCount : null;
-    const designerFee = data.assignedDesignerId ? material.designerFeePerUnit * unitCount : null;
-    const metalCost = metalType ? metalType.cost * unitCount : null;
+    const pricing = computeCasePricing({
+      material,
+      metalCostPerUnit: metalType?.cost ?? null,
+      unitCount: (data.unitsUpper ?? 0) + (data.unitsLower ?? 0),
+      hasDesigner: !!data.assignedDesignerId,
+      hasCeramist: false,
+      hasIbarDesigner: !!ibarDesigner,
+    });
 
     const folder = await createCaseFolder(doctor.name, data.patientName);
 
@@ -148,12 +150,7 @@ export async function createCase(formData: FormData) {
         ibarDesignerId: ibarDesigner?.id ?? null,
         materialId: material.id,
         metalTypeId: metalType?.id ?? null,
-        totalPrice,
-        extraFee: material.extraFee,
-        deduction: material.deduction,
-        ibarFee,
-        designerFee,
-        metalCost,
+        ...pricing,
         units: { create: units },
         patientName: data.patientName,
         unitsUpper: data.unitsUpper ?? null,
@@ -401,4 +398,126 @@ export async function advanceProduction(caseId: string) {
 
   revalidatePath(`/cases/${caseId}`);
   revalidatePath("/cases");
+}
+
+const updateCaseSchema = createCaseSchema.omit({ assignedDesignerId: true });
+
+export async function updateCase(formData: FormData) {
+  await requireRole("TECHNICIAN", "LAB_LEADER");
+  const caseId = formData.get("caseId") as string;
+
+  const parsed = updateCaseSchema.safeParse({
+    doctorId: formData.get("doctorId"),
+    newDoctorName: emptyToUndefined(formData.get("newDoctorName")),
+    materialId: formData.get("materialId"),
+    metalTypeId: emptyToUndefined(formData.get("metalTypeId")),
+    ibarDesignerId: emptyToUndefined(formData.get("ibarDesignerId")),
+    newIbarDesignerName: emptyToUndefined(formData.get("newIbarDesignerName")),
+    patientName: formData.get("patientName"),
+    unitsUpper: emptyToUndefined(formData.get("unitsUpper")),
+    unitsLower: emptyToUndefined(formData.get("unitsLower")),
+    system: emptyToUndefined(formData.get("system")),
+    shade: emptyToUndefined(formData.get("shade")),
+    dueDate: emptyToUndefined(formData.get("dueDate")),
+    notes: emptyToUndefined(formData.get("notes")),
+  });
+
+  if (!parsed.success) {
+    redirect(
+      `/cases/${caseId}/edit?error=${encodeURIComponent(parsed.error.issues.map((i) => i.message).join(", "))}`
+    );
+  }
+  const data = parsed.data;
+
+  try {
+    const previous = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const units = parseUnits(formData);
+
+    const doctor =
+      data.doctorId === "__new__"
+        ? await (async () => {
+            const name = data.newDoctorName?.trim();
+            if (!name) throw new Error("Enter the new doctor's name.");
+            return prisma.doctor.upsert({ where: { name }, create: { name }, update: {} });
+          })()
+        : await prisma.doctor.findUniqueOrThrow({ where: { id: data.doctorId } });
+
+    const ibarDesigner =
+      data.ibarDesignerId === "__new__"
+        ? await (async () => {
+            const name = data.newIbarDesignerName?.trim();
+            if (!name) throw new Error("Enter the new ibar designer's name.");
+            return prisma.ibarDesigner.upsert({ where: { name }, create: { name }, update: {} });
+          })()
+        : data.ibarDesignerId
+          ? await prisma.ibarDesigner.findUniqueOrThrow({ where: { id: data.ibarDesignerId } })
+          : null;
+
+    const material = await prisma.material.findUniqueOrThrow({ where: { id: data.materialId } });
+    const metalType = data.metalTypeId
+      ? await prisma.metalType.findUniqueOrThrow({ where: { id: data.metalTypeId } })
+      : null;
+
+    const unitsUpper = data.unitsUpper ?? null;
+    const unitsLower = data.unitsLower ?? null;
+
+    // Locked-in amounts are only recalculated when something that affects
+    // money changed; correcting a name or a note leaves them alone.
+    const pricingChanged =
+      previous.materialId !== material.id ||
+      previous.metalTypeId !== (metalType?.id ?? null) ||
+      previous.ibarDesignerId !== (ibarDesigner?.id ?? null) ||
+      previous.unitsUpper !== unitsUpper ||
+      previous.unitsLower !== unitsLower;
+
+    const pricing = pricingChanged
+      ? computeCasePricing({
+          material,
+          metalCostPerUnit: metalType?.cost ?? null,
+          unitCount: (unitsUpper ?? 0) + (unitsLower ?? 0),
+          hasDesigner: !!previous.assignedDesignerId,
+          hasCeramist: !!previous.ceramistId,
+          hasIbarDesigner: !!ibarDesigner,
+        })
+      : {};
+
+    await prisma.case.update({
+      where: { id: caseId },
+      data: {
+        doctorId: doctor.id,
+        patientName: data.patientName,
+        unitsUpper,
+        unitsLower,
+        materialId: material.id,
+        metalTypeId: metalType?.id ?? null,
+        ibarDesignerId: ibarDesigner?.id ?? null,
+        system: data.system ?? null,
+        shade: data.shade ?? null,
+        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        notes: data.notes ?? null,
+        units: { deleteMany: {}, create: units },
+        ...pricing,
+      },
+    });
+  } catch (error) {
+    redirect(`/cases/${caseId}/edit?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/cases");
+  redirect(`/cases/${caseId}`);
+}
+
+export async function deleteCase(formData: FormData) {
+  await requireRole("LAB_LEADER");
+  const caseId = formData.get("caseId") as string;
+
+  try {
+    await prisma.case.delete({ where: { id: caseId } });
+  } catch (error) {
+    redirect(`/cases/${caseId}/edit?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath("/cases");
+  redirect("/cases");
 }

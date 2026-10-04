@@ -27,7 +27,9 @@ be assigned (or changed) by a Technician or Lab Leader once the design has been
 submitted, up to and including Completed. Each case can also list **unit codes**.
 
 On the Cases screen the status counters are clickable: each one filters the
-list to the cases in that status. The **Designers** page (Lab Leader only)
+list to the cases in that status. A search box above them finds cases by patient or doctor
+name (any part of the name, upper or lower case) and works together with the
+status filter. The **Designers** page (Lab Leader only)
 shows every designer's open and total case counts and lists their cases. The
 **Ceramists** page does the same per ceramist, with the fee each case earned.
 
@@ -121,6 +123,18 @@ Seeded accounts (change the passwords from "My Account" after first login):
 Add more Designer/Lab Leader/Technician accounts from the **Users** page once
 signed in as a Lab Leader.
 
+## Editing
+
+Technicians and Lab Leaders can **edit a case** from the Edit button on its page.
+Changing the material, units, metal or ibar designer recalculates the price and
+fees from the current rates; other edits (names, notes, dates, unit codes) leave
+the locked-in amounts alone. Already-generated invoices never change. Only a
+Lab Leader can **delete a case** (Drive files are kept).
+
+Lab Leaders can edit **materials** and **metal types** from the Pricing page.
+New rates apply to cases created afterwards. A material or metal type can only
+be deleted while no case uses it.
+
 ## Doctors
 
 There's no separate "manage doctors" page — the doctor dropdown on the New
@@ -153,7 +167,12 @@ Google account can do:
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com), create a project.
 2. Enable the **Google Drive API** for it.
-3. Configure the OAuth consent screen (External is fine for a single-account internal tool; add every staff Gmail as a test user while the app stays in "Testing" mode — note that in Testing mode, Drive's connection has to be re-authorized every 7 days; moving to "In production" via Google's free verification removes that limit, see the app's in-chat notes on this).
+3. Configure the OAuth consent screen (External). Add the `.../auth/drive.file` scope.
+   While it's in "Testing" mode, add every staff Gmail as a test user, and note that
+   the Drive connection has to be reconnected every 7 days. Once everything works,
+   click **Publish app** to move it to "In production": the app only uses
+   non-sensitive scopes (sign-in plus `drive.file`), so this is free, needs no paid
+   security review, and removes the 7-day limit.
 4. Create an **OAuth client ID** (type: Web application). Add these authorized redirect URIs:
    - `http://localhost:3000/api/google/callback` (Drive connection, local dev)
    - `http://localhost:3000/api/auth/callback/google` (Google sign-in, local dev)
@@ -173,16 +192,23 @@ manual link copy-pasting.
 
 ### Folder layout
 
-Files are filed as **main folder → doctor folder → patient folder**. Existing
-folders are matched by name (case-insensitive) and reused; missing ones are
-created. On **Drive Settings**, paste the link to the client's existing main
-folder (the one holding the doctor folders), then click **Import doctors from
-Drive** so the doctor dropdown matches the folder names exactly. If no main
-folder is set, the app creates a folder named after the lab.
+Files are filed as **main folder → doctor folder → patient folder**. The app
+creates its own main folder ("Alexandria All on four Lab Cases") with the first
+case, or from **Create main folder** on Drive Settings. Doctor and patient
+folders it already made are matched by name (case-insensitive) and reused.
 
-This needs the full `drive` permission (the narrower `drive.file` scope can't
-see folders the app didn't create). A connection made under the old scope shows
-"Reconnect needed" on Drive Settings.
+The app uses the `drive.file` permission, which only reaches files and folders
+the app itself created. That's what keeps the Drive connection free and
+permanent (see step 3 above), with two consequences:
+
+- Folders made by hand in Drive, including the lab's older case folders, are
+  invisible to the app. Old cases stay where they are; new cases go into the
+  app's folder.
+- Files dropped into the app's folders straight from the Drive website don't
+  show up in the app. Upload through the app instead.
+
+If the saved main folder can't be reached (deleted, or saved under the old
+full-Drive permission), the app creates a new one automatically.
 
 ## Environment variables
 

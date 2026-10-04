@@ -11,7 +11,7 @@ export default async function AccountPage({
   const { error, success } = await searchParams;
 
   return (
-    <div className="mx-auto max-w-md px-8 py-10">
+    <div className="mx-auto max-w-md px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-6 text-2xl font-semibold text-slate-900">My Account</h1>
 
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 text-sm shadow-sm">

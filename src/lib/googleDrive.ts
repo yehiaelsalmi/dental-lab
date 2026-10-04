@@ -3,8 +3,14 @@ import { Readable } from "node:stream";
 import { getSetting, setSetting } from "@/lib/settings";
 import { LAB_NAME } from "@/lib/constants";
 
+// drive.file only reaches files and folders this app created. Google treats it
+// as non-sensitive, so the OAuth app can be published without a paid security
+// review and the connection doesn't expire every 7 days. The trade-off: the
+// app can't see folders made by hand in Drive, so it always creates its own
+// main folder.
+const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const FULL_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
-const SCOPES = [FULL_DRIVE_SCOPE];
+const SCOPES = [DRIVE_FILE_SCOPE];
 const ROOT_FOLDER_SETTING_KEY = "google_drive_root_folder_id";
 const REFRESH_TOKEN_SETTING_KEY = "google_refresh_token";
 const GRANTED_SCOPE_SETTING_KEY = "google_granted_scope";
@@ -50,11 +56,11 @@ export async function isGoogleDriveConnected(): Promise<boolean> {
   return !!token;
 }
 
-// Connections made before the app needed to see pre-existing folders only
-// granted the narrow drive.file scope and must be re-authorized.
-export async function hasFullDriveAccess(): Promise<boolean> {
+export async function hasDriveAccess(): Promise<boolean> {
   const scope = await getSetting(GRANTED_SCOPE_SETTING_KEY);
-  return !!scope && scope.split(" ").includes(FULL_DRIVE_SCOPE);
+  if (!scope) return false;
+  const granted = scope.split(" ");
+  return granted.includes(DRIVE_FILE_SCOPE) || granted.includes(FULL_DRIVE_SCOPE);
 }
 
 async function getDriveClient() {
@@ -86,59 +92,46 @@ function expiredConnectionError(error: unknown): Error | null {
   return null;
 }
 
-function parseFolderId(input: string): string | null {
-  const trimmed = input.trim();
-  const fromPath = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-  if (fromPath) return fromPath[1];
-  const fromQuery = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (fromQuery) return fromQuery[1];
-  if (/^[a-zA-Z0-9_-]{10,}$/.test(trimmed)) return trimmed;
-  return null;
-}
-
-export async function setRootFolder(linkOrId: string): Promise<{ id: string; name: string }> {
-  const folderId = parseFolderId(linkOrId);
-  if (!folderId) throw new Error("That doesn't look like a Google Drive folder link.");
-
-  const drive = await getDriveClient();
-  let file;
-  try {
-    file = await drive.files.get({ fileId: folderId, fields: "id, name, mimeType" });
-  } catch (error) {
-    throw (
-      expiredConnectionError(error) ??
-      new Error("Couldn't open that folder. Make sure it's in the Google account connected here.")
-    );
-  }
-
-  if (file.data.mimeType !== FOLDER_MIME || !file.data.id) {
-    throw new Error("That link points to a file, not a folder.");
-  }
-
-  await setSetting(ROOT_FOLDER_SETTING_KEY, file.data.id);
-  return { id: file.data.id, name: file.data.name ?? "" };
-}
-
 export async function getRootFolderInfo(): Promise<{ id: string; name: string; url: string } | null> {
   const folderId = await getSetting(ROOT_FOLDER_SETTING_KEY);
   if (!folderId) return null;
 
   const drive = await getDriveClient();
   try {
-    const file = await drive.files.get({ fileId: folderId, fields: "id, name, webViewLink" });
+    const file = await drive.files.get({
+      fileId: folderId,
+      fields: "id, name, webViewLink, trashed",
+    });
+    if (file.data.trashed) return null;
     return {
       id: folderId,
       name: file.data.name ?? "",
       url: file.data.webViewLink ?? `https://drive.google.com/drive/folders/${folderId}`,
     };
   } catch (error) {
+    if (isNotFound(error)) return null;
     throw expiredConnectionError(error) ?? error;
   }
 }
 
+function isNotFound(error: unknown): boolean {
+  return (error as { code?: number; status?: number })?.code === 404 ||
+    (error as { status?: number })?.status === 404;
+}
+
+// Reuses the saved main folder while the app can still reach it. A folder the
+// app didn't create (e.g. one saved under the old full-Drive permission) or one
+// that was deleted reads as "not found", so a fresh one is created instead.
 async function getOrCreateRootFolder(drive: DriveClient): Promise<string> {
   const existing = await getSetting(ROOT_FOLDER_SETTING_KEY);
-  if (existing) return existing;
+  if (existing) {
+    try {
+      const file = await drive.files.get({ fileId: existing, fields: "id, trashed" });
+      if (!file.data.trashed) return existing;
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+    }
+  }
 
   const folder = await drive.files.create({
     requestBody: { name: `${LAB_NAME} Cases`, mimeType: FOLDER_MIME },
@@ -202,17 +195,16 @@ async function getOrCreateChildFolder(
   };
 }
 
-export async function listDoctorFolderNames(): Promise<string[]> {
+export async function ensureRootFolder(): Promise<void> {
   try {
     const drive = await getDriveClient();
-    const rootId = await getOrCreateRootFolder(drive);
-    return (await listChildFolders(drive, rootId)).map((f) => f.name.trim());
+    await getOrCreateRootFolder(drive);
   } catch (error) {
     throw expiredConnectionError(error) ?? error;
   }
 }
 
-// Main folder -> doctor folder -> patient folder, reusing existing folders by name.
+// Main folder -> doctor folder -> patient folder, reusing folders the app already made.
 export async function createCaseFolder(
   doctorName: string,
   patientName: string

@@ -13,8 +13,8 @@ export default async function ReportsPage() {
   const breakdowns = allBreakdowns(cases);
 
   return (
-    <div className="mx-auto max-w-full px-8 py-10">
-      <div className="mb-6 flex items-start justify-between">
+    <div className="mx-auto max-w-full px-4 py-6 sm:px-8 sm:py-10">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Reports</h1>
           <p className="mt-1 text-sm text-slate-500">
