@@ -31,7 +31,7 @@ export default async function PricingSettingsPage({
       )}
 
       <section className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[820px] text-left text-sm">
+        <table className="w-full min-w-[1080px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-3 font-medium">Material</th>
@@ -41,6 +41,8 @@ export default async function PricingSettingsPage({
               <th className="px-5 py-3 text-right font-medium">Ibar fee / unit</th>
               <th className="px-5 py-3 text-right font-medium">Extra fees / case</th>
               <th className="px-5 py-3 text-right font-medium">Deduction / case</th>
+              <th className="px-5 py-3 text-right font-medium">Milling cost / unit</th>
+              <th className="px-5 py-3 text-right font-medium">Photogrammetry cost / unit</th>
               <th className="px-5 py-3" />
             </tr>
           </thead>
@@ -60,6 +62,12 @@ export default async function PricingSettingsPage({
                 <td className="px-5 py-3 text-right text-slate-700">
                   {formatEGP(m.deduction)}
                 </td>
+                <td className="px-5 py-3 text-right text-slate-700">
+                  {formatEGP(m.millingCostPerUnit)}
+                </td>
+                <td className="px-5 py-3 text-right text-slate-700">
+                  {formatEGP(m.photogrammetryCostPerUnit)}
+                </td>
                 <td className="px-5 py-3 text-right">
                   <EditLink href={`/settings/pricing/materials/${m.id}`} />
                 </td>
@@ -67,7 +75,7 @@ export default async function PricingSettingsPage({
             ))}
             {materials.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-5 py-6 text-center text-slate-400">
+                <td colSpan={10} className="px-5 py-6 text-center text-slate-400">
                   No materials yet.
                 </td>
               </tr>
@@ -83,6 +91,11 @@ export default async function PricingSettingsPage({
             <RateInput name="ibarFeePerUnit" label="Ibar fee / unit (optional)" />
             <RateInput name="extraFee" label="Extra fees / case (optional)" />
             <RateInput name="deduction" label="Deduction / case (optional)" />
+            <RateInput name="millingCostPerUnit" label="Milling cost / unit (optional)" />
+            <RateInput
+              name="photogrammetryCostPerUnit"
+              label="Photogrammetry cost / unit (optional)"
+            />
             <div className="flex items-end">
               <button
                 type="submit"
@@ -93,7 +106,9 @@ export default async function PricingSettingsPage({
             </div>
           </div>
           <p className="mt-3 text-xs text-slate-500">
-            Case price = price per unit x units + extra fees - deduction.
+            Case price = price per unit x units + extra fees - deduction. Milling and
+            photogrammetry costs are what the lab pays: they&apos;re taken off profit, not billed
+            to the doctor (photogrammetry only on cases that need it).
           </p>
         </form>
       </section>

@@ -23,6 +23,7 @@ model User {
 
   casesCreated  Case[]         @relation("CreatedBy")
   casesAssigned Case[]         @relation("AssignedDesigner")
+  casesFirstDesigned Case[]    @relation("FirstDesigner")
   filesUploaded CaseFile[]
   reviews       CaseReview[]
   notifications Notification[]
@@ -67,6 +68,9 @@ model Material {
   // Flat amounts per case, added to / taken off the price billed to the doctor.
   extraFee            Float?
   deduction           Float?
+  // Optional costs to the lab per unit; taken off profit, not billed.
+  millingCostPerUnit        Float?
+  photogrammetryCostPerUnit Float?
   createdAt           DateTime @default(now())
 
   cases Case[]
@@ -92,6 +96,11 @@ model Case {
   entryDate      DateTime  @default(now())
   dueDate        DateTime?
   notes          String?
+  // Name of whoever does matching; when set, the designer's submission goes
+  // to MATCHING before review.
+  matchingBy           String?
+  needsPhotogrammetry  Boolean   @default(false)
+  photogrammetryDoneAt DateTime?
   driveFolderId  String?
   driveFolderUrl String?
 
@@ -103,6 +112,11 @@ model Case {
 
   ibarDesignerId String?
   ibarDesigner   IbarDesigner? @relation(fields: [ibarDesignerId], references: [id])
+  // Ibar cases: the first designer works before the ibar (and the Lab Leader
+  // reviews that design); `assignedDesigner` takes over once `ibarDoneAt` is set.
+  firstDesignerId String?
+  firstDesigner   User?     @relation("FirstDesigner", fields: [firstDesignerId], references: [id])
+  ibarDoneAt      DateTime?
 
   materialId String?
   material   Material? @relation(fields: [materialId], references: [id])
@@ -117,8 +131,11 @@ model Case {
   deduction   Float?
   ceramistFee Float?
   designerFee Float?
+  firstDesignerFee Float?
   ibarFee     Float?
   metalCost   Float?
+  millingCost        Float?
+  photogrammetryCost Float?
 
   createdById String
   createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])

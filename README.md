@@ -10,12 +10,35 @@ Google Drive.
 - **Technician** — creates cases from the doctor's scan (WhatsApp/ZIP), picks the doctor and optionally a designer.
 - **Designer** — works assigned cases, uploads the finished design, submits for review.
 - **Lab Leader** — 1-2 people; manages users, approves or requests changes on submitted cases, connects Google Drive.
+- **Photogrammetry** — sees only cases marked "Needs photogrammetry", gets an app + email notification for each, can download the case files, upload a photogrammetry file and click **Mark photogrammetry done** (Lab Leaders are notified). Technicians and Lab Leaders can mark it done too.
 
 ## Status flow
 
-`READY_FOR_DESIGN` → `IN_DESIGN` → `WAITING_FOR_REVIEW` → Lab Leader review →
+(`IBAR_DESIGN`) → `READY_FOR_DESIGN` → `IN_DESIGN` → (`MATCHING`) → `WAITING_FOR_REVIEW` → Lab Leader review →
 `MILLING` → `STAIN_AND_GLAZE` → `COMPLETED` → `DELIVERED`, or
 `CHANGES_REQUESTED` (designer re-submits, looping back to `WAITING_FOR_REVIEW`).
+
+**Ibar cases have two designers.** When an ibar designer (an outside person,
+picked by name) is set, the New Case form's **Designer before ibar** designs first;
+the Lab Leader reviews that design, and approving it moves the case to **Ibar
+Design**. When the ibar comes back, a Technician or Lab Leader clicks **Ibar done**
+(optionally attaching the ibar file): the case moves to Ready for Design and the
+**designer after the ibar** (the normal "Assign designer" field) is notified and
+takes over through matching, review and production. Only the designer whose turn it
+is can start or submit; the other can still open the case. Both earn the full
+designer fee (`firstDesignerFee` and `designerFee`), and Reports credit each one.
+The turn logic is in `src/lib/caseFlow.ts`. Adding an ibar designer on the Edit page
+before design starts makes the case wait for the first designer; adding it later
+only records it.
+
+**Matching** is optional per case: the New Case form has a **Matching** field for the
+name of whoever does it. When the designer submits a case that has a matching name,
+it goes to **Matching** instead of straight to review, and Technicians and Lab Leaders
+are notified. A Technician or Lab Leader clicks **Matching done** to send it to review.
+
+**Photogrammetry** runs alongside the flow and doesn't change the status: tick
+**Needs photogrammetry** on the New Case (or Edit) form and the photogrammetry users
+are notified.
 
 Approving a design sends the case to **Milling**. A Technician or Lab Leader
 then moves it on to **Stain & Glaze** (the ceramist's step) and from there to
@@ -29,7 +52,16 @@ submitted, up to and including Completed. Each case can also list **unit codes**
 On the Cases screen the status counters are clickable: each one filters the
 list to the cases in that status. A search box above them finds cases by patient or doctor
 name (any part of the name, upper or lower case) and works together with the
-status filter. The **Designers** page (Lab Leader only)
+status filter. A **Sort by** dropdown orders the list by newest, oldest, due date
+(soonest first, cases without one last), patient name or doctor name; the choice is
+kept while searching and switching statuses.
+
+Cases that need attention are shown **in red at the top** of the list, with the
+reason: due tomorrow, due today or overdue (until Completed), or assigned to a
+designer and still in a design step with no update for 2+ days. The rules live in
+`src/lib/caseAlerts.ts` (`STALE_DAYS` sets the 2 days; dates use Cairo time).
+
+The **Designers** page (Lab Leader only)
 shows every designer's open and total case counts and lists their cases. The
 **Ceramists** page does the same per ceramist, with the fee each case earned.
 
@@ -58,7 +90,10 @@ material's rate later never changes already-locked cases. A material can also
 carry optional **extra fees** and a **deduction**, both flat amounts per case:
 case price = price per unit x units + extra fees - deduction. A material's ibar
 fee-per-unit is optional — leave it blank for materials that never need an
-ibar designer. All figures are visible only to the Lab Leader, on the case
+ibar designer. Optional **milling cost** and **photogrammetry cost** per unit are
+costs to the lab: they're locked onto the case like the metal cost and taken off
+profit, not billed to the doctor (photogrammetry only on cases that need it). All
+figures are visible only to the Lab Leader, on the case
 page and on **Reports** — a sheet-style table of every case with a totals
 row, replacing the old Excel sheet, plus a per-person breakdown (total
 revenue per doctor, total fees per ceramist/designer/ibar designer).

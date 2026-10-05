@@ -26,6 +26,8 @@ const materialSchema = z.object({
   ibarFeePerUnit: z.coerce.number().nonnegative().optional(),
   extraFee: z.coerce.number().nonnegative().optional(),
   deduction: z.coerce.number().nonnegative().optional(),
+  millingCostPerUnit: z.coerce.number().nonnegative().optional(),
+  photogrammetryCostPerUnit: z.coerce.number().nonnegative().optional(),
 });
 
 function parseMaterial(formData: FormData) {
@@ -37,6 +39,8 @@ function parseMaterial(formData: FormData) {
     ibarFeePerUnit: emptyToUndefined(formData.get("ibarFeePerUnit")),
     extraFee: emptyToUndefined(formData.get("extraFee")),
     deduction: emptyToUndefined(formData.get("deduction")),
+    millingCostPerUnit: emptyToUndefined(formData.get("millingCostPerUnit")),
+    photogrammetryCostPerUnit: emptyToUndefined(formData.get("photogrammetryCostPerUnit")),
   });
 }
 
@@ -76,6 +80,8 @@ export async function updateMaterial(formData: FormData) {
         ibarFeePerUnit: parsed.data.ibarFeePerUnit ?? null,
         extraFee: parsed.data.extraFee ?? null,
         deduction: parsed.data.deduction ?? null,
+        millingCostPerUnit: parsed.data.millingCostPerUnit ?? null,
+        photogrammetryCostPerUnit: parsed.data.photogrammetryCostPerUnit ?? null,
       },
     });
   } catch (error) {

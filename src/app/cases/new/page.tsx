@@ -53,21 +53,18 @@ export default async function NewCasePage({
         <div>
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Assignment &amp; notes</h2>
           <div className="flex flex-col gap-4">
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
-              Assign designer
-              <select
-                name="assignedDesignerId"
-                className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                defaultValue=""
-              >
-                <option value="">Unassigned</option>
-                {designers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <DesignerSelect
+              name="assignedDesignerId"
+              label="Assign designer"
+              hint="On cases with an ibar designer, this designer takes over after the ibar is done."
+              designers={designers}
+            />
+            <DesignerSelect
+              name="firstDesignerId"
+              label="Designer before ibar (ibar cases only)"
+              hint="Designs first; the Lab Leader reviews it, then it goes to the ibar designer. Ignored if no ibar designer is picked."
+              designers={designers}
+            />
 
             <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
               Notes
@@ -96,3 +93,33 @@ export default async function NewCasePage({
   );
 }
 
+function DesignerSelect({
+  name,
+  label,
+  hint,
+  designers,
+}: {
+  name: string;
+  label: string;
+  hint: string;
+  designers: { id: string; name: string }[];
+}) {
+  return (
+    <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+      {label}
+      <span className="text-xs font-normal text-slate-500">{hint}</span>
+      <select
+        name={name}
+        className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        defaultValue=""
+      >
+        <option value="">Unassigned</option>
+        {designers.map((d) => (
+          <option key={d.id} value={d.id}>
+            {d.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}

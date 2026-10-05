@@ -7,6 +7,8 @@ import {
   caseUnits,
   caseProfit,
   computeTotals,
+  designerFees,
+  designerNames,
   BREAKDOWN_LABELS,
 } from "@/lib/reporting";
 import {
@@ -53,12 +55,16 @@ const EXCEL_COLUMNS: { header: string; width: number; money?: boolean }[] = [
   { header: "Price", width: 14, money: true },
   { header: "Ceramist", width: 20 },
   { header: "Ceramist fee", width: 14, money: true },
+  { header: "Designer before ibar", width: 20 },
+  { header: "Fee", width: 12, money: true },
   { header: "Designer", width: 20 },
   { header: "Designer fee", width: 14, money: true },
   { header: "Ibar", width: 20 },
   { header: "Ibar fee", width: 12, money: true },
   { header: "Metal", width: 18 },
   { header: "Metal cost", width: 13, money: true },
+  { header: "Milling cost", width: 13, money: true },
+  { header: "Photogrammetry cost", width: 20, money: true },
   { header: "Profit", width: 14, money: true },
 ];
 
@@ -90,12 +96,16 @@ export async function buildReportExcelBuffer(
       c.totalPrice ?? null,
       c.ceramist?.name ?? "",
       c.ceramistFee ?? null,
+      c.firstDesigner?.name ?? "",
+      c.firstDesignerFee ?? null,
       c.assignedDesigner?.name ?? "",
       c.designerFee ?? null,
       c.ibarDesigner?.name ?? "",
       c.ibarFee ?? null,
       c.metalType?.name ?? "",
       c.metalCost ?? null,
+      c.millingCost ?? null,
+      c.photogrammetryCost ?? null,
       caseProfit(c),
     ]);
   });
@@ -114,11 +124,15 @@ export async function buildReportExcelBuffer(
       "",
       totals.ceramist,
       "",
-      totals.designer,
+      cases.reduce((sum, c) => sum + (c.firstDesignerFee ?? 0), 0),
+      "",
+      cases.reduce((sum, c) => sum + (c.designerFee ?? 0), 0),
       "",
       totals.ibar,
       "",
       totals.metal,
+      totals.milling,
+      totals.photogrammetry,
       totals.profit,
     ])
   );
@@ -148,21 +162,23 @@ export async function buildReportExcelBuffer(
 }
 
 const PDF_COLUMNS: PdfColumn[] = [
-  { header: "Date", width: 56 },
-  { header: "Patient", width: 62 },
-  { header: "Doctor", width: 62 },
-  { header: "Material", width: 80 },
-  { header: "Units", width: 32, align: "right" },
-  { header: "Price", width: 60, align: "right" },
-  { header: "Ceramist", width: 46 },
-  { header: "Fee", width: 50, align: "right" },
-  { header: "Designer", width: 60 },
-  { header: "Fee", width: 50, align: "right" },
-  { header: "Ibar", width: 38 },
+  { header: "Date", width: 54 },
+  { header: "Patient", width: 52 },
+  { header: "Doctor", width: 50 },
+  { header: "Material", width: 56 },
+  { header: "Units", width: 30, align: "right" },
+  { header: "Price", width: 56, align: "right" },
+  { header: "Ceramist", width: 42 },
   { header: "Fee", width: 48, align: "right" },
-  { header: "Metal", width: 42 },
-  { header: "Cost", width: 52, align: "right" },
-  { header: "Profit", width: 62, align: "right" },
+  { header: "Designer", width: 50 },
+  { header: "Fee", width: 50, align: "right" },
+  { header: "Ibar", width: 34 },
+  { header: "Fee", width: 46, align: "right" },
+  { header: "Metal", width: 38 },
+  { header: "Cost", width: 46, align: "right" },
+  { header: "Milling", width: 44, align: "right" },
+  { header: "Photogr.", width: 44, align: "right" },
+  { header: "Profit", width: 56, align: "right" },
 ];
 
 function money(value: number | null | undefined) {
@@ -174,7 +190,13 @@ export async function buildReportPdfBuffer(
   breakdowns: Record<BreakdownKey, PersonTotal[]>
 ): Promise<Buffer> {
   const totals = computeTotals(cases);
-  const totalCosts = totals.ceramist + totals.designer + totals.ibar + totals.metal;
+  const totalCosts =
+    totals.ceramist +
+    totals.designer +
+    totals.ibar +
+    totals.metal +
+    totals.milling +
+    totals.photogrammetry;
   const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 20, bufferPages: true });
 
   drawDocHeader(doc, "Case Report", [`Generated ${formatDate(new Date())}`]);
@@ -197,16 +219,18 @@ export async function buildReportPdfBuffer(
       money(c.totalPrice),
       c.ceramist?.name ?? "-",
       money(c.ceramistFee),
-      c.assignedDesigner?.name ?? "-",
-      money(c.designerFee),
+      designerNames(c) || "-",
+      money(designerFees(c)),
       c.ibarDesigner?.name ?? "-",
       money(c.ibarFee),
       c.metalType?.name ?? "-",
       money(c.metalCost),
+      money(c.millingCost),
+      money(c.photogrammetryCost),
       formatMoney(caseProfit(c)),
     ]),
     {
-      fontSize: 7.5,
+      fontSize: 7,
       footer: [
         "Total",
         "",
@@ -222,6 +246,8 @@ export async function buildReportPdfBuffer(
         formatMoney(totals.ibar),
         "",
         formatMoney(totals.metal),
+        formatMoney(totals.milling),
+        formatMoney(totals.photogrammetry),
         formatMoney(totals.profit),
       ],
     }

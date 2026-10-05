@@ -10,12 +10,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const file = await prisma.caseFile.findUnique({
     where: { id },
-    include: { case: { select: { assignedDesignerId: true } } },
+    include: {
+      case: { select: { assignedDesignerId: true, firstDesignerId: true, needsPhotogrammetry: true } },
+    },
   });
   if (!file) return new Response("Not found", { status: 404 });
 
   const { role, id: userId } = session.user;
-  if (role === "DESIGNER" && file.case.assignedDesignerId !== userId) {
+  if (
+    (role === "DESIGNER" &&
+      file.case.assignedDesignerId !== userId &&
+      file.case.firstDesignerId !== userId) ||
+    (role === "PHOTOGRAMMETRY" && !file.case.needsPhotogrammetry)
+  ) {
     return new Response("Forbidden", { status: 403 });
   }
 

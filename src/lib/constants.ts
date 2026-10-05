@@ -1,9 +1,11 @@
-export const ROLES = ["TECHNICIAN", "DESIGNER", "LAB_LEADER"] as const;
+export const ROLES = ["TECHNICIAN", "DESIGNER", "LAB_LEADER", "PHOTOGRAMMETRY"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const CASE_STATUSES = [
+  "IBAR_DESIGN",
   "READY_FOR_DESIGN",
   "IN_DESIGN",
+  "MATCHING",
   "WAITING_FOR_REVIEW",
   "CHANGES_REQUESTED",
   "MILLING",
@@ -14,8 +16,10 @@ export const CASE_STATUSES = [
 export type CaseStatus = (typeof CASE_STATUSES)[number];
 
 export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
+  IBAR_DESIGN: "Ibar Design",
   READY_FOR_DESIGN: "Ready for Design",
   IN_DESIGN: "In Design",
+  MATCHING: "Matching",
   WAITING_FOR_REVIEW: "Waiting for Review",
   CHANGES_REQUESTED: "Changes Requested",
   MILLING: "Milling",
@@ -26,13 +30,15 @@ export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
 
 // Statuses where the case is still with (or waiting on) the designer.
 export const DESIGN_PHASE_STATUSES: CaseStatus[] = [
+  "IBAR_DESIGN",
   "READY_FOR_DESIGN",
   "IN_DESIGN",
+  "MATCHING",
   "WAITING_FOR_REVIEW",
   "CHANGES_REQUESTED",
 ];
 
-export const CASE_FILE_TYPES = ["SCAN", "DESIGN"] as const;
+export const CASE_FILE_TYPES = ["SCAN", "IBAR", "DESIGN", "PHOTOGRAMMETRY"] as const;
 export type CaseFileType = (typeof CASE_FILE_TYPES)[number];
 
 export const REVIEW_DECISIONS = ["APPROVED", "CHANGES_REQUESTED"] as const;

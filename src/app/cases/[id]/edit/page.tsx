@@ -73,6 +73,8 @@ export default async function EditCasePage({
             shade: caseRecord.shade,
             dueDate: caseRecord.dueDate,
             ibarDesignerId: caseRecord.ibarDesignerId,
+            matchingBy: caseRecord.matchingBy,
+            needsPhotogrammetry: caseRecord.needsPhotogrammetry,
             unitCodes: caseRecord.units.map((u) => u.code),
           }}
         />

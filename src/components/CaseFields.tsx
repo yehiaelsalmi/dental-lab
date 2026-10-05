@@ -14,6 +14,8 @@ export type CaseFieldDefaults = {
   shade?: string | null;
   dueDate?: Date | null;
   ibarDesignerId?: string | null;
+  matchingBy?: string | null;
+  needsPhotogrammetry?: boolean;
   unitCodes?: string[];
 };
 
@@ -116,6 +118,26 @@ export function CaseFields({
             optional
             defaultId={defaults.ibarDesignerId ?? undefined}
           />
+          <Field
+            label="Matching (optional)"
+            name="matchingBy"
+            placeholder="Name of who does the matching"
+            defaultValue={defaults.matchingBy ?? undefined}
+          />
+          <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 sm:col-span-2">
+            <input
+              type="checkbox"
+              name="needsPhotogrammetry"
+              defaultChecked={defaults.needsPhotogrammetry}
+              className="mt-0.5 h-4 w-4 accent-brand"
+            />
+            <span>
+              <span className="font-medium">Needs photogrammetry</span>
+              <span className="block text-xs text-slate-500">
+                The photogrammetry team gets an app and email notification.
+              </span>
+            </span>
+          </label>
         </div>
       </div>
 

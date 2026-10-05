@@ -6,7 +6,7 @@ import { LayoutGrid, Users, Cloud, Tag, FileSpreadsheet, Receipt, PenTool, Brush
 import type { Role } from "@/lib/constants";
 
 const LINKS = [
-  { href: "/cases", label: "Cases", icon: LayoutGrid, roles: ["TECHNICIAN", "DESIGNER", "LAB_LEADER"] },
+  { href: "/cases", label: "Cases", icon: LayoutGrid, roles: ["TECHNICIAN", "DESIGNER", "LAB_LEADER", "PHOTOGRAMMETRY"] },
   { href: "/designers", label: "Designers", icon: PenTool, roles: ["LAB_LEADER"] },
   { href: "/ceramists", label: "Ceramists", icon: Brush, roles: ["LAB_LEADER"] },
   { href: "/reports", label: "Reports", icon: FileSpreadsheet, roles: ["LAB_LEADER"] },

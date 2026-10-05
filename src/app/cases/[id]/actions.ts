@@ -4,7 +4,10 @@ import {
   advanceProduction,
   assignCeramist,
   assignDesigner,
+  completeIbar,
+  completeMatching,
   markDelivered,
+  markPhotogrammetryDone,
   startDesign,
   submitForReview,
   reviewCase,
@@ -13,7 +16,8 @@ import {
 export async function assignDesignerAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
   const designerId = formData.get("designerId") as string;
-  await assignDesigner(caseId, designerId || null);
+  const slot = formData.get("slot") === "first" ? "first" : "second";
+  await assignDesigner(caseId, designerId || null, slot);
 }
 
 export async function startDesignAction(formData: FormData) {
@@ -53,4 +57,19 @@ export async function markDeliveredAction(formData: FormData) {
 export async function advanceProductionAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
   await advanceProduction(caseId);
+}
+
+export async function completeMatchingAction(formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  await completeMatching(caseId);
+}
+
+export async function markPhotogrammetryDoneAction(formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  await markPhotogrammetryDone(caseId, formData);
+}
+
+export async function completeIbarAction(formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  await completeIbar(caseId, formData);
 }

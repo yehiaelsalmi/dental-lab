@@ -1,12 +1,35 @@
 import { prisma } from "@/lib/prisma";
 import { caseUrl, sendEmail } from "@/lib/email";
 
-async function activeLabLeaders(excludeUserId?: string) {
-  const leaders = await prisma.user.findMany({
-    where: { role: "LAB_LEADER", active: true },
+async function activeUsers(roles: string[], excludeUserId?: string) {
+  const users = await prisma.user.findMany({
+    where: { role: { in: roles }, active: true },
     select: { id: true, email: true },
   });
-  return leaders.filter((l) => l.id !== excludeUserId);
+  return users.filter((u) => u.id !== excludeUserId);
+}
+
+function activeLabLeaders(excludeUserId?: string) {
+  return activeUsers(["LAB_LEADER"], excludeUserId);
+}
+
+// In-app notification plus email to each recipient.
+async function notifyMany(
+  recipients: { id: string; email: string }[],
+  caseId: string,
+  subject: string,
+  message: string
+) {
+  if (recipients.length === 0) return;
+  await prisma.notification.createMany({
+    data: recipients.map((r) => ({ userId: r.id, caseId, message })),
+  });
+  sendEmail(
+    recipients.map((r) => r.email),
+    subject,
+    message,
+    caseUrl(caseId)
+  );
 }
 
 export async function notifyDesignerAssigned(caseId: string, designerId: string, patientName: string) {
@@ -47,11 +70,15 @@ export async function notifyLabLeadersAssigned(
   );
 }
 
-export async function notifyLabLeadersReviewReady(caseId: string, patientName: string) {
+export async function notifyLabLeadersReviewReady(
+  caseId: string,
+  patientName: string,
+  stage?: string
+) {
   const leaders = await activeLabLeaders();
   if (leaders.length === 0) return;
 
-  const message = `Case ready for review: ${patientName}`;
+  const message = `Case ready for review: ${patientName}${stage ? ` (${stage})` : ""}`;
   await prisma.notification.createMany({
     data: leaders.map((l) => ({ userId: l.id, caseId, message })),
   });
@@ -61,5 +88,56 @@ export async function notifyLabLeadersReviewReady(caseId: string, patientName: s
     `Ready for review: ${patientName}`,
     message,
     caseUrl(caseId)
+  );
+}
+
+export async function notifyPhotogrammetryNeeded(caseId: string, patientName: string) {
+  await notifyMany(
+    await activeUsers(["PHOTOGRAMMETRY"]),
+    caseId,
+    `Photogrammetry needed: ${patientName}`,
+    `Case ${patientName} needs photogrammetry`
+  );
+}
+
+export async function notifyPhotogrammetryDone(caseId: string, patientName: string, actorId: string) {
+  await notifyMany(
+    await activeLabLeaders(actorId),
+    caseId,
+    `Photogrammetry done: ${patientName}`,
+    `Photogrammetry is done for case ${patientName}`
+  );
+}
+
+export async function notifyDesignerIbarDone(caseId: string, designerId: string, patientName: string) {
+  const designer = await prisma.user.findUnique({
+    where: { id: designerId },
+    select: { id: true, email: true },
+  });
+  if (!designer) return;
+  await notifyMany(
+    [designer],
+    caseId,
+    `Ready for you to design: ${patientName}`,
+    `The ibar is done for case ${patientName}; it's ready for you to design`
+  );
+}
+
+// Technicians and Lab Leaders move cases out of matching.
+export async function notifyMatchingReady(caseId: string, patientName: string, matchingBy: string) {
+  await notifyMany(
+    await activeUsers(["LAB_LEADER", "TECHNICIAN"]),
+    caseId,
+    `Ready for matching: ${patientName}`,
+    `Design submitted for case ${patientName}; it's now with ${matchingBy} for matching`
+  );
+}
+
+export async function notifyLabLeadersMatchingDone(caseId: string, patientName: string, actorId: string) {
+  await notifyMany(
+    await activeLabLeaders(actorId),
+    caseId,
+    `Ready for review: ${patientName}`,
+    `Matching is done; case ready for review: ${patientName}`
   );
 }

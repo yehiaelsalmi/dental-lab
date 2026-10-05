@@ -1,7 +1,16 @@
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { requireRole } from "@/lib/session";
 import { formatEGP } from "@/lib/money";
-import { getReportCases, computeTotals, caseUnits, caseProfit, allBreakdowns, BREAKDOWN_LABELS } from "@/lib/reporting";
+import {
+  getReportCases,
+  computeTotals,
+  caseUnits,
+  caseProfit,
+  allBreakdowns,
+  designerFees,
+  designerNames,
+  BREAKDOWN_LABELS,
+} from "@/lib/reporting";
 
 const fmt = formatEGP;
 
@@ -40,7 +49,7 @@ export default async function ReportsPage() {
       </div>
 
       <div className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[1600px] text-left text-sm">
+        <table className="w-full min-w-[1840px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Date</th>
@@ -59,6 +68,8 @@ export default async function ReportsPage() {
               <th className="px-4 py-3 text-right font-medium">Ibar fee</th>
               <th className="px-4 py-3 font-medium">Metal</th>
               <th className="px-4 py-3 text-right font-medium">Metal cost</th>
+              <th className="px-4 py-3 text-right font-medium">Milling cost</th>
+              <th className="px-4 py-3 text-right font-medium">Photogrammetry cost</th>
               <th className="px-4 py-3 text-right font-medium">Profit</th>
             </tr>
           </thead>
@@ -86,9 +97,9 @@ export default async function ReportsPage() {
                 </td>
                 <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.ceramistFee)}</td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
-                  {c.assignedDesigner?.name ?? "-"}
+                  {designerNames(c) || "-"}
                 </td>
-                <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.designerFee)}</td>
+                <td className="px-4 py-2.5 text-right text-slate-800">{fmt(designerFees(c))}</td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
                   {c.ibarDesigner?.name ?? "-"}
                 </td>
@@ -97,6 +108,10 @@ export default async function ReportsPage() {
                   {c.metalType?.name ?? "-"}
                 </td>
                 <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.metalCost)}</td>
+                <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.millingCost)}</td>
+                <td className="px-4 py-2.5 text-right text-slate-800">
+                  {fmt(c.photogrammetryCost)}
+                </td>
                 <td className="px-4 py-2.5 text-right font-medium text-slate-900">
                   {fmt(caseProfit(c))}
                 </td>
@@ -104,7 +119,7 @@ export default async function ReportsPage() {
             ))}
             {cases.length === 0 && (
               <tr>
-                <td colSpan={17} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={19} className="px-4 py-10 text-center text-slate-400">
                   No cases yet.
                 </td>
               </tr>
@@ -125,6 +140,8 @@ export default async function ReportsPage() {
                 <td className="px-4 py-3 text-right">{fmt(totals.ibar)}</td>
                 <td />
                 <td className="px-4 py-3 text-right">{fmt(totals.metal)}</td>
+                <td className="px-4 py-3 text-right">{fmt(totals.milling)}</td>
+                <td className="px-4 py-3 text-right">{fmt(totals.photogrammetry)}</td>
                 <td className="px-4 py-3 text-right">{fmt(totals.profit)}</td>
               </tr>
             </tfoot>

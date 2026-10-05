@@ -43,8 +43,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
-      const isOnLogin = request.nextUrl.pathname.startsWith("/login");
-      if (isOnLogin || isLoggedIn) return true;
+      const { pathname } = request.nextUrl;
+      // The privacy policy must be readable without an account (Google checks it).
+      const isPublic = pathname.startsWith("/login") || pathname === "/privacy";
+      if (isPublic || isLoggedIn) return true;
       // Remember where the user was going (e.g. a case link from an email) so
       // they land there after signing in instead of on the case list.
       const loginUrl = new URL("/login", request.nextUrl);

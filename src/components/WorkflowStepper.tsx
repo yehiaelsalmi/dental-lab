@@ -1,25 +1,57 @@
 import { Check } from "lucide-react";
 import type { CaseStatus } from "@/lib/constants";
 
-const STEPS: { key: CaseStatus; label: string }[] = [
-  { key: "READY_FOR_DESIGN", label: "Ready for Design" },
-  { key: "IN_DESIGN", label: "In Design" },
-  { key: "WAITING_FOR_REVIEW", label: "Waiting for Review" },
-  { key: "MILLING", label: "Milling" },
-  { key: "STAIN_AND_GLAZE", label: "Stain & Glaze" },
-  { key: "COMPLETED", label: "Completed" },
-  { key: "DELIVERED", label: "Delivered" },
-];
+type Step = { key: string; label: string };
 
-export function WorkflowStepper({ status }: { status: CaseStatus }) {
+// Ibar cases go through design + review twice: once before the ibar, once
+// after. Matching only appears on cases that use it (or are in it).
+function stepsFor(hasIbar: boolean, hasMatching: boolean, status: CaseStatus): Step[] {
+  return [
+    ...(hasIbar
+      ? [
+          { key: "FIRST_DESIGN", label: "Design (before ibar)" },
+          { key: "FIRST_REVIEW", label: "Review (before ibar)" },
+          { key: "IBAR_DESIGN", label: "Ibar Design" },
+        ]
+      : []),
+    { key: "READY_FOR_DESIGN", label: "Ready for Design" },
+    { key: "IN_DESIGN", label: "In Design" },
+    ...(hasMatching || status === "MATCHING" ? [{ key: "MATCHING", label: "Matching" }] : []),
+    { key: "WAITING_FOR_REVIEW", label: "Waiting for Review" },
+    { key: "MILLING", label: "Milling" },
+    { key: "STAIN_AND_GLAZE", label: "Stain & Glaze" },
+    { key: "COMPLETED", label: "Completed" },
+    { key: "DELIVERED", label: "Delivered" },
+  ];
+}
+
+function currentKey(status: CaseStatus, beforeIbar: boolean): string {
+  if (beforeIbar) {
+    if (status === "WAITING_FOR_REVIEW") return "FIRST_REVIEW";
+    if (status === "IBAR_DESIGN") return "IBAR_DESIGN";
+    return "FIRST_DESIGN";
+  }
+  return status === "CHANGES_REQUESTED" ? "IN_DESIGN" : status;
+}
+
+export function WorkflowStepper({
+  status,
+  hasIbar,
+  hasMatching,
+  beforeIbar,
+}: {
+  status: CaseStatus;
+  hasIbar: boolean;
+  hasMatching: boolean;
+  beforeIbar: boolean;
+}) {
+  const steps = stepsFor(hasIbar, hasMatching, status);
+  const currentIndex = steps.findIndex((s) => s.key === currentKey(status, beforeIbar));
   const changesRequested = status === "CHANGES_REQUESTED";
-  const currentIndex = changesRequested
-    ? 1
-    : STEPS.findIndex((s) => s.key === status);
 
   return (
-    <div className="flex min-w-[540px] items-center">
-      {STEPS.map((step, i) => {
+    <div className="flex items-center" style={{ minWidth: `${steps.length * 72}px` }}>
+      {steps.map((step, i) => {
         const isCurrent = i === currentIndex;
         const isPast = i < currentIndex;
         const isChangesStep = isCurrent && changesRequested;
@@ -52,7 +84,7 @@ export function WorkflowStepper({ status }: { status: CaseStatus }) {
                 {isChangesStep ? "Changes Requested" : step.label}
               </span>
             </div>
-            {i < STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <div className={`mx-1 h-0.5 flex-1 ${isPast ? "bg-brand" : "bg-slate-100"}`} />
             )}
           </div>

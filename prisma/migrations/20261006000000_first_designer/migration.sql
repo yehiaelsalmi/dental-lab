@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Case" ADD COLUMN "firstDesignerId" TEXT REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Case" ADD COLUMN "ibarDoneAt" DATETIME;
+ALTER TABLE "Case" ADD COLUMN "firstDesignerFee" REAL;

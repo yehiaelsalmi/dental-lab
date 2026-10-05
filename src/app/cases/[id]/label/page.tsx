@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/session";
 import { caseUrl } from "@/lib/email";
 import { LAB_NAME } from "@/lib/constants";
 import { PrintButton } from "@/components/PrintButton";
+import { isDesignerOnCase } from "@/lib/caseFlow";
 
 export default async function CaseLabelPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,7 +18,10 @@ export default async function CaseLabelPage({ params }: { params: Promise<{ id: 
     include: { doctor: true, material: true },
   });
   if (!caseRecord) notFound();
-  if (session.user.role === "DESIGNER" && caseRecord.assignedDesignerId !== session.user.id) {
+  if (
+    (session.user.role === "DESIGNER" && !isDesignerOnCase(caseRecord, session.user.id)) ||
+    (session.user.role === "PHOTOGRAMMETRY" && !caseRecord.needsPhotogrammetry)
+  ) {
     notFound();
   }
 

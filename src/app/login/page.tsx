@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { KeyRound } from "lucide-react";
 import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
 import { loginAction, loginWithGoogle } from "./actions";
@@ -85,6 +86,12 @@ export default async function LoginPage({
             </button>
           </form>
         </div>
+
+        <p className="mt-4 text-center text-xs text-slate-400">
+          <Link href="/privacy" className="hover:text-slate-600">
+            Privacy Policy
+          </Link>
+        </p>
       </div>
     </div>
   );
