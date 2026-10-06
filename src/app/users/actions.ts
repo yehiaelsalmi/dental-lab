@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -77,4 +78,53 @@ export async function toggleUserActiveAction(formData: FormData) {
   });
 
   revalidatePath("/users");
+}
+
+// Users with no history are removed completely. Anyone who appears on cases,
+// files, reviews or invoices is closed instead: they can't sign in, they're
+// hidden from the Users page and their email is freed, but their name stays on
+// past work so reports and earnings remain correct.
+export async function deleteUserAction(formData: FormData) {
+  const access = await requirePermission("page.users");
+  const userId = formData.get("userId") as string;
+  if (userId === access.userId) fail("You can't delete your own account.");
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.deletedAt) fail("That user no longer exists.");
+  await assertLeaderRemains(userId);
+
+  const [cases, files, reviews, invoices] = await Promise.all([
+    prisma.case.count({
+      where: {
+        OR: [
+          { createdById: userId },
+          { assignedDesignerId: userId },
+          { firstDesignerId: userId },
+          { ceramistId: userId },
+          { photogrammetryDoneById: userId },
+        ],
+      },
+    }),
+    prisma.caseFile.count({ where: { uploadedById: userId } }),
+    prisma.caseReview.count({ where: { reviewedById: userId } }),
+    prisma.invoice.count({ where: { generatedById: userId } }),
+  ]);
+
+  if (cases + files + reviews + invoices === 0) {
+    await prisma.notification.deleteMany({ where: { userId } });
+    await prisma.user.delete({ where: { id: userId } });
+  } else {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        active: false,
+        deletedAt: new Date(),
+        email: `deleted-${user.id}@deleted.invalid`,
+        passwordHash: await bcrypt.hash(randomBytes(24).toString("hex"), 10),
+      },
+    });
+  }
+
+  revalidatePath("/users");
+  redirect(`/users?deleted=${encodeURIComponent(user.name)}`);
 }

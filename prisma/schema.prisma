@@ -21,6 +21,9 @@ model User {
   roleId       String
   role         Role     @relation(fields: [roleId], references: [id])
   active       Boolean  @default(true)
+  // Set when a user with history is deleted: they can't sign in and are hidden
+  // from the Users page, but their name stays on past cases.
+  deletedAt    DateTime?
   createdAt    DateTime @default(now())
 
   casesCreated  Case[]         @relation("CreatedBy")

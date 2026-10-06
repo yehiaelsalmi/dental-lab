@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { CASE_STATUSES, type CaseStatus } from "@/lib/constants";
 import {
   LAB_LEADER_KEY,
+  LAB_LEADER_PERMISSIONS,
   PERMISSION_KEYS,
   type CaseScope,
   type Permission,
@@ -58,7 +59,7 @@ export function toRoleAccess(role: {
     name: role.name,
     permissions: new Set(
       isLeader
-        ? PERMISSION_KEYS
+        ? LAB_LEADER_PERMISSIONS
         : (parseList(role.permissions).filter((p) =>
             (PERMISSION_KEYS as string[]).includes(p)
           ) as Permission[])

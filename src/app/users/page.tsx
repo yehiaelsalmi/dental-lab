@@ -3,7 +3,8 @@ import { UserPlus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { can, requirePermission } from "@/lib/access";
 import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
-import { changeUserRoleAction, createUser, toggleUserActiveAction } from "./actions";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { changeUserRoleAction, createUser, deleteUserAction, toggleUserActiveAction } from "./actions";
 
 const SELECT_CLASS =
   "rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -11,13 +12,13 @@ const SELECT_CLASS =
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; deleted?: string }>;
 }) {
   const access = await requirePermission("page.users");
-  const { error } = await searchParams;
+  const { error, deleted } = await searchParams;
 
   const [users, roles] = await Promise.all([
-    prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.user.findMany({ where: { deletedAt: null }, orderBy: { createdAt: "asc" } }),
     prisma.role.findMany({ orderBy: { name: "asc" } }),
   ]);
   const roleOptions = roles.map((r) => ({ value: r.id, label: r.name }));
@@ -40,6 +41,11 @@ export default async function UsersPage({
 
       {error && (
         <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      )}
+      {deleted && (
+        <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {deleted} was deleted.
+        </p>
       )}
 
       <section className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -82,14 +88,27 @@ export default async function UsersPage({
                     {u.active ? "Active" : "Disabled"}
                   </span>
                 </td>
-                <td className="px-5 py-3.5 text-right">
-                  <form action={toggleUserActiveAction}>
-                    <input type="hidden" name="userId" value={u.id} />
-                    <input type="hidden" name="nextActive" value={(!u.active).toString()} />
-                    <button type="submit" className="text-xs font-medium text-slate-500 hover:text-brand hover:underline">
-                      {u.active ? "Disable" : "Enable"}
-                    </button>
-                  </form>
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center justify-end gap-4">
+                    <form action={toggleUserActiveAction}>
+                      <input type="hidden" name="userId" value={u.id} />
+                      <input type="hidden" name="nextActive" value={(!u.active).toString()} />
+                      <button type="submit" className="text-xs font-medium text-slate-500 hover:text-brand hover:underline">
+                        {u.active ? "Disable" : "Enable"}
+                      </button>
+                    </form>
+                    {u.id !== access.userId && (
+                      <form action={deleteUserAction}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <ConfirmSubmitButton
+                          message={`Delete ${u.name}? They won't be able to sign in any more. Their name stays on past cases.`}
+                          className="text-xs font-medium text-rose-600 hover:text-rose-700 hover:underline"
+                        >
+                          Delete
+                        </ConfirmSubmitButton>
+                      </form>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

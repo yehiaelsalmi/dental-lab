@@ -13,6 +13,7 @@ import {
   Brush,
   ShieldCheck,
   Wallet,
+  Stethoscope,
 } from "lucide-react";
 
 // `show` is decided on the server from the user's role permissions.
@@ -23,6 +24,7 @@ const LINKS = [
   { href: "/ceramists", label: "Ceramists", icon: Brush },
   { href: "/reports", label: "Reports", icon: FileSpreadsheet },
   { href: "/invoices", label: "Invoices", icon: Receipt },
+  { href: "/doctors", label: "Doctors", icon: Stethoscope },
   { href: "/users", label: "Users", icon: Users },
   { href: "/settings/roles", label: "Roles", icon: ShieldCheck },
   { href: "/settings/pricing", label: "Pricing", icon: Tag },

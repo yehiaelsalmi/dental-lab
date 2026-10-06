@@ -16,6 +16,7 @@ function visibleLinks(access: Access): NavHref[] {
     ["/ceramists", can(access, "page.ceramists")],
     ["/reports", can(access, "page.reports")],
     ["/invoices", can(access, "page.invoices")],
+    ["/doctors", can(access, "page.doctors")],
     ["/users", can(access, "page.users")],
     ["/settings/roles", can(access, "page.roles")],
     ["/settings/pricing", can(access, "page.pricing")],

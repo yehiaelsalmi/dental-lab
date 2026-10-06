@@ -30,11 +30,18 @@ export const PERMISSIONS = [
   { key: "page.users", group: "Pages", label: "Users" },
   { key: "page.roles", group: "Pages", label: "Roles" },
   { key: "page.pricing", group: "Pages", label: "Pricing" },
+  { key: "page.doctors", group: "Pages", label: "Doctors (rename and delete)" },
   { key: "page.drive", group: "Pages", label: "Drive Settings" },
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number]["key"];
 export const PERMISSION_KEYS = PERMISSIONS.map((p) => p.key) as Permission[];
+
+// "Can be assigned as..." marks the people who do that work; it isn't an
+// ability. The Lab Leader gets everything else, so leaders don't show up in
+// the designer and ceramist lists.
+const WORK_KEYS: Permission[] = ["work.design", "work.ceramist"];
+export const LAB_LEADER_PERMISSIONS = PERMISSION_KEYS.filter((p) => !WORK_KEYS.includes(p));
 
 // Which cases a role sees (before narrowing by status).
 export const CASE_SCOPES = [
@@ -67,7 +74,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     id: "role_lab_leader",
     key: LAB_LEADER_KEY,
     name: "Lab Leader",
-    permissions: PERMISSION_KEYS,
+    permissions: LAB_LEADER_PERMISSIONS,
     caseScope: "ALL",
     visibleStatuses: [],
     notifyOn: [],

@@ -21,7 +21,13 @@ export default async function EditRolePage({
 
   const role = await prisma.role.findUnique({
     where: { id },
-    include: { users: { orderBy: { name: "asc" }, select: { id: true, name: true, active: true } } },
+    include: {
+      users: {
+        where: { deletedAt: null },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, active: true },
+      },
+    },
   });
   if (!role) notFound();
 
@@ -40,7 +46,7 @@ export default async function EditRolePage({
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">{role.name}</h1>
       <p className="mb-6 text-sm text-slate-500">
         {locked
-          ? "The Lab Leader role always has full access, so nobody can be locked out. It can't be edited."
+          ? "The Lab Leader role always has full access, so nobody can be locked out. It can't be edited. Leaders aren't listed as designers or ceramists; give someone a designer or ceramist role for that work."
           : "Changes apply straight away to everyone with this role."}
         {role.users.length > 0 && (
           <> People with this role: {role.users.map((u) => u.name + (u.active ? "" : " (disabled)")).join(", ")}.</>

@@ -99,7 +99,10 @@ export async function deleteRole(formData: FormData) {
   const id = formData.get("id") as string;
   const back = `/settings/roles/${id}`;
 
-  const role = await prisma.role.findUnique({ where: { id }, include: { _count: { select: { users: true } } } });
+  const role = await prisma.role.findUnique({
+    where: { id },
+    include: { _count: { select: { users: { where: { deletedAt: null } } } } },
+  });
   if (!role) redirect("/settings/roles");
   if (role.key === LAB_LEADER_KEY) {
     redirect(`${back}?error=${encodeURIComponent("The Lab Leader role can't be deleted.")}`);
@@ -112,6 +115,10 @@ export async function deleteRole(formData: FormData) {
     );
   }
 
+  // Deleted users still point at their old role; park them on the Lab Leader
+  // role (which can't be deleted). They can't sign in, so it grants nothing.
+  const leaderRole = await prisma.role.findUniqueOrThrow({ where: { key: LAB_LEADER_KEY } });
+  await prisma.user.updateMany({ where: { roleId: id }, data: { roleId: leaderRole.id } });
   await prisma.role.delete({ where: { id } });
   revalidatePath("/settings/roles");
   redirect("/settings/roles");
