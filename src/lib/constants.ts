@@ -1,6 +1,6 @@
 export const CASE_STATUSES = [
-  "IBAR_DESIGN",
   "READY_FOR_DESIGN",
+  "IBAR_DESIGN",
   "IN_DESIGN",
   "MATCHING",
   "WAITING_FOR_REVIEW",
@@ -13,8 +13,8 @@ export const CASE_STATUSES = [
 export type CaseStatus = (typeof CASE_STATUSES)[number];
 
 export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
-  IBAR_DESIGN: "Ibar Design",
   READY_FOR_DESIGN: "Ready for Design",
+  IBAR_DESIGN: "Ibar Design",
   IN_DESIGN: "In Design",
   MATCHING: "Matching",
   WAITING_FOR_REVIEW: "Waiting for Review",
@@ -27,8 +27,8 @@ export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
 
 // Statuses where the case is still with (or waiting on) the designer.
 export const DESIGN_PHASE_STATUSES: CaseStatus[] = [
-  "IBAR_DESIGN",
   "READY_FOR_DESIGN",
+  "IBAR_DESIGN",
   "IN_DESIGN",
   "MATCHING",
   "WAITING_FOR_REVIEW",
