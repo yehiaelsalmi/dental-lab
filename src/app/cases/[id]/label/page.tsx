@@ -7,6 +7,7 @@ import { canViewCase, requireAccess } from "@/lib/access";
 import { caseUrl } from "@/lib/email";
 import { LAB_NAME } from "@/lib/constants";
 import { PrintButton } from "@/components/PrintButton";
+import { materialSummary } from "@/lib/caseMaterials";
 
 export default async function CaseLabelPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,12 +15,12 @@ export default async function CaseLabelPage({ params }: { params: Promise<{ id: 
 
   const caseRecord = await prisma.case.findUnique({
     where: { id },
-    include: { doctor: true, material: true },
+    include: { doctor: true, materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } } },
   });
   if (!caseRecord || !canViewCase(access, caseRecord)) notFound();
 
   const qrDataUrl = await QRCode.toDataURL(caseUrl(caseRecord.id), { margin: 1, width: 480 });
-  const details = [caseRecord.material?.name, new Date(caseRecord.entryDate).toLocaleDateString()]
+  const details = [materialSummary(caseRecord.materials), new Date(caseRecord.entryDate).toLocaleDateString()]
     .filter(Boolean)
     .join(" - ");
 

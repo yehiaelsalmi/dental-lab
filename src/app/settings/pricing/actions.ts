@@ -96,7 +96,7 @@ export async function deleteMaterial(formData: FormData) {
   await requirePermission("page.pricing");
   const id = formData.get("id") as string;
 
-  const used = await prisma.case.count({ where: { materialId: id } });
+  const used = await prisma.case.count({ where: { materials: { some: { materialId: id } } } });
   if (used > 0) {
     redirect(
       `/settings/pricing/materials/${id}?error=${encodeURIComponent(
@@ -160,7 +160,7 @@ export async function deleteMetalType(formData: FormData) {
   await requirePermission("page.pricing");
   const id = formData.get("id") as string;
 
-  const used = await prisma.case.count({ where: { metalTypeId: id } });
+  const used = await prisma.case.count({ where: { materials: { some: { metalTypeId: id } } } });
   if (used > 0) {
     redirect(
       `/settings/pricing/metals/${id}?error=${encodeURIComponent(

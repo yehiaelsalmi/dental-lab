@@ -20,7 +20,7 @@ export default async function EditMaterialPage({
 
   const [material, usedBy] = await Promise.all([
     prisma.material.findUnique({ where: { id } }),
-    prisma.case.count({ where: { materialId: id } }),
+    prisma.case.count({ where: { materials: { some: { materialId: id } } } }),
   ]);
   if (!material) notFound();
 

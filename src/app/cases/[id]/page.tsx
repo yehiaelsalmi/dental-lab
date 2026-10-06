@@ -57,8 +57,7 @@ export default async function CaseDetailPage({
       ceramist: true,
       photogrammetryDoneBy: true,
       ibarDesigner: true,
-      material: true,
-      metalType: true,
+      materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } },
       units: { orderBy: { createdAt: "asc" } },
       files: { orderBy: { createdAt: "asc" } },
       reviews: { orderBy: { createdAt: "desc" }, include: { reviewedBy: true } },
@@ -140,8 +139,6 @@ export default async function CaseDetailPage({
 
       <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm">
         <Info label="Units (Upper / Lower)" value={`${caseRecord.unitsUpper ?? "-"} / ${caseRecord.unitsLower ?? "-"}`} />
-        <Info label="Material" value={caseRecord.material?.name ?? "-"} />
-        <Info label="Metal" value={caseRecord.metalType?.name ?? "-"} />
         <Info label="Ibar designer" value={caseRecord.ibarDesigner?.name ?? "-"} />
         <Info label="System" value={caseRecord.system ?? "-"} />
         <Info label="Shade" value={caseRecord.shade ?? "-"} />
@@ -183,6 +180,30 @@ export default async function CaseDetailPage({
               Open case folder in Google Drive
             </a>
           </div>
+        )}
+      </section>
+
+      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Materials</h2>
+        {caseRecord.materials.length === 0 ? (
+          <p className="text-sm text-slate-400">No materials recorded.</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-slate-100 text-sm">
+            {caseRecord.materials.map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="text-slate-800">
+                  <span className="mr-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
+                    {l.arch === "UPPER" ? "Upper" : "Lower"}
+                  </span>
+                  {l.material.name}
+                  {l.metalType && <span className="text-slate-500"> · {l.metalType.name}</span>}
+                </span>
+                <span className="font-medium text-slate-900">
+                  {l.units} unit{l.units === 1 ? "" : "s"}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

@@ -6,6 +6,8 @@ import {
   computeTotals,
   caseUnits,
   caseProfit,
+  caseMaterialsText,
+  caseMetalsText,
   allBreakdowns,
   designerFees,
   designerNames,
@@ -86,7 +88,7 @@ export default async function ReportsPage() {
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">{c.doctor.name}</td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
-                  {c.material?.name ?? "-"}
+                  {caseMaterialsText(c) || "-"}
                 </td>
                 <td className="px-4 py-2.5 text-right text-slate-600">{caseUnits(c)}</td>
                 <td className="px-4 py-2.5 text-right text-slate-600">{fmt(c.extraFee)}</td>
@@ -105,7 +107,7 @@ export default async function ReportsPage() {
                 </td>
                 <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.ibarFee)}</td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
-                  {c.metalType?.name ?? "-"}
+                  {caseMetalsText(c) || "-"}
                 </td>
                 <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.metalCost)}</td>
                 <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.millingCost)}</td>

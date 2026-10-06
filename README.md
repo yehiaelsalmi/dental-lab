@@ -97,6 +97,13 @@ from a real address rather than `localhost`.
 
 ## Pricing
 
+A case's materials are entered as **material lines**: each line is an arch (Upper
+or Lower), a material, a number of units and an optional metal, and a case can have
+several lines per arch (e.g. Upper Zirconia 10 + Upper PMMA 2 + Lower Zirconia 12).
+Prices, fees and costs are summed over the lines; a material's flat extra fee and
+deduction count once per case however many lines use it. Lines live in the
+`CaseMaterial` model; `unitsUpper`/`unitsLower` on the case are their totals.
+
 Lab Leaders set fixed rates on the **Pricing** page: each **Material** has a
 price-per-unit (billed to the doctor) plus a ceramist/designer/ibar fee-per-unit,
 and each **Metal type** has a cost-per-unit. Technicians pick Material (required),

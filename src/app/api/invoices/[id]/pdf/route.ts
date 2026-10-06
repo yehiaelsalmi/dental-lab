@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { materialSummary } from "@/lib/caseMaterials";
 import { requirePermission } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { LAB_NAME } from "@/lib/constants";
@@ -35,7 +36,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     where: { id },
     include: {
       doctor: true,
-      lines: { include: { case: { include: { material: true } } } },
+      lines: { include: { case: { include: { materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } } } } } },
     },
   });
 
@@ -76,7 +77,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       String(i + 1),
       line.case ? formatDate(line.case.entryDate) : "-",
       line.patientName,
-      line.case?.material?.name ?? "-",
+      line.case ? materialSummary(line.case.materials) || "-" : "-",
       String(line.units),
       formatMoney(line.amount),
     ]),

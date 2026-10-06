@@ -89,7 +89,7 @@ model Material {
   photogrammetryCostPerUnit Float?
   createdAt           DateTime @default(now())
 
-  cases Case[]
+  caseLines CaseMaterial[]
 }
 
 model MetalType {
@@ -98,12 +98,13 @@ model MetalType {
   cost      Float
   createdAt DateTime @default(now())
 
-  cases Case[]
+  caseLines CaseMaterial[]
 }
 
 model Case {
   id             String    @id @default(cuid())
   patientName    String
+  // Totals of the material lines per arch (kept for lists, reports, invoices).
   unitsUpper     Int?
   unitsLower     Int?
   system         String?
@@ -138,11 +139,6 @@ model Case {
   firstDesigner   User?     @relation("FirstDesigner", fields: [firstDesignerId], references: [id])
   ibarDoneAt      DateTime?
 
-  materialId String?
-  material   Material? @relation(fields: [materialId], references: [id])
-
-  metalTypeId String?
-  metalType   MetalType? @relation(fields: [metalTypeId], references: [id])
 
   // Locked-in amounts, filled in as each fee is actually incurred (see the
   // comment on Material above).
@@ -167,6 +163,8 @@ model Case {
   reviews       CaseReview[]
   notifications Notification[]
   units         CaseUnit[]
+  // What the case is made of: one line per arch + material (+ optional metal).
+  materials     CaseMaterial[]
   invoiceLines  InvoiceLine[]
 
   createdAt DateTime @default(now())
@@ -261,4 +259,19 @@ model InvoiceLine {
 
   caseId String?
   case   Case?   @relation(fields: [caseId], references: [id], onDelete: SetNull)
+}
+
+// One material line on a case, e.g. "Upper: Zirconia, 10 units, Titanium".
+// A case can have several lines per arch; prices and fees are summed over them.
+model CaseMaterial {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  arch      String // "UPPER" | "LOWER"
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id])
+  units      Int
+  metalTypeId String?
+  metalType   MetalType? @relation(fields: [metalTypeId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
 }

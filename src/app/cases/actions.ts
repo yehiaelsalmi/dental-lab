@@ -26,19 +26,22 @@ import {
   notifyStatusWatchers,
 } from "@/lib/notifications";
 import type { CaseFileType, CaseStatus, ReviewDecision } from "@/lib/constants";
-import { computeCasePricing } from "@/lib/pricing";
+import { ceramistFeeFor, computeCasePricing, designerFeeFor } from "@/lib/pricing";
+import {
+  linesKey,
+  parseLineInputs,
+  pricedLinesForCase,
+  priceLines,
+  unitTotals,
+} from "@/lib/caseMaterials";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 
 const createCaseSchema = z.object({
   doctorId: z.string().min(1, "Select a doctor"),
   newDoctorName: z.string().optional(),
-  materialId: z.string().min(1, "Select a material"),
-  metalTypeId: z.string().optional(),
   ibarDesignerId: z.string().optional(),
   newIbarDesignerName: z.string().optional(),
   patientName: z.string().min(1, "Patient name is required"),
-  unitsUpper: z.coerce.number().int().nonnegative().optional().nullable(),
-  unitsLower: z.coerce.number().int().nonnegative().optional().nullable(),
   system: z.string().optional(),
   shade: z.string().optional(),
   dueDate: z.string().optional(),
@@ -109,13 +112,9 @@ export async function createCase(formData: FormData) {
   const parsed = createCaseSchema.safeParse({
     doctorId: formData.get("doctorId") ?? "",
     newDoctorName: emptyToUndefined(formData.get("newDoctorName")),
-    materialId: formData.get("materialId") ?? "",
-    metalTypeId: emptyToUndefined(formData.get("metalTypeId")),
     ibarDesignerId: emptyToUndefined(formData.get("ibarDesignerId")),
     newIbarDesignerName: emptyToUndefined(formData.get("newIbarDesignerName")),
     patientName: formData.get("patientName") ?? "",
-    unitsUpper: emptyToUndefined(formData.get("unitsUpper")),
-    unitsLower: emptyToUndefined(formData.get("unitsLower")),
     system: emptyToUndefined(formData.get("system")),
     shade: emptyToUndefined(formData.get("shade")),
     dueDate: emptyToUndefined(formData.get("dueDate")),
@@ -136,6 +135,8 @@ export async function createCase(formData: FormData) {
   let createdId: string;
   try {
     const units = parseUnits(formData);
+    const lineInputs = parseLineInputs(formData);
+    const pricedLines = await priceLines(lineInputs);
 
     const doctor =
       data.doctorId === "__new__"
@@ -157,20 +158,13 @@ export async function createCase(formData: FormData) {
           ? await prisma.ibarDesigner.findUniqueOrThrow({ where: { id: data.ibarDesignerId } })
           : null;
 
-    const material = await prisma.material.findUniqueOrThrow({ where: { id: data.materialId } });
-    const metalType = data.metalTypeId
-      ? await prisma.metalType.findUniqueOrThrow({ where: { id: data.metalTypeId } })
-      : null;
-
     // A designer before the ibar only makes sense when there is an ibar.
     const firstDesignerId = ibarDesigner ? data.firstDesignerId : undefined;
     if (data.assignedDesignerId) await assertCanWork(data.assignedDesignerId, "work.design", "a designer");
     if (firstDesignerId) await assertCanWork(firstDesignerId, "work.design", "a designer");
 
     const pricing = computeCasePricing({
-      material,
-      metalCostPerUnit: metalType?.cost ?? null,
-      unitCount: (data.unitsUpper ?? 0) + (data.unitsLower ?? 0),
+      lines: pricedLines,
       hasDesigner: !!data.assignedDesignerId,
       hasFirstDesigner: !!firstDesignerId,
       hasCeramist: false,
@@ -184,13 +178,11 @@ export async function createCase(formData: FormData) {
       data: {
         doctorId: doctor.id,
         ibarDesignerId: ibarDesigner?.id ?? null,
-        materialId: material.id,
-        metalTypeId: metalType?.id ?? null,
         ...pricing,
         units: { create: units },
+        materials: { create: lineInputs },
+        ...unitTotals(lineInputs),
         patientName: data.patientName,
-        unitsUpper: data.unitsUpper ?? null,
-        unitsLower: data.unitsLower ?? null,
         system: data.system,
         shade: data.shade,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
@@ -247,11 +239,7 @@ export async function assignDesigner(
 
     let fee = slot === "first" ? previous.firstDesignerFee : previous.designerFee;
     if (designerId && designerId !== currentId) {
-      const unitCount = (previous.unitsUpper ?? 0) + (previous.unitsLower ?? 0);
-      const material = previous.materialId
-        ? await prisma.material.findUnique({ where: { id: previous.materialId } })
-        : null;
-      fee = material ? material.designerFeePerUnit * unitCount : null;
+      fee = designerFeeFor(await pricedLinesForCase(caseId));
     } else if (!designerId) {
       fee = null;
     }
@@ -405,13 +393,7 @@ export async function assignCeramist(caseId: string, ceramistId: string | undefi
     if (resolvedId === caseRecord.ceramistId) return;
 
     let ceramistFee: number | null = null;
-    if (resolvedId) {
-      const unitCount = (caseRecord.unitsUpper ?? 0) + (caseRecord.unitsLower ?? 0);
-      const material = caseRecord.materialId
-        ? await prisma.material.findUnique({ where: { id: caseRecord.materialId } })
-        : null;
-      ceramistFee = material ? material.ceramistFeePerUnit * unitCount : null;
-    }
+    if (resolvedId) ceramistFee = ceramistFeeFor(await pricedLinesForCase(caseId));
 
     await prisma.case.update({
       where: { id: caseId },
@@ -565,13 +547,9 @@ export async function updateCase(formData: FormData) {
   const parsed = updateCaseSchema.safeParse({
     doctorId: formData.get("doctorId") ?? "",
     newDoctorName: emptyToUndefined(formData.get("newDoctorName")),
-    materialId: formData.get("materialId") ?? "",
-    metalTypeId: emptyToUndefined(formData.get("metalTypeId")),
     ibarDesignerId: emptyToUndefined(formData.get("ibarDesignerId")),
     newIbarDesignerName: emptyToUndefined(formData.get("newIbarDesignerName")),
     patientName: formData.get("patientName") ?? "",
-    unitsUpper: emptyToUndefined(formData.get("unitsUpper")),
-    unitsLower: emptyToUndefined(formData.get("unitsLower")),
     system: emptyToUndefined(formData.get("system")),
     shade: emptyToUndefined(formData.get("shade")),
     dueDate: emptyToUndefined(formData.get("dueDate")),
@@ -589,7 +567,10 @@ export async function updateCase(formData: FormData) {
 
   try {
     const previous = await requireVisibleCase(session, caseId);
+    const previousLines = await prisma.caseMaterial.findMany({ where: { caseId } });
     const units = parseUnits(formData);
+    const lineInputs = parseLineInputs(formData);
+    const pricedLines = await priceLines(lineInputs);
 
     const doctor =
       data.doctorId === "__new__"
@@ -611,22 +592,12 @@ export async function updateCase(formData: FormData) {
           ? await prisma.ibarDesigner.findUniqueOrThrow({ where: { id: data.ibarDesignerId } })
           : null;
 
-    const material = await prisma.material.findUniqueOrThrow({ where: { id: data.materialId } });
-    const metalType = data.metalTypeId
-      ? await prisma.metalType.findUniqueOrThrow({ where: { id: data.metalTypeId } })
-      : null;
-
-    const unitsUpper = data.unitsUpper ?? null;
-    const unitsLower = data.unitsLower ?? null;
 
     // Locked-in amounts are only recalculated when something that affects
     // money changed; correcting a name or a note leaves them alone.
     const pricingChanged =
-      previous.materialId !== material.id ||
-      previous.metalTypeId !== (metalType?.id ?? null) ||
+      linesKey(previousLines) !== linesKey(lineInputs) ||
       previous.ibarDesignerId !== (ibarDesigner?.id ?? null) ||
-      previous.unitsUpper !== unitsUpper ||
-      previous.unitsLower !== unitsLower ||
       previous.needsPhotogrammetry !== data.needsPhotogrammetry;
 
     // An ibar designer added before any design starts means the first
@@ -645,9 +616,7 @@ export async function updateCase(formData: FormData) {
 
     const pricing = pricingChanged
       ? computeCasePricing({
-          material,
-          metalCostPerUnit: metalType?.cost ?? null,
-          unitCount: (unitsUpper ?? 0) + (unitsLower ?? 0),
+          lines: pricedLines,
           hasDesigner: !!previous.assignedDesignerId,
           hasFirstDesigner: !!previous.firstDesignerId,
           hasCeramist: !!previous.ceramistId,
@@ -661,10 +630,8 @@ export async function updateCase(formData: FormData) {
       data: {
         doctorId: doctor.id,
         patientName: data.patientName,
-        unitsUpper,
-        unitsLower,
-        materialId: material.id,
-        metalTypeId: metalType?.id ?? null,
+        ...unitTotals(lineInputs),
+        materials: { deleteMany: {}, create: lineInputs },
         ibarDesignerId: ibarDesigner?.id ?? null,
         status,
         ibarDoneAt,

@@ -21,7 +21,7 @@ export default async function EditCasePage({
   const [caseRecord, doctors, ibarDesigners, materials, metalTypes] = await Promise.all([
     prisma.case.findUnique({
       where: { id },
-      include: { units: { orderBy: { createdAt: "asc" } } },
+      include: { units: { orderBy: { createdAt: "asc" } }, materials: { orderBy: { createdAt: "asc" } } },
     }),
     prisma.doctor.findMany({ orderBy: { name: "asc" } }),
     prisma.ibarDesigner.findMany({ orderBy: { name: "asc" } }),
@@ -65,10 +65,12 @@ export default async function EditCasePage({
           defaults={{
             doctorId: caseRecord.doctorId,
             patientName: caseRecord.patientName,
-            unitsUpper: caseRecord.unitsUpper,
-            unitsLower: caseRecord.unitsLower,
-            materialId: caseRecord.materialId,
-            metalTypeId: caseRecord.metalTypeId,
+            lines: caseRecord.materials.map((l) => ({
+              arch: l.arch,
+              materialId: l.materialId,
+              units: l.units,
+              metalTypeId: l.metalTypeId,
+            })),
             system: caseRecord.system,
             shade: caseRecord.shade,
             dueDate: caseRecord.dueDate,

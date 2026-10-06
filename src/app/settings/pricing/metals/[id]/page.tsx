@@ -20,7 +20,7 @@ export default async function EditMetalTypePage({
 
   const [metal, usedBy] = await Promise.all([
     prisma.metalType.findUnique({ where: { id } }),
-    prisma.case.count({ where: { metalTypeId: id } }),
+    prisma.case.count({ where: { materials: { some: { metalTypeId: id } } } }),
   ]);
   if (!metal) notFound();
 

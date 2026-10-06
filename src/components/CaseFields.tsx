@@ -1,15 +1,13 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { UnitCodesField } from "@/components/UnitCodesField";
+import { MaterialLinesField, type MaterialLineDefault } from "@/components/MaterialLinesField";
 
 type Option = { id: string; name: string };
 
 export type CaseFieldDefaults = {
   doctorId?: string;
   patientName?: string;
-  unitsUpper?: number | null;
-  unitsLower?: number | null;
-  materialId?: string | null;
-  metalTypeId?: string | null;
+  lines?: MaterialLineDefault[];
   system?: string | null;
   shade?: string | null;
   dueDate?: Date | null;
@@ -50,52 +48,6 @@ export function CaseFields({
             defaultId={defaults.doctorId}
           />
           <Field label="Patient" name="patientName" required defaultValue={defaults.patientName} />
-          <Field
-            label="Units (Upper)"
-            name="unitsUpper"
-            type="number"
-            defaultValue={defaults.unitsUpper ?? undefined}
-          />
-          <Field
-            label="Units (Lower)"
-            name="unitsLower"
-            type="number"
-            defaultValue={defaults.unitsLower ?? undefined}
-          />
-          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
-            Material
-            <select
-              name="materialId"
-              required
-              defaultValue={defaults.materialId ?? ""}
-              className={INPUT_CLASS}
-            >
-              <option value="" disabled>
-                {materials.length === 0 ? "No materials set up yet" : "Select material"}
-              </option>
-              {materials.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            {materials.length === 0 && (
-              <span className="text-xs font-normal text-amber-600">
-                Add materials and their rates in Pricing first.
-              </span>
-            )}
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
-            Metal
-            <select name="metalTypeId" defaultValue={defaults.metalTypeId ?? ""} className={INPUT_CLASS}>
-              <option value="">None</option>
-              {metalTypes.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <Field
             label="System"
             name="system"
@@ -139,6 +91,11 @@ export function CaseFields({
             </span>
           </label>
         </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Materials</h2>
+        <MaterialLinesField materials={materials} metalTypes={metalTypes} defaultLines={defaults.lines} />
       </div>
 
       <div>

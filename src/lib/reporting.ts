@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { materialSummary, metalSummary } from "@/lib/caseMaterials";
 
 export async function getReportCases() {
   return prisma.case.findMany({
     orderBy: { entryDate: "desc" },
     include: {
       doctor: true,
-      material: true,
-      metalType: true,
+      materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } },
       ceramist: true,
       ibarDesigner: true,
       assignedDesigner: true,
@@ -16,6 +16,15 @@ export async function getReportCases() {
 }
 
 export type ReportCase = Awaited<ReturnType<typeof getReportCases>>[number];
+
+// One-cell descriptions of a case's material lines, for tables and exports.
+export function caseMaterialsText(c: ReportCase): string {
+  return materialSummary(c.materials);
+}
+
+export function caseMetalsText(c: ReportCase): string {
+  return metalSummary(c.materials);
+}
 
 export function caseUnits(c: { unitsUpper: number | null; unitsLower: number | null }): number {
   return (c.unitsUpper ?? 0) + (c.unitsLower ?? 0);
