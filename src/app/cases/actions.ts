@@ -107,13 +107,13 @@ export async function createCase(formData: FormData) {
   const session = await requirePermission("case.create");
 
   const parsed = createCaseSchema.safeParse({
-    doctorId: formData.get("doctorId"),
+    doctorId: formData.get("doctorId") ?? "",
     newDoctorName: emptyToUndefined(formData.get("newDoctorName")),
-    materialId: formData.get("materialId"),
+    materialId: formData.get("materialId") ?? "",
     metalTypeId: emptyToUndefined(formData.get("metalTypeId")),
     ibarDesignerId: emptyToUndefined(formData.get("ibarDesignerId")),
     newIbarDesignerName: emptyToUndefined(formData.get("newIbarDesignerName")),
-    patientName: formData.get("patientName"),
+    patientName: formData.get("patientName") ?? "",
     unitsUpper: emptyToUndefined(formData.get("unitsUpper")),
     unitsLower: emptyToUndefined(formData.get("unitsLower")),
     system: emptyToUndefined(formData.get("system")),
@@ -563,13 +563,13 @@ export async function updateCase(formData: FormData) {
   const caseId = formData.get("caseId") as string;
 
   const parsed = updateCaseSchema.safeParse({
-    doctorId: formData.get("doctorId"),
+    doctorId: formData.get("doctorId") ?? "",
     newDoctorName: emptyToUndefined(formData.get("newDoctorName")),
-    materialId: formData.get("materialId"),
+    materialId: formData.get("materialId") ?? "",
     metalTypeId: emptyToUndefined(formData.get("metalTypeId")),
     ibarDesignerId: emptyToUndefined(formData.get("ibarDesignerId")),
     newIbarDesignerName: emptyToUndefined(formData.get("newIbarDesignerName")),
-    patientName: formData.get("patientName"),
+    patientName: formData.get("patientName") ?? "",
     unitsUpper: emptyToUndefined(formData.get("unitsUpper")),
     unitsLower: emptyToUndefined(formData.get("unitsLower")),
     system: emptyToUndefined(formData.get("system")),
