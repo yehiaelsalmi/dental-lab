@@ -4,9 +4,17 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import {
+  can,
+  requireAccess,
+  requirePermission,
+  requireVisibleCase,
+  toRoleAccess,
+} from "@/lib/access";
+import type { Permission } from "@/lib/permissions";
 import { createCaseFolder, uploadFileToDrive } from "@/lib/googleDrive";
 import {
+  notifyCeramistAssigned,
   notifyDesignerAssigned,
   notifyDesignerIbarDone,
   notifyLabLeadersAssigned,
@@ -15,8 +23,9 @@ import {
   notifyMatchingReady,
   notifyPhotogrammetryDone,
   notifyPhotogrammetryNeeded,
+  notifyStatusWatchers,
 } from "@/lib/notifications";
-import type { CaseFileType, ReviewDecision } from "@/lib/constants";
+import type { CaseFileType, CaseStatus, ReviewDecision } from "@/lib/constants";
 import { computeCasePricing } from "@/lib/pricing";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 
@@ -55,6 +64,14 @@ function parseUnits(formData: FormData): { code: string }[] {
     .map((code) => ({ code }));
 }
 
+// A designer or ceramist must be an active user whose role allows that work.
+async function assertCanWork(userId: string, permission: Permission, what: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
+  if (!user || !user.active || !toRoleAccess(user.role).permissions.has(permission)) {
+    throw new Error(`That person can't be assigned as ${what}.`);
+  }
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
@@ -87,7 +104,7 @@ async function attachFile(
 }
 
 export async function createCase(formData: FormData) {
-  const session = await requireRole("TECHNICIAN", "LAB_LEADER");
+  const session = await requirePermission("case.create");
 
   const parsed = createCaseSchema.safeParse({
     doctorId: formData.get("doctorId"),
@@ -147,6 +164,8 @@ export async function createCase(formData: FormData) {
 
     // A designer before the ibar only makes sense when there is an ibar.
     const firstDesignerId = ibarDesigner ? data.firstDesignerId : undefined;
+    if (data.assignedDesignerId) await assertCanWork(data.assignedDesignerId, "work.design", "a designer");
+    if (firstDesignerId) await assertCanWork(firstDesignerId, "work.design", "a designer");
 
     const pricing = computeCasePricing({
       material,
@@ -182,12 +201,12 @@ export async function createCase(formData: FormData) {
         firstDesignerId: firstDesignerId ?? null,
         driveFolderId: folder.id,
         driveFolderUrl: folder.url,
-        createdById: session.user.id,
+        createdById: session.userId,
       },
     });
 
     if (scanFile instanceof File && scanFile.size > 0) {
-      await attachFile(created.id, folder.id, scanFile, "SCAN", session.user.id);
+      await attachFile(created.id, folder.id, scanFile, "SCAN", session.userId);
     }
 
     if (data.needsPhotogrammetry) {
@@ -199,8 +218,9 @@ export async function createCase(formData: FormData) {
     const startsWith = ibarDesigner ? firstDesignerId : data.assignedDesignerId;
     if (startsWith) {
       await notifyDesignerAssigned(created.id, startsWith, data.patientName);
-      await notifyLabLeadersAssigned(created.id, data.patientName, startsWith, session.user.id);
+      await notifyLabLeadersAssigned(created.id, data.patientName, startsWith, session.userId);
     }
+    await notifyStatusWatchers(created.id, data.patientName, "READY_FOR_DESIGN", session.userId);
 
     createdId = created.id;
   } catch (error) {
@@ -218,11 +238,12 @@ export async function assignDesigner(
   designerId: string | null,
   slot: "first" | "second" = "second"
 ) {
-  const session = await requireRole("LAB_LEADER", "TECHNICIAN");
+  const session = await requirePermission("case.assign");
 
   try {
-    const previous = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const previous = await requireVisibleCase(session, caseId);
     const currentId = slot === "first" ? previous.firstDesignerId : previous.assignedDesignerId;
+    if (designerId) await assertCanWork(designerId, "work.design", "a designer");
 
     let fee = slot === "first" ? previous.firstDesignerFee : previous.designerFee;
     if (designerId && designerId !== currentId) {
@@ -251,7 +272,7 @@ export async function assignDesigner(
         : !isBeforeIbar(previous);
     if (designerId && designerId !== currentId && theirTurn) {
       await notifyDesignerAssigned(caseId, designerId, previous.patientName);
-      await notifyLabLeadersAssigned(caseId, previous.patientName, designerId, session.user.id);
+      await notifyLabLeadersAssigned(caseId, previous.patientName, designerId, session.userId);
     }
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
@@ -261,11 +282,11 @@ export async function assignDesigner(
 }
 
 export async function startDesign(caseId: string) {
-  const session = await requireRole("DESIGNER");
+  const session = await requirePermission("work.design");
 
   try {
-    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
-    if (activeDesignerId(caseRecord) !== session.user.id) {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    if (activeDesignerId(caseRecord) !== session.userId) {
       throw new Error("This case isn't assigned to you.");
     }
     if (caseRecord.status !== "READY_FOR_DESIGN") {
@@ -276,6 +297,7 @@ export async function startDesign(caseId: string) {
       where: { id: caseId },
       data: { status: "IN_DESIGN" },
     });
+    await notifyStatusWatchers(caseId, caseRecord.patientName, "IN_DESIGN", session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -284,11 +306,11 @@ export async function startDesign(caseId: string) {
 }
 
 export async function submitForReview(caseId: string, formData: FormData) {
-  const session = await requireRole("DESIGNER");
+  const session = await requirePermission("work.design");
 
   try {
-    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
-    if (activeDesignerId(caseRecord) !== session.user.id) {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    if (activeDesignerId(caseRecord) !== session.userId) {
       throw new Error("This case isn't assigned to you.");
     }
     if (!["IN_DESIGN", "CHANGES_REQUESTED"].includes(caseRecord.status)) {
@@ -303,17 +325,16 @@ export async function submitForReview(caseId: string, formData: FormData) {
       throw new Error("Attach the design file before submitting for review.");
     }
 
-    await attachFile(caseId, caseRecord.driveFolderId, designFile, "DESIGN", session.user.id);
+    await attachFile(caseId, caseRecord.driveFolderId, designFile, "DESIGN", session.userId);
 
     // A case with someone named for matching goes there first; a Technician
     // or Lab Leader sends it on to review when matching is done. The design
     // before the ibar always goes straight to review.
     const beforeIbar = isBeforeIbar(caseRecord);
     const matchingBy = beforeIbar ? undefined : caseRecord.matchingBy?.trim();
-    await prisma.case.update({
-      where: { id: caseId },
-      data: { status: matchingBy ? "MATCHING" : "WAITING_FOR_REVIEW" },
-    });
+    const next: CaseStatus = matchingBy ? "MATCHING" : "WAITING_FOR_REVIEW";
+    await prisma.case.update({ where: { id: caseId }, data: { status: next } });
+    await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
 
     if (matchingBy) {
       await notifyMatchingReady(caseId, caseRecord.patientName, matchingBy);
@@ -336,10 +357,10 @@ export async function reviewCase(
   decision: ReviewDecision,
   comment: string | undefined
 ) {
-  const session = await requireRole("LAB_LEADER");
+  const session = await requirePermission("case.review");
 
   try {
-    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const caseRecord = await requireVisibleCase(session, caseId);
     if (caseRecord.status !== "WAITING_FOR_REVIEW") {
       throw new Error("This case is not waiting for review.");
     }
@@ -349,22 +370,19 @@ export async function reviewCase(
         caseId,
         decision,
         comment,
-        reviewedById: session.user.id,
+        reviewedById: session.userId,
       },
     });
 
-    await prisma.case.update({
-      where: { id: caseId },
-      // Approving the design before the ibar sends the case to the ibar designer.
-      data: {
-        status:
-          decision !== "APPROVED"
-            ? "CHANGES_REQUESTED"
-            : isBeforeIbar(caseRecord)
-              ? "IBAR_DESIGN"
-              : "MILLING",
-      },
-    });
+    // Approving the design before the ibar sends the case to the ibar designer.
+    const next: CaseStatus =
+      decision !== "APPROVED"
+        ? "CHANGES_REQUESTED"
+        : isBeforeIbar(caseRecord)
+          ? "IBAR_DESIGN"
+          : "MILLING";
+    await prisma.case.update({ where: { id: caseId }, data: { status: next } });
+    await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -372,32 +390,19 @@ export async function reviewCase(
   revalidatePath(`/cases/${caseId}`);
 }
 
-export async function assignCeramist(
-  caseId: string,
-  ceramistId: string | undefined,
-  newCeramistName: string | undefined
-) {
-  await requireRole("LAB_LEADER", "TECHNICIAN");
+export async function assignCeramist(caseId: string, ceramistId: string | undefined) {
+  const session = await requirePermission("case.assign");
 
   try {
-    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const caseRecord = await requireVisibleCase(session, caseId);
     if (!CERAMIST_ASSIGNABLE_STATUSES.includes(caseRecord.status)) {
       throw new Error("The ceramist can be assigned once the design has been submitted.");
     }
 
-    let resolvedId: string | null = null;
-    if (ceramistId === "__new__") {
-      const name = newCeramistName?.trim();
-      if (!name) throw new Error("Enter the new ceramist's name.");
-      const ceramist = await prisma.ceramist.upsert({
-        where: { name },
-        create: { name },
-        update: {},
-      });
-      resolvedId = ceramist.id;
-    } else if (ceramistId) {
-      resolvedId = (await prisma.ceramist.findUniqueOrThrow({ where: { id: ceramistId } })).id;
-    }
+    const resolvedId = ceramistId || null;
+    if (resolvedId) await assertCanWork(resolvedId, "work.ceramist", "a ceramist");
+    // Changing nothing keeps the fee that was locked when they were assigned.
+    if (resolvedId === caseRecord.ceramistId) return;
 
     let ceramistFee: number | null = null;
     if (resolvedId) {
@@ -412,6 +417,7 @@ export async function assignCeramist(
       where: { id: caseId },
       data: { ceramistId: resolvedId, ceramistFee },
     });
+    if (resolvedId) await notifyCeramistAssigned(caseId, resolvedId, caseRecord.patientName);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -420,14 +426,15 @@ export async function assignCeramist(
 }
 
 export async function markDelivered(caseId: string) {
-  await requireRole("LAB_LEADER", "TECHNICIAN");
+  const session = await requirePermission("case.deliver");
 
   try {
-    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const caseRecord = await requireVisibleCase(session, caseId);
     if (caseRecord.status !== "COMPLETED") {
       throw new Error("Only completed cases can be marked as delivered.");
     }
     await prisma.case.update({ where: { id: caseId }, data: { status: "DELIVERED" } });
+    await notifyStatusWatchers(caseId, caseRecord.patientName, "DELIVERED", session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -438,19 +445,24 @@ export async function markDelivered(caseId: string) {
 
 // Milling -> Stain & Glaze -> Completed.
 export async function advanceProduction(caseId: string) {
-  await requireRole("LAB_LEADER", "TECHNICIAN");
+  const session = await requireAccess();
 
   try {
-    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
-    const next =
+    const caseRecord = await requireVisibleCase(session, caseId);
+    const next: CaseStatus | null =
       caseRecord.status === "MILLING"
         ? "STAIN_AND_GLAZE"
         : caseRecord.status === "STAIN_AND_GLAZE"
           ? "COMPLETED"
           : null;
     if (!next) throw new Error("This case isn't in milling or stain & glaze.");
+    // Each step has its own permission (e.g. a Milling role vs a Ceramist role).
+    if (!can(session, caseRecord.status === "MILLING" ? "case.milling" : "case.stainGlaze")) {
+      throw new Error("You don't have permission for this step.");
+    }
 
     await prisma.case.update({ where: { id: caseId }, data: { status: next } });
+    await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -461,23 +473,24 @@ export async function advanceProduction(caseId: string) {
 
 // Ibar Design -> Ready for Design, handing the case to the second designer.
 export async function completeIbar(caseId: string, formData: FormData) {
-  const session = await requireRole("LAB_LEADER", "TECHNICIAN");
+  const session = await requirePermission("case.ibar");
 
   try {
-    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const caseRecord = await requireVisibleCase(session, caseId);
     if (caseRecord.status !== "IBAR_DESIGN") throw new Error("This case isn't in ibar design.");
 
     const file = formData.get("ibarFile");
     if (file instanceof File && file.size > 0) {
       if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
-      await attachFile(caseId, caseRecord.driveFolderId, file, "IBAR", session.user.id);
+      await attachFile(caseId, caseRecord.driveFolderId, file, "IBAR", session.userId);
     }
 
     await prisma.case.update({
       where: { id: caseId },
       data: { status: "READY_FOR_DESIGN", ibarDoneAt: new Date() },
     });
-    await handOffAfterIbar(caseRecord, session.user.id);
+    await handOffAfterIbar(caseRecord, session.userId);
+    await notifyStatusWatchers(caseId, caseRecord.patientName, "READY_FOR_DESIGN", session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -496,14 +509,15 @@ async function handOffAfterIbar(
 }
 
 export async function completeMatching(caseId: string) {
-  const session = await requireRole("LAB_LEADER", "TECHNICIAN");
+  const session = await requirePermission("case.matching");
 
   try {
-    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const caseRecord = await requireVisibleCase(session, caseId);
     if (caseRecord.status !== "MATCHING") throw new Error("This case isn't in matching.");
 
     await prisma.case.update({ where: { id: caseId }, data: { status: "WAITING_FOR_REVIEW" } });
-    await notifyLabLeadersMatchingDone(caseId, caseRecord.patientName, session.user.id);
+    await notifyLabLeadersMatchingDone(caseId, caseRecord.patientName, session.userId);
+    await notifyStatusWatchers(caseId, caseRecord.patientName, "WAITING_FOR_REVIEW", session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -514,10 +528,10 @@ export async function completeMatching(caseId: string) {
 
 // Photogrammetry runs alongside the main flow; it doesn't change the status.
 export async function markPhotogrammetryDone(caseId: string, formData: FormData) {
-  const session = await requireRole("PHOTOGRAMMETRY", "LAB_LEADER", "TECHNICIAN");
+  const session = await requirePermission("case.photogrammetry");
 
   try {
-    const caseRecord = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const caseRecord = await requireVisibleCase(session, caseId);
     if (!caseRecord.needsPhotogrammetry) {
       throw new Error("This case doesn't need photogrammetry.");
     }
@@ -526,11 +540,14 @@ export async function markPhotogrammetryDone(caseId: string, formData: FormData)
     const file = formData.get("photogrammetryFile");
     if (file instanceof File && file.size > 0) {
       if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
-      await attachFile(caseId, caseRecord.driveFolderId, file, "PHOTOGRAMMETRY", session.user.id);
+      await attachFile(caseId, caseRecord.driveFolderId, file, "PHOTOGRAMMETRY", session.userId);
     }
 
-    await prisma.case.update({ where: { id: caseId }, data: { photogrammetryDoneAt: new Date() } });
-    await notifyPhotogrammetryDone(caseId, caseRecord.patientName, session.user.id);
+    await prisma.case.update({
+      where: { id: caseId },
+      data: { photogrammetryDoneAt: new Date(), photogrammetryDoneById: session.userId },
+    });
+    await notifyPhotogrammetryDone(caseId, caseRecord.patientName, session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -542,7 +559,7 @@ export async function markPhotogrammetryDone(caseId: string, formData: FormData)
 const updateCaseSchema = createCaseSchema.omit({ assignedDesignerId: true });
 
 export async function updateCase(formData: FormData) {
-  const session = await requireRole("TECHNICIAN", "LAB_LEADER");
+  const session = await requirePermission("case.edit");
   const caseId = formData.get("caseId") as string;
 
   const parsed = updateCaseSchema.safeParse({
@@ -571,7 +588,7 @@ export async function updateCase(formData: FormData) {
   const data = parsed.data;
 
   try {
-    const previous = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const previous = await requireVisibleCase(session, caseId);
     const units = parseUnits(formData);
 
     const doctor =
@@ -658,7 +675,7 @@ export async function updateCase(formData: FormData) {
         matchingBy: data.matchingBy || null,
         needsPhotogrammetry: data.needsPhotogrammetry,
         // Unticking clears "done", so ticking it again starts fresh.
-        ...(data.needsPhotogrammetry ? {} : { photogrammetryDoneAt: null }),
+        ...(data.needsPhotogrammetry ? {} : { photogrammetryDoneAt: null, photogrammetryDoneById: null }),
         units: { deleteMany: {}, create: units },
         ...pricing,
       },
@@ -670,8 +687,11 @@ export async function updateCase(formData: FormData) {
     if (previous.status === "IBAR_DESIGN" && status === "READY_FOR_DESIGN") {
       await handOffAfterIbar(
         { id: caseId, patientName: data.patientName, assignedDesignerId: previous.assignedDesignerId },
-        session.user.id
+        session.userId
       );
+    }
+    if (status !== previous.status) {
+      await notifyStatusWatchers(caseId, data.patientName, status as CaseStatus, session.userId);
     }
   } catch (error) {
     redirect(`/cases/${caseId}/edit?error=${encodeURIComponent(errorMessage(error))}`);
@@ -683,10 +703,11 @@ export async function updateCase(formData: FormData) {
 }
 
 export async function deleteCase(formData: FormData) {
-  await requireRole("LAB_LEADER");
+  const session = await requirePermission("case.delete");
   const caseId = formData.get("caseId") as string;
 
   try {
+    await requireVisibleCase(session, caseId);
     await prisma.case.delete({ where: { id: caseId } });
   } catch (error) {
     redirect(`/cases/${caseId}/edit?error=${encodeURIComponent(errorMessage(error))}`);

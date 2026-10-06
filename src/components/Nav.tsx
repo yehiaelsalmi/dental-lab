@@ -1,18 +1,36 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { auth } from "@/auth";
+import { can, getAccess, type Access } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
-import { SidebarNav } from "@/components/SidebarNav";
+import { SidebarNav, type NavHref } from "@/components/SidebarNav";
 import { SignOutButton } from "@/components/SignOutButton";
 import { MobileMenu } from "@/components/MobileMenu";
 
-export async function Nav() {
-  const session = await auth();
-  if (!session?.user) return null;
+function visibleLinks(access: Access): NavHref[] {
+  const links: [NavHref, boolean][] = [
+    ["/cases", true],
+    // Leaders who see all money use Reports instead.
+    ["/earnings", can(access, "money.viewOwn") && !can(access, "money.viewAll")],
+    ["/designers", can(access, "page.designers")],
+    ["/ceramists", can(access, "page.ceramists")],
+    ["/reports", can(access, "page.reports")],
+    ["/invoices", can(access, "page.invoices")],
+    ["/users", can(access, "page.users")],
+    ["/settings/roles", can(access, "page.roles")],
+    ["/settings/pricing", can(access, "page.pricing")],
+    ["/settings/google", can(access, "page.drive")],
+  ];
+  return links.filter(([, ok]) => ok).map(([href]) => href);
+}
 
-  const { role, email } = session.user;
-  const name = session.user.name ?? email ?? "?";
+export async function Nav() {
+  const access = await getAccess();
+  if (!access) return null;
+
+  const { email } = access;
+  const name = access.name || email || "?";
+  const show = visibleLinks(access);
   const initials = name
     .split(" ")
     .map((part) => part[0])
@@ -21,7 +39,7 @@ export async function Nav() {
     .toUpperCase();
 
   const unreadCount = await prisma.notification.count({
-    where: { userId: session.user.id, read: false },
+    where: { userId: access.userId, read: false },
   });
 
   const logo = (
@@ -75,7 +93,7 @@ export async function Nav() {
         <div className="flex min-w-0 items-center gap-1">
           <MobileMenu>
             <div className="flex-1 py-2">
-              <SidebarNav role={role} />
+              <SidebarNav show={show} />
             </div>
             {account}
           </MobileMenu>
@@ -91,7 +109,7 @@ export async function Nav() {
           {bell}
         </div>
         <div className="flex-1 overflow-y-auto py-4">
-          <SidebarNav role={role} />
+          <SidebarNav show={show} />
         </div>
         {account}
       </aside>

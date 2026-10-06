@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/session";
+import { requireAccess } from "@/lib/access";
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
@@ -12,7 +12,7 @@ const changePasswordSchema = z.object({
 });
 
 export async function changePassword(formData: FormData) {
-  const session = await requireSession();
+  const session = await requireAccess();
 
   const parsed = changePasswordSchema.safeParse({
     currentPassword: formData.get("currentPassword"),
@@ -23,7 +23,7 @@ export async function changePassword(formData: FormData) {
     redirect(`/account?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   }
 
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.userId } });
   const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
   if (!valid) {
     redirect("/account?error=Current password is incorrect");

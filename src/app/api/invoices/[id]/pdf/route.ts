@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { LAB_NAME } from "@/lib/constants";
 import {
@@ -28,7 +28,7 @@ function monthLabel(date: Date) {
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.invoices");
   const { id } = await params;
 
   const invoice = await prisma.invoice.findUnique({

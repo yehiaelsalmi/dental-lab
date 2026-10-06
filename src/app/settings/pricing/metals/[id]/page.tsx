@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { RateInput } from "@/components/RateInput";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { deleteMetalType, updateMetalType } from "../../actions";
@@ -14,7 +14,7 @@ export default async function EditMetalTypePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.pricing");
   const { id } = await params;
   const { error } = await searchParams;
 

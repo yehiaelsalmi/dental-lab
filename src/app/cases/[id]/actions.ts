@@ -45,8 +45,7 @@ export async function requestChangesAction(formData: FormData) {
 export async function assignCeramistAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
   const ceramistId = (formData.get("ceramistId") as string) || undefined;
-  const newName = (formData.get("newCeramistName") as string) || undefined;
-  await assignCeramist(caseId, ceramistId, newName);
+  await assignCeramist(caseId, ceramistId);
 }
 
 export async function markDeliveredAction(formData: FormData) {

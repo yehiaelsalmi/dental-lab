@@ -2,26 +2,41 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Users, Cloud, Tag, FileSpreadsheet, Receipt, PenTool, Brush } from "lucide-react";
-import type { Role } from "@/lib/constants";
+import {
+  LayoutGrid,
+  Users,
+  Cloud,
+  Tag,
+  FileSpreadsheet,
+  Receipt,
+  PenTool,
+  Brush,
+  ShieldCheck,
+  Wallet,
+} from "lucide-react";
 
+// `show` is decided on the server from the user's role permissions.
 const LINKS = [
-  { href: "/cases", label: "Cases", icon: LayoutGrid, roles: ["TECHNICIAN", "DESIGNER", "LAB_LEADER", "PHOTOGRAMMETRY"] },
-  { href: "/designers", label: "Designers", icon: PenTool, roles: ["LAB_LEADER"] },
-  { href: "/ceramists", label: "Ceramists", icon: Brush, roles: ["LAB_LEADER"] },
-  { href: "/reports", label: "Reports", icon: FileSpreadsheet, roles: ["LAB_LEADER"] },
-  { href: "/invoices", label: "Invoices", icon: Receipt, roles: ["LAB_LEADER"] },
-  { href: "/users", label: "Users", icon: Users, roles: ["LAB_LEADER"] },
-  { href: "/settings/pricing", label: "Pricing", icon: Tag, roles: ["LAB_LEADER"] },
-  { href: "/settings/google", label: "Drive Settings", icon: Cloud, roles: ["LAB_LEADER"] },
+  { href: "/cases", label: "Cases", icon: LayoutGrid },
+  { href: "/earnings", label: "My earnings", icon: Wallet },
+  { href: "/designers", label: "Designers", icon: PenTool },
+  { href: "/ceramists", label: "Ceramists", icon: Brush },
+  { href: "/reports", label: "Reports", icon: FileSpreadsheet },
+  { href: "/invoices", label: "Invoices", icon: Receipt },
+  { href: "/users", label: "Users", icon: Users },
+  { href: "/settings/roles", label: "Roles", icon: ShieldCheck },
+  { href: "/settings/pricing", label: "Pricing", icon: Tag },
+  { href: "/settings/google", label: "Drive Settings", icon: Cloud },
 ] as const;
 
-export function SidebarNav({ role }: { role: Role }) {
+export type NavHref = (typeof LINKS)[number]["href"];
+
+export function SidebarNav({ show }: { show: NavHref[] }) {
   const pathname = usePathname();
 
   return (
     <nav className="flex flex-col gap-1 px-3">
-      {LINKS.filter((l) => (l.roles as readonly string[]).includes(role)).map((link) => {
+      {LINKS.filter((l) => show.includes(l.href)).map((link) => {
         const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
         const Icon = link.icon;
         return (

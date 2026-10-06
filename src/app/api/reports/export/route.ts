@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { getReportCases, allBreakdowns } from "@/lib/reporting";
 import { buildReportExcelBuffer, buildReportPdfBuffer } from "@/lib/reportExport";
 
@@ -8,7 +8,7 @@ function dateStamp() {
 }
 
 export async function GET(request: NextRequest) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.reports");
 
   const format = request.nextUrl.searchParams.get("format");
   const cases = await getReportCases();

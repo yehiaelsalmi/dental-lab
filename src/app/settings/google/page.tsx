@@ -1,5 +1,5 @@
 import { Cloud, CloudOff, FolderOpen, TriangleAlert } from "lucide-react";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { getRootFolderInfo, hasDriveAccess, isGoogleDriveConnected } from "@/lib/googleDrive";
 import { createRootFolderAction } from "./actions";
 
@@ -8,7 +8,7 @@ export default async function GoogleSettingsPage({
 }: {
   searchParams: Promise<{ error?: string; saved?: string }>;
 }) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.drive");
   const { error, saved } = await searchParams;
 
   const connected = await isGoogleDriveConnected();

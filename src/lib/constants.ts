@@ -1,6 +1,3 @@
-export const ROLES = ["TECHNICIAN", "DESIGNER", "LAB_LEADER", "PHOTOGRAMMETRY"] as const;
-export type Role = (typeof ROLES)[number];
-
 export const CASE_STATUSES = [
   "IBAR_DESIGN",
   "READY_FOR_DESIGN",

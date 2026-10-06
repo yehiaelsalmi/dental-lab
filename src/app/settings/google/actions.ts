@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { ensureRootFolder } from "@/lib/googleDrive";
 
 function errorMessage(error: unknown): string {
@@ -9,7 +9,7 @@ function errorMessage(error: unknown): string {
 }
 
 export async function createRootFolderAction() {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.drive");
 
   try {
     await ensureRootFolder();

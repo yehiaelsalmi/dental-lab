@@ -1,13 +1,13 @@
 import { BellOff } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/session";
+import { requireAccess } from "@/lib/access";
 import { markAllNotificationsRead, openNotification } from "./actions";
 
 export default async function NotificationsPage() {
-  const session = await requireSession();
+  const session = await requireAccess();
 
   const notifications = await prisma.notification.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.userId },
     orderBy: { createdAt: "desc" },
     take: 50,
   });

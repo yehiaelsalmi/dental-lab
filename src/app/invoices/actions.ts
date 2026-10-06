@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { caseUnits } from "@/lib/reporting";
 
 function errorMessage(error: unknown): string {
@@ -20,7 +20,7 @@ const generateSchema = z.object({
 });
 
 export async function generateInvoice(formData: FormData) {
-  const session = await requireRole("LAB_LEADER");
+  const session = await requirePermission("page.invoices");
 
   const parsed = generateSchema.safeParse({
     doctorId: formData.get("doctorId"),
@@ -58,7 +58,7 @@ export async function generateInvoice(formData: FormData) {
         periodStart,
         periodEnd,
         totalAmount,
-        generatedById: session.user.id,
+        generatedById: session.userId,
         lines: {
           create: cases.map((c) => ({
             patientName: c.patientName,
@@ -77,7 +77,7 @@ export async function generateInvoice(formData: FormData) {
 }
 
 export async function deleteInvoice(formData: FormData) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.invoices");
 
   const invoiceId = formData.get("invoiceId") as string;
   await prisma.invoice.delete({ where: { id: invoiceId } });

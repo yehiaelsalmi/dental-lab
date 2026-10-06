@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { can, canViewCase, requirePermission } from "@/lib/access";
 import { CaseFields } from "@/components/CaseFields";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { deleteCase, updateCase } from "../../actions";
@@ -14,7 +14,7 @@ export default async function EditCasePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  const session = await requireRole("TECHNICIAN", "LAB_LEADER");
+  const access = await requirePermission("case.edit");
   const { id } = await params;
   const { error } = await searchParams;
 
@@ -28,7 +28,7 @@ export default async function EditCasePage({
     prisma.material.findMany({ orderBy: { name: "asc" } }),
     prisma.metalType.findMany({ orderBy: { name: "asc" } }),
   ]);
-  if (!caseRecord) notFound();
+  if (!caseRecord || !canViewCase(access, caseRecord)) notFound();
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-10">
@@ -105,7 +105,7 @@ export default async function EditCasePage({
         </div>
       </form>
 
-      {session.user.role === "LAB_LEADER" && (
+      {can(access, "case.delete") && (
         <section className="mt-8 rounded-xl border border-rose-200 bg-rose-50/50 p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Delete this case</h2>
           <p className="mb-3 text-sm text-slate-500">

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { getGoogleAuthUrl } from "@/lib/googleDrive";
 
 export async function GET() {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.drive");
   return NextResponse.redirect(getGoogleAuthUrl());
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/session";
+import { requirePermission, usersWithPermission } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { formatEGP } from "@/lib/money";
 import type { CaseStatus } from "@/lib/constants";
@@ -8,13 +8,16 @@ import { StatusBadge } from "@/components/StatusBadge";
 const FINISHED_STATUSES = ["COMPLETED", "DELIVERED"];
 
 export default async function CeramistsPage() {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.ceramists");
 
-  const [ceramists, waitingCount] = await Promise.all([
-    prisma.ceramist.findMany({
+  // Ceramists are users whose role can be assigned as ceramist.
+  const ceramistIds = (await usersWithPermission("work.ceramist")).map((u) => u.id);
+  const [ceramistUsers, waitingCount] = await Promise.all([
+    prisma.user.findMany({
+      where: { id: { in: ceramistIds } },
       orderBy: { name: "asc" },
       include: {
-        cases: {
+        casesAsCeramist: {
           orderBy: { createdAt: "desc" },
           include: { doctor: true },
         },
@@ -23,7 +26,8 @@ export default async function CeramistsPage() {
     prisma.case.count({ where: { ceramistId: null, status: "STAIN_AND_GLAZE" } }),
   ]);
 
-  const rows = ceramists
+  const rows = ceramistUsers
+    .map(({ casesAsCeramist, ...ceramist }) => ({ ...ceramist, cases: casesAsCeramist }))
     .map((ceramist) => {
       const open = ceramist.cases.filter((c) => !FINISHED_STATUSES.includes(c.status));
       const fees = ceramist.cases.reduce((sum, c) => sum + (c.ceramistFee ?? 0), 0);
@@ -109,7 +113,7 @@ export default async function CeramistsPage() {
         ))}
         {rows.length === 0 && (
           <p className="rounded-xl border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-400">
-            No ceramists yet. They are added when you assign one on a case.
+            No ceramist accounts yet. Add users with a role that can be assigned as ceramist (for example the Ceramist role).
           </p>
         )}
       </div>

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 
 function errorMessage(error: unknown): string {
   if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
@@ -45,7 +45,7 @@ function parseMaterial(formData: FormData) {
 }
 
 export async function createMaterial(formData: FormData) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.pricing");
 
   const parsed = parseMaterial(formData);
   if (!parsed.success) {
@@ -62,7 +62,7 @@ export async function createMaterial(formData: FormData) {
 }
 
 export async function updateMaterial(formData: FormData) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.pricing");
   const id = formData.get("id") as string;
   const back = `/settings/pricing/materials/${id}`;
 
@@ -93,7 +93,7 @@ export async function updateMaterial(formData: FormData) {
 }
 
 export async function deleteMaterial(formData: FormData) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.pricing");
   const id = formData.get("id") as string;
 
   const used = await prisma.case.count({ where: { materialId: id } });
@@ -120,7 +120,7 @@ function parseMetal(formData: FormData) {
 }
 
 export async function createMetalType(formData: FormData) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.pricing");
 
   const parsed = parseMetal(formData);
   if (!parsed.success) {
@@ -137,7 +137,7 @@ export async function createMetalType(formData: FormData) {
 }
 
 export async function updateMetalType(formData: FormData) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.pricing");
   const id = formData.get("id") as string;
   const back = `/settings/pricing/metals/${id}`;
 
@@ -157,7 +157,7 @@ export async function updateMetalType(formData: FormData) {
 }
 
 export async function deleteMetalType(formData: FormData) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.pricing");
   const id = formData.get("id") as string;
 
   const used = await prisma.case.count({ where: { metalTypeId: id } });

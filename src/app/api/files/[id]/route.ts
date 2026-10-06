@@ -1,30 +1,20 @@
 import { Readable } from "node:stream";
-import { auth } from "@/auth";
+import { canViewCase, getAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { downloadFileStream } from "@/lib/googleDrive";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) return new Response("Unauthorized", { status: 401 });
+  const access = await getAccess();
+  if (!access) return new Response("Unauthorized", { status: 401 });
 
   const { id } = await params;
   const file = await prisma.caseFile.findUnique({
     where: { id },
-    include: {
-      case: { select: { assignedDesignerId: true, firstDesignerId: true, needsPhotogrammetry: true } },
-    },
+    include: { case: true },
   });
   if (!file) return new Response("Not found", { status: 404 });
 
-  const { role, id: userId } = session.user;
-  if (
-    (role === "DESIGNER" &&
-      file.case.assignedDesignerId !== userId &&
-      file.case.firstDesignerId !== userId) ||
-    (role === "PHOTOGRAMMETRY" && !file.case.needsPhotogrammetry)
-  ) {
-    return new Response("Forbidden", { status: 403 });
-  }
+  if (!canViewCase(access, file.case)) return new Response("Forbidden", { status: 403 });
 
   let stream: Readable;
   try {

@@ -1,7 +1,8 @@
 // Prisma schema for the dental lab case management system
 //
-// SQLite has no native enum type, so Role/CaseStatus/CaseFileType/ReviewDecision
-// are plain strings constrained at the application layer — see src/lib/constants.ts.
+// SQLite has no native enum type, so CaseStatus/CaseFileType/ReviewDecision are
+// plain strings constrained at the application layer (src/lib/constants.ts).
+// Role permissions are JSON string arrays checked in src/lib/access.ts.
 
 generator client {
   provider = "prisma-client-js"
@@ -17,13 +18,16 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
-  role         String
+  roleId       String
+  role         Role     @relation(fields: [roleId], references: [id])
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
   casesCreated  Case[]         @relation("CreatedBy")
   casesAssigned Case[]         @relation("AssignedDesigner")
   casesFirstDesigned Case[]    @relation("FirstDesigner")
+  casesAsCeramist    Case[]    @relation("CaseCeramist")
+  photogrammetryDone Case[]    @relation("PhotogrammetryDoneBy")
   filesUploaded CaseFile[]
   reviews       CaseReview[]
   notifications Notification[]
@@ -39,12 +43,21 @@ model Doctor {
   invoices Invoice[]
 }
 
-model Ceramist {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
+// Managed by the Lab Leader on the Roles page. `key` marks the built-in roles;
+// the LAB_LEADER role always has every permission and can't be edited.
+model Role {
+  id              String   @id @default(cuid())
+  key             String?  @unique
+  name            String   @unique
+  // JSON string arrays: permission keys, visible statuses (empty = all) and
+  // the events that notify this role (statuses or PHOTOGRAMMETRY_NEEDED).
+  permissions     String   @default("[]")
+  caseScope       String   @default("ALL")
+  visibleStatuses String   @default("[]")
+  notifyOn        String   @default("[]")
+  createdAt       DateTime @default(now())
 
-  cases Case[]
+  users User[]
 }
 
 model IbarDesigner {
@@ -101,14 +114,18 @@ model Case {
   matchingBy           String?
   needsPhotogrammetry  Boolean   @default(false)
   photogrammetryDoneAt DateTime?
+  // Whoever marked photogrammetry done; they're credited the photogrammetry cost.
+  photogrammetryDoneById String?
+  photogrammetryDoneBy   User?   @relation("PhotogrammetryDoneBy", fields: [photogrammetryDoneById], references: [id])
   driveFolderId  String?
   driveFolderUrl String?
 
   doctorId String
   doctor   Doctor @relation(fields: [doctorId], references: [id])
 
+  // The ceramist is a user whose role can be assigned as ceramist.
   ceramistId String?
-  ceramist   Ceramist? @relation(fields: [ceramistId], references: [id])
+  ceramist   User?   @relation("CaseCeramist", fields: [ceramistId], references: [id])
 
   ibarDesignerId String?
   ibarDesigner   IbarDesigner? @relation(fields: [ibarDesignerId], references: [id])

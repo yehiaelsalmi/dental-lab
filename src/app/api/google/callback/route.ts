@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { exchangeCodeForRefreshToken } from "@/lib/googleDrive";
 
 export async function GET(request: NextRequest) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.drive");
 
   const code = request.nextUrl.searchParams.get("code");
   if (!code) {

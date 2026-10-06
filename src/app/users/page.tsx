@@ -1,21 +1,49 @@
+import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
-import { ROLES } from "@/lib/constants";
-import { createUser, toggleUserActiveAction } from "./actions";
+import { can, requirePermission } from "@/lib/access";
+import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
+import { changeUserRoleAction, createUser, toggleUserActiveAction } from "./actions";
 
-export default async function UsersPage() {
-  await requireRole("LAB_LEADER");
+const SELECT_CLASS =
+  "rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
 
-  const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const access = await requirePermission("page.users");
+  const { error } = await searchParams;
+
+  const [users, roles] = await Promise.all([
+    prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.role.findMany({ orderBy: { name: "asc" } }),
+  ]);
+  const roleOptions = roles.map((r) => ({ value: r.id, label: r.name }));
+  const defaultRoleId = roles.find((r) => r.key === "DESIGNER")?.id ?? roles[0]?.id ?? "";
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Users</h1>
-      <p className="mb-6 text-sm text-slate-500">Manage who can sign in to the lab system.</p>
+      <p className="mb-6 text-sm text-slate-500">
+        Manage who can sign in to the lab system and which role each person has.
+        {can(access, "page.roles") && (
+          <>
+            {" "}
+            <Link href="/settings/roles" className="font-medium text-brand hover:text-brand-hover">
+              Manage roles
+            </Link>
+          </>
+        )}
+      </p>
+
+      {error && (
+        <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      )}
 
       <section className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[640px] text-left text-sm">
+        <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-3 font-medium">Name</th>
@@ -30,7 +58,18 @@ export default async function UsersPage() {
               <tr key={u.id} className="hover:bg-slate-50">
                 <td className="px-5 py-3.5 font-medium text-slate-900">{u.name}</td>
                 <td className="px-5 py-3.5 text-slate-500">{u.email}</td>
-                <td className="px-5 py-3.5 text-slate-500">{u.role.replace("_", " ")}</td>
+                <td className="px-5 py-3.5">
+                  <form action={changeUserRoleAction}>
+                    <input type="hidden" name="userId" value={u.id} />
+                    <AutoSubmitSelect
+                      name="roleId"
+                      label={`Role for ${u.name}`}
+                      defaultValue={u.roleId}
+                      options={roleOptions}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand"
+                    />
+                  </form>
+                </td>
                 <td className="px-5 py-3.5">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
@@ -96,14 +135,10 @@ export default async function UsersPage() {
           </label>
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Role
-            <select
-              name="role"
-              className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              defaultValue="DESIGNER"
-            >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r.replace("_", " ")}
+            <select name="roleId" className={SELECT_CLASS} defaultValue={defaultRoleId}>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
                 </option>
               ))}
             </select>

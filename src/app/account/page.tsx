@@ -1,5 +1,5 @@
 import { KeyRound } from "lucide-react";
-import { requireSession } from "@/lib/session";
+import { requireAccess } from "@/lib/access";
 import { changePassword } from "./actions";
 
 export default async function AccountPage({
@@ -7,7 +7,7 @@ export default async function AccountPage({
 }: {
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
-  const session = await requireSession();
+  const session = await requireAccess();
   const { error, success } = await searchParams;
 
   return (
@@ -18,15 +18,15 @@ export default async function AccountPage({
         <dl className="flex flex-col gap-2.5">
           <div className="flex justify-between">
             <dt className="text-slate-500">Name</dt>
-            <dd className="font-medium text-slate-900">{session.user.name}</dd>
+            <dd className="font-medium text-slate-900">{session.name}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-slate-500">Email</dt>
-            <dd className="font-medium text-slate-900">{session.user.email}</dd>
+            <dd className="font-medium text-slate-900">{session.email}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-slate-500">Role</dt>
-            <dd className="font-medium text-slate-900">{session.user.role.replace("_", " ")}</dd>
+            <dd className="font-medium text-slate-900">{session.role.name}</dd>
           </div>
         </dl>
       </div>

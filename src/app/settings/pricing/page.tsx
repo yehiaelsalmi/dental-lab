@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Pencil } from "lucide-react";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { RateInput } from "@/components/RateInput";
 import { formatEGP } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -11,7 +11,7 @@ export default async function PricingSettingsPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.pricing");
   const { error } = await searchParams;
 
   const [materials, metalTypes] = await Promise.all([

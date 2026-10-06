@@ -1,5 +1,5 @@
 import { FileText, Trash2 } from "lucide-react";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { formatEGP } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { generateInvoice, deleteInvoice } from "./actions";
@@ -19,7 +19,7 @@ export default async function InvoicesPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.invoices");
   const { error } = await searchParams;
 
   const [doctors, invoices] = await Promise.all([

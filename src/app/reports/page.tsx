@@ -1,5 +1,5 @@
 import { FileSpreadsheet, FileText } from "lucide-react";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/access";
 import { formatEGP } from "@/lib/money";
 import {
   getReportCases,
@@ -15,7 +15,7 @@ import {
 const fmt = formatEGP;
 
 export default async function ReportsPage() {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.reports");
 
   const cases = await getReportCases();
   const totals = computeTotals(cases);

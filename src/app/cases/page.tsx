@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus, Inbox, Search, X, TriangleAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/session";
+import { can, caseVisibilityWhere, requireAccess } from "@/lib/access";
 import {
   CASE_STATUSES,
   CASE_STATUS_LABELS,
@@ -25,9 +25,9 @@ const DEFAULT_SORT: SortKey = "newest";
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; sort?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; sort?: string; error?: string }>;
 }) {
-  const { status: statusParam, q, sort: sortParam } = await searchParams;
+  const { status: statusParam, q, sort: sortParam, error } = await searchParams;
   const query = (q ?? "").trim();
   const sort: SortKey = SORT_OPTIONS.some((o) => o.value === sortParam)
     ? (sortParam as SortKey)
@@ -37,16 +37,13 @@ export default async function CasesPage({
   )
     ? (statusParam as CaseStatus)
     : null;
-  const session = await requireSession();
-  const { role, id: userId } = session.user;
+  const access = await requireAccess();
+  const { caseScope, visibleStatuses } = access.role;
+  // Status counters only for the statuses this role can see.
+  const shownStatuses = visibleStatuses.length > 0 ? visibleStatuses : [...CASE_STATUSES];
 
   const cases = await prisma.case.findMany({
-    where:
-      role === "DESIGNER"
-        ? { OR: [{ assignedDesignerId: userId }, { firstDesignerId: userId }] }
-        : role === "PHOTOGRAMMETRY"
-          ? { needsPhotogrammetry: true }
-          : undefined,
+    where: caseVisibilityWhere(access),
     include: { assignedDesigner: true, firstDesigner: true, doctor: true },
     orderBy: { createdAt: "desc" },
   });
@@ -114,14 +111,16 @@ export default async function CasesPage({
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Cases</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {role === "DESIGNER"
+            {caseScope === "OWN"
               ? "Cases assigned to you"
-              : role === "PHOTOGRAMMETRY"
+              : caseScope === "PHOTOGRAMMETRY"
                 ? "Cases that need photogrammetry"
-                : "All lab cases"}
+                : visibleStatuses.length > 0
+                  ? "Cases in your stages"
+                  : "All lab cases"}
           </p>
         </div>
-        {(role === "TECHNICIAN" || role === "LAB_LEADER") && (
+        {can(access, "case.create") && (
           <Link
             href="/cases/new"
             className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-hover"
@@ -131,6 +130,12 @@ export default async function CasesPage({
           </Link>
         )}
       </div>
+
+      {error === "forbidden" && (
+        <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Your role doesn&apos;t have access to that page. Ask a Lab Leader if you need it.
+        </p>
+      )}
 
       <form action="/cases" className="mb-4 flex flex-col gap-2 sm:flex-row">
         {activeStatus && (
@@ -176,7 +181,7 @@ export default async function CasesPage({
       </form>
 
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {CASE_STATUSES.map((status) => {
+        {shownStatuses.map((status) => {
           const active = status === activeStatus;
           return (
             <Link

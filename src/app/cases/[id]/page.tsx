@@ -14,13 +14,13 @@ import QRCode from "qrcode";
 import { caseUrl } from "@/lib/email";
 import { formatEGP } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/session";
+import { can, canViewCase, requireAccess, usersWithPermission } from "@/lib/access";
+import { earningsOnCase } from "@/lib/earnings";
 import { DESIGN_PHASE_STATUSES, type CaseStatus } from "@/lib/constants";
-import { activeDesignerId, isBeforeIbar, isDesignerOnCase } from "@/lib/caseFlow";
+import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 import { StatusBadge } from "@/components/StatusBadge";
 import { WorkflowStepper } from "@/components/WorkflowStepper";
 import { FileDropField } from "@/components/FileDropField";
-import { EntitySelect } from "@/components/EntitySelect";
 import {
   advanceProductionAction,
   assignCeramistAction,
@@ -44,8 +44,8 @@ export default async function CaseDetailPage({
 }) {
   const { id } = await params;
   const { error } = await searchParams;
-  const session = await requireSession();
-  const { role, id: userId } = session.user;
+  const access = await requireAccess();
+  const userId = access.userId;
 
   const caseRecord = await prisma.case.findUnique({
     where: { id },
@@ -55,6 +55,7 @@ export default async function CaseDetailPage({
       createdBy: true,
       doctor: true,
       ceramist: true,
+      photogrammetryDoneBy: true,
       ibarDesigner: true,
       material: true,
       metalType: true,
@@ -64,38 +65,36 @@ export default async function CaseDetailPage({
     },
   });
 
-  if (!caseRecord) notFound();
-  if (role === "DESIGNER" && !isDesignerOnCase(caseRecord, userId)) notFound();
-  if (role === "PHOTOGRAMMETRY" && !caseRecord.needsPhotogrammetry) notFound();
+  if (!caseRecord || !canViewCase(access, caseRecord)) notFound();
 
   const status = caseRecord.status as CaseStatus;
-  const canManage = role === "LAB_LEADER" || role === "TECHNICIAN";
+  const canAssign = can(access, "case.assign");
   const canAssignCeramist =
-    canManage &&
+    canAssign &&
     (["MATCHING", "WAITING_FOR_REVIEW", "MILLING", "STAIN_AND_GLAZE", "COMPLETED"] as CaseStatus[]).includes(status);
 
-  const ceramists = canAssignCeramist
-    ? await prisma.ceramist.findMany({ orderBy: { name: "asc" } })
-    : [];
+  const [ceramists, designers] = await Promise.all([
+    canAssignCeramist ? usersWithPermission("work.ceramist") : [],
+    canAssign ? usersWithPermission("work.design") : [],
+  ]);
 
   const qrDataUrl = await QRCode.toDataURL(caseUrl(caseRecord.id), { margin: 1, width: 220 });
-
-  const designers =
-    role === "LAB_LEADER" || role === "TECHNICIAN"
-      ? await prisma.user.findMany({ where: { role: "DESIGNER", active: true } })
-      : [];
 
   const hasIbar = !!caseRecord.ibarDesignerId;
   const beforeIbar = isBeforeIbar(caseRecord);
   // Only the designer whose turn it is can start or submit.
-  const isAssignedDesigner = role === "DESIGNER" && activeDesignerId(caseRecord) === userId;
-  // Designers and photogrammetry have no Drive access; their downloads go
-  // through the app instead.
-  const viaApp = role === "DESIGNER" || role === "PHOTOGRAMMETRY";
+  const isAssignedDesigner = can(access, "work.design") && activeDesignerId(caseRecord) === userId;
+  // Without direct Drive access, downloads go through the app instead.
+  const viaApp = !can(access, "files.drive");
   const canMarkPhotogrammetry =
     caseRecord.needsPhotogrammetry &&
     !caseRecord.photogrammetryDoneAt &&
-    (role === "PHOTOGRAMMETRY" || canManage);
+    can(access, "case.photogrammetry");
+  const productionPermission = status === "MILLING" ? "case.milling" : "case.stainGlaze";
+  const myEarnings =
+    !can(access, "money.viewAll") && can(access, "money.viewOwn")
+      ? earningsOnCase(caseRecord, userId)
+      : [];
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-10">
@@ -113,7 +112,7 @@ export default async function CaseDetailPage({
           <p className="mt-1 text-sm text-slate-500">{caseRecord.doctor.name}</p>
         </div>
         <div className="flex items-center gap-3">
-          {canManage && (
+          {can(access, "case.edit") && (
             <Link
               href={`/cases/${caseRecord.id}/edit`}
               className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -187,7 +186,26 @@ export default async function CaseDetailPage({
         )}
       </section>
 
-      {role === "LAB_LEADER" && (
+      {myEarnings.length > 0 && (
+        <section className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 text-sm">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Your earnings on this case</h2>
+          <ul className="flex flex-col gap-2">
+            {myEarnings.map((e) => (
+              <li key={e.label} className="flex items-center justify-between gap-3">
+                <span className="text-slate-700">
+                  {e.label}{" "}
+                  <span className={e.done ? "text-emerald-700" : "text-slate-400"}>
+                    ({e.done ? "done" : "pending"})
+                  </span>
+                </span>
+                <span className="font-semibold text-slate-900">{formatEGP(e.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {can(access, "money.viewAll") && (
         <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm sm:grid-cols-3">
           <Money label="Price to doctor" value={caseRecord.totalPrice} />
           <Money label="Extra fees (included)" value={caseRecord.extraFee} />
@@ -257,7 +275,7 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      {canManage && status === "IBAR_DESIGN" && (
+      {can(access, "case.ibar") && status === "IBAR_DESIGN" && (
         <section className="mb-6 rounded-xl border border-fuchsia-200 bg-fuchsia-50/50 p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Ibar design</h2>
           <p className="mb-3 text-sm text-slate-500">
@@ -280,7 +298,7 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      {canManage && status === "MATCHING" && (
+      {can(access, "case.matching") && status === "MATCHING" && (
         <section className="mb-6 rounded-xl border border-teal-200 bg-teal-50/50 p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Matching</h2>
           <p className="mb-3 text-sm text-slate-500">
@@ -319,7 +337,7 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      {canManage && (status === "MILLING" || status === "STAIN_AND_GLAZE") && (
+      {(status === "MILLING" || status === "STAIN_AND_GLAZE") && can(access, productionPermission) && (
         <section className="mb-6 rounded-xl border border-orange-200 bg-orange-50/50 p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">
             {status === "MILLING" ? "Milling" : "Stain & glaze"}
@@ -341,7 +359,7 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      {canManage && caseRecord.status === "COMPLETED" && (
+      {can(access, "case.deliver") && caseRecord.status === "COMPLETED" && (
         <section className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Deliver to the doctor</h2>
           <p className="mb-3 text-sm text-slate-500">
@@ -364,17 +382,26 @@ export default async function CaseDetailPage({
           <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
             <form action={assignCeramistAction} className="flex items-end gap-3">
               <input type="hidden" name="caseId" value={caseRecord.id} />
-              <div className="flex-1">
-                <EntitySelect
-                  label="Ceramist"
-                  idField="ceramistId"
-                  newNameField="newCeramistName"
-                  items={ceramists}
-                  addLabel="+ Add new ceramist"
-                  optional
-                  defaultId={caseRecord.ceramistId ?? ""}
-                />
-              </div>
+              <label className="flex flex-1 flex-col gap-1.5 text-sm font-medium text-slate-700">
+                Ceramist
+                <select
+                  name="ceramistId"
+                  defaultValue={caseRecord.ceramistId ?? ""}
+                  className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                >
+                  <option value="">None</option>
+                  {ceramists.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                {ceramists.length === 0 && (
+                  <span className="text-xs font-normal text-amber-600">
+                    No ceramist accounts yet. Add users with a role that can be assigned as ceramist.
+                  </span>
+                )}
+              </label>
               <button
                 type="submit"
                 className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800"
@@ -385,7 +412,7 @@ export default async function CaseDetailPage({
           </section>
       )}
 
-      {canManage && DESIGN_PHASE_STATUSES.includes(status) && (
+      {canAssign && DESIGN_PHASE_STATUSES.includes(status) && (
         <section className="mb-6 flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5">
           {hasIbar && beforeIbar && (
             <DesignerForm
@@ -436,7 +463,7 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      {role === "LAB_LEADER" && status === "WAITING_FOR_REVIEW" && (
+      {can(access, "case.review") && status === "WAITING_FOR_REVIEW" && (
         <section className="mb-6 rounded-xl border border-violet-200 bg-violet-50/50 p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">
             {beforeIbar ? "Review the design before the ibar" : "Review this case"}

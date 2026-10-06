@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requirePermission, usersWithPermission } from "@/lib/access";
 import { FileDropField } from "@/components/FileDropField";
 import { CaseFields } from "@/components/CaseFields";
 import { createCase } from "../actions";
@@ -11,11 +11,11 @@ export default async function NewCasePage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requireRole("TECHNICIAN", "LAB_LEADER");
+  await requirePermission("case.create");
   const { error } = await searchParams;
 
   const [designers, doctors, ibarDesigners, materials, metalTypes] = await Promise.all([
-    prisma.user.findMany({ where: { role: "DESIGNER", active: true }, orderBy: { name: "asc" } }),
+    usersWithPermission("work.design"),
     prisma.doctor.findMany({ orderBy: { name: "asc" } }),
     prisma.ibarDesigner.findMany({ orderBy: { name: "asc" } }),
     prisma.material.findMany({ orderBy: { name: "asc" } }),

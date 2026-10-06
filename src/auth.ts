@@ -3,7 +3,6 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import type { Role } from "@/lib/constants";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -27,12 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role as Role,
-        };
+        return { id: user.id, name: user.name, email: user.email };
       },
     }),
     Google({
@@ -63,24 +57,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
+    // Only the user id lives in the token; the role and its permissions are
+    // read fresh on each request (src/lib/access.ts).
     async jwt({ token, user, account }) {
       if (account?.provider === "credentials" && user) {
         token.id = user.id as string;
-        token.role = (user as { role: Role }).role;
       } else if (account?.provider === "google" && user?.email) {
         const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.role = dbUser.role as Role;
-        }
+        if (dbUser) token.id = dbUser.id;
       }
       return token;
     },
     session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as Role;
-      }
+      if (session.user) session.user.id = token.id as string;
       return session;
     },
   },

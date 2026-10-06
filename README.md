@@ -7,10 +7,32 @@ Google Drive.
 
 ## Roles
 
-- **Technician** — creates cases from the doctor's scan (WhatsApp/ZIP), picks the doctor and optionally a designer.
-- **Designer** — works assigned cases, uploads the finished design, submits for review.
-- **Lab Leader** — 1-2 people; manages users, approves or requests changes on submitted cases, connects Google Drive.
-- **Photogrammetry** — sees only cases marked "Needs photogrammetry", gets an app + email notification for each, can download the case files, upload a photogrammetry file and click **Mark photogrammetry done** (Lab Leaders are notified). Technicians and Lab Leaders can mark it done too.
+Roles are managed by the Lab Leader on the **Roles** page (`/settings/roles`). Each
+role has:
+
+- **Permissions**: create/edit/delete cases, assign designers and ceramists, each
+  workflow step (approve designs, ibar done, matching done, milling done, stain &
+  glaze done, delivered, photogrammetry done), see all money or only their own
+  earnings, open each admin page, and whether people with the role can be
+  assigned as a designer or as a ceramist.
+- **Which cases it sees**: all cases, only cases they're assigned to (as designer
+  or ceramist), or only cases that need photogrammetry; optionally narrowed to
+  chosen statuses (e.g. a Milling role that only sees cases in Milling).
+- **Notifications** (app + email): when a case reaches chosen statuses, and/or
+  when a case needs photogrammetry. Designers and ceramists are always notified
+  when a case is assigned to them.
+
+Built-in presets: **Lab Leader** (always full access; can't be edited or deleted,
+and the last active Lab Leader can't be disabled or demoted), **Technician**,
+**Designer**, **Photogrammetry** and **Ceramist** (all editable). Assign roles on the
+**Users** page. Permissions are read fresh on every request (`src/lib/access.ts`,
+list in `src/lib/permissions.ts`), so changes apply immediately.
+
+Ceramists are user accounts (a role with "can be assigned as a ceramist"); the
+ceramist picked on a case is notified. Roles with "see their own earnings" get a
+**My earnings** page and a "Your earnings" box on their cases: designer fees,
+ceramist fee, and the photogrammetry cost for whoever marked photogrammetry done,
+each shown as done or pending.
 
 ## Status flow
 

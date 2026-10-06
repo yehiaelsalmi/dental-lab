@@ -1,16 +1,18 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/session";
+import { requirePermission, usersWithPermission } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { DESIGN_PHASE_STATUSES, type CaseStatus } from "@/lib/constants";
 import { activeDesignerId } from "@/lib/caseFlow";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export default async function DesignersPage() {
-  await requireRole("LAB_LEADER");
+  await requirePermission("page.designers");
 
+  // Everyone whose role can be assigned as a designer.
+  const designerIds = (await usersWithPermission("work.design")).map((u) => u.id);
   const [designers, designPhaseCases] = await Promise.all([
     prisma.user.findMany({
-      where: { role: "DESIGNER" },
+      where: { id: { in: designerIds } },
       orderBy: { name: "asc" },
       include: {
         casesAssigned: { include: { doctor: true } },
@@ -126,7 +128,7 @@ export default async function DesignersPage() {
         ))}
         {rows.length === 0 && (
           <p className="rounded-xl border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-400">
-            No designer accounts yet. Add them from the Users page.
+            No designer accounts yet. Add users with a role that can be assigned as a designer.
           </p>
         )}
       </div>
