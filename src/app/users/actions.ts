@@ -141,3 +141,23 @@ export async function setSalaryAction(formData: FormData) {
   await prisma.user.update({ where: { id: userId }, data: { baseSalary: amount || null } });
   revalidatePath("/users");
 }
+
+// Sets a new password chosen (or generated) by the person managing users.
+// Only a Lab Leader can reset another Lab Leader's password, so access to the
+// Users page can't be used to take over a leader's account.
+export async function resetPasswordAction(formData: FormData) {
+  const access = await requirePermission("page.users");
+  const userId = formData.get("userId") as string;
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 8) fail("The new password must be at least 8 characters.");
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
+  if (!user || user.deletedAt) fail("That user no longer exists.");
+  if (user.role.key === LAB_LEADER_KEY && access.role.key !== LAB_LEADER_KEY) {
+    fail("Only a Lab Leader can reset a Lab Leader's password.");
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(password, 10) } });
+  revalidatePath("/users");
+  redirect(`/users?reset=${encodeURIComponent(user.name)}`);
+}

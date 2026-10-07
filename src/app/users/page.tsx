@@ -4,10 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { can, requirePermission } from "@/lib/access";
 import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { ResetPasswordForm } from "@/components/ResetPasswordForm";
 import {
   changeUserRoleAction,
   createUser,
   deleteUserAction,
+  resetPasswordAction,
   setSalaryAction,
   toggleUserActiveAction,
 } from "./actions";
@@ -18,10 +20,10 @@ const SELECT_CLASS =
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; deleted?: string }>;
+  searchParams: Promise<{ error?: string; deleted?: string; reset?: string }>;
 }) {
   const access = await requirePermission("page.users");
-  const { error, deleted } = await searchParams;
+  const { error, deleted, reset } = await searchParams;
 
   const [users, roles] = await Promise.all([
     prisma.user.findMany({ where: { deletedAt: null }, orderBy: { createdAt: "asc" } }),
@@ -47,6 +49,11 @@ export default async function UsersPage({
 
       {error && (
         <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      )}
+      {reset && (
+        <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {reset}&apos;s password was changed. Send them the new one.
+        </p>
       )}
       {deleted && (
         <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
@@ -114,7 +121,7 @@ export default async function UsersPage({
                   </span>
                 </td>
                 <td className="px-5 py-3.5">
-                  <div className="flex items-center justify-end gap-4">
+                  <div className="flex flex-wrap items-start justify-end gap-4">
                     <form action={toggleUserActiveAction}>
                       <input type="hidden" name="userId" value={u.id} />
                       <input type="hidden" name="nextActive" value={(!u.active).toString()} />
@@ -122,6 +129,14 @@ export default async function UsersPage({
                         {u.active ? "Disable" : "Enable"}
                       </button>
                     </form>
+                    <details className="group">
+                      <summary className="cursor-pointer list-none text-xs font-medium text-slate-500 hover:text-brand">
+                        Reset password
+                      </summary>
+                      <div className="w-72">
+                        <ResetPasswordForm action={resetPasswordAction} userId={u.id} userName={u.name} />
+                      </div>
+                    </details>
                     {u.id !== access.userId && (
                       <form action={deleteUserAction}>
                         <input type="hidden" name="userId" value={u.id} />
