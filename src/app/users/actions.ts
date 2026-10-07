@@ -128,3 +128,15 @@ export async function deleteUserAction(formData: FormData) {
   revalidatePath("/users");
   redirect(`/users?deleted=${encodeURIComponent(user.name)}`);
 }
+
+// Fixed monthly salary; empty clears it.
+export async function setSalaryAction(formData: FormData) {
+  await requirePermission("page.users");
+  const userId = formData.get("userId") as string;
+  const raw = String(formData.get("baseSalary") ?? "").trim();
+  const amount = raw === "" ? null : Number(raw);
+  if (amount !== null && (!Number.isFinite(amount) || amount < 0)) fail("Enter a valid salary.");
+
+  await prisma.user.update({ where: { id: userId }, data: { baseSalary: amount || null } });
+  revalidatePath("/users");
+}

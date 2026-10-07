@@ -24,6 +24,9 @@ model User {
   // Set when a user with history is deleted: they can't sign in and are hidden
   // from the Users page, but their name stays on past cases.
   deletedAt    DateTime?
+  // Fixed monthly salary (EGP); counted in the monthly report and shown on
+  // their own earnings page.
+  baseSalary   Float?
   createdAt    DateTime @default(now())
 
   casesCreated  Case[]         @relation("CreatedBy")
@@ -274,4 +277,29 @@ model CaseMaterial {
   metalTypeId String?
   metalType   MetalType? @relation(fields: [metalTypeId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
+}
+
+// Statuses the Lab Leader adds on top of the built-in workflow (e.g.
+// "Waiting for doctor"). Cases get into and out of them with "Move to status".
+// `afterStatus` is where it's listed: right after that built-in or custom status.
+model CustomStatus {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String   @unique
+  color       String   @default("slate")
+  afterStatus String
+  createdAt   DateTime @default(now())
+}
+
+// Lab expenses for the monthly report. `month` is the first day of the month
+// (UTC). A recurring expense counts every month from `month` up to and
+// including `endMonth` (or forever when it's empty).
+model Expense {
+  id        String    @id @default(cuid())
+  name      String
+  amount    Float
+  month     DateTime
+  recurring Boolean   @default(false)
+  endMonth  DateTime?
+  createdAt DateTime  @default(now())
 }

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
-import { CASE_STATUSES } from "@/lib/constants";
+import { getStatuses } from "@/lib/statuses";
 import {
   CASE_SCOPES,
   LAB_LEADER_KEY,
@@ -13,24 +13,37 @@ import {
   PHOTOGRAMMETRY_NEEDED,
 } from "@/lib/permissions";
 
-const NOTIFY_EVENTS = [...CASE_STATUSES, PHOTOGRAMMETRY_NEEDED] as string[];
-
 const roleSchema = z.object({
   name: z.string().trim().min(1, "Give the role a name").max(40, "Keep the name under 40 characters"),
   permissions: z.array(z.enum(PERMISSION_KEYS as [string, ...string[]])),
   caseScope: z.enum(CASE_SCOPES.map((s) => s.key) as [string, ...string[]]),
-  visibleStatuses: z.array(z.enum(CASE_STATUSES)).min(1, "Tick at least one status the role can see"),
-  notifyOn: z.array(z.string().refine((e) => NOTIFY_EVENTS.includes(e), "Unknown notification")),
+  visibleStatuses: z.array(z.string()).min(1, "Tick at least one status the role can see"),
+  notifyOn: z.array(z.string()),
 });
 
-function parseRole(formData: FormData) {
-  return roleSchema.safeParse({
+// Built-in and custom statuses; unknown keys from the form are dropped.
+async function parseRole(formData: FormData) {
+  const statusKeys = (await getStatuses()).map((s) => s.key);
+  const result = roleSchema.safeParse({
     name: formData.get("name"),
     permissions: formData.getAll("permissions"),
     caseScope: formData.get("caseScope"),
     visibleStatuses: formData.getAll("visibleStatuses"),
     notifyOn: formData.getAll("notifyOn"),
   });
+  if (!result.success) return result;
+  const known = (k: string) => statusKeys.includes(k);
+  const visibleStatuses = result.data.visibleStatuses.filter(known);
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      // Ticking every status is the same as "all statuses" (and keeps new
+      // custom statuses visible).
+      visibleStatuses: visibleStatuses.length === statusKeys.length ? [] : visibleStatuses,
+      notifyOn: result.data.notifyOn.filter((e) => known(e) || e === PHOTOGRAMMETRY_NEEDED),
+    },
+  };
 }
 
 function toData(data: z.infer<typeof roleSchema>) {
@@ -38,10 +51,7 @@ function toData(data: z.infer<typeof roleSchema>) {
     name: data.name,
     permissions: JSON.stringify(data.permissions),
     caseScope: data.caseScope,
-    // Ticking every status is the same as "all statuses".
-    visibleStatuses: JSON.stringify(
-      data.visibleStatuses.length === CASE_STATUSES.length ? [] : data.visibleStatuses
-    ),
+    visibleStatuses: JSON.stringify(data.visibleStatuses),
     notifyOn: JSON.stringify(data.notifyOn),
   };
 }
@@ -55,7 +65,7 @@ function errorMessage(error: unknown): string {
 
 export async function createRole(formData: FormData) {
   await requirePermission("page.roles");
-  const parsed = parseRole(formData);
+  const parsed = await parseRole(formData);
   if (!parsed.success) {
     redirect(`/settings/roles/new?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   }
@@ -81,7 +91,7 @@ export async function updateRole(formData: FormData) {
     redirect(`${back}?error=${encodeURIComponent("The Lab Leader role always has full access.")}`);
   }
 
-  const parsed = parseRole(formData);
+  const parsed = await parseRole(formData);
   if (!parsed.success) redirect(`${back}?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
 
   try {

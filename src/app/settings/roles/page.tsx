@@ -3,7 +3,7 @@ import { Pencil, Plus, Lock } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, toRoleAccess } from "@/lib/access";
 import { CASE_SCOPES, LAB_LEADER_KEY } from "@/lib/permissions";
-import { CASE_STATUS_LABELS } from "@/lib/constants";
+import { findStatus, getStatuses } from "@/lib/statuses";
 
 export default async function RolesPage({
   searchParams,
@@ -13,6 +13,7 @@ export default async function RolesPage({
   await requirePermission("page.roles");
   const { saved } = await searchParams;
 
+  const allStatuses = await getStatuses();
   const roles = await prisma.role.findMany({
     orderBy: { createdAt: "asc" },
     include: { _count: { select: { users: { where: { deletedAt: null } } } } },
@@ -48,7 +49,7 @@ export default async function RolesPage({
           const statuses =
             access.visibleStatuses.length === 0
               ? "every status"
-              : access.visibleStatuses.map((s) => CASE_STATUS_LABELS[s]).join(", ");
+              : access.visibleStatuses.map((s) => findStatus(allStatuses, s).label).join(", ");
           return (
             <Link
               key={role.id}

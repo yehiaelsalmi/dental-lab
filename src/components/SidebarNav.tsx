@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   Wallet,
   Stethoscope,
+  ListChecks,
+  Banknote,
 } from "lucide-react";
 
 // `show` is decided on the server from the user's role permissions.
@@ -24,9 +26,11 @@ const LINKS = [
   { href: "/ceramists", label: "Ceramists", icon: Brush },
   { href: "/reports", label: "Reports", icon: FileSpreadsheet },
   { href: "/invoices", label: "Invoices", icon: Receipt },
+  { href: "/expenses", label: "Expenses", icon: Banknote },
   { href: "/doctors", label: "Doctors", icon: Stethoscope },
   { href: "/users", label: "Users", icon: Users },
   { href: "/settings/roles", label: "Roles", icon: ShieldCheck },
+  { href: "/settings/statuses", label: "Statuses", icon: ListChecks },
   { href: "/settings/pricing", label: "Pricing", icon: Tag },
   { href: "/settings/google", label: "Drive Settings", icon: Cloud },
 ] as const;

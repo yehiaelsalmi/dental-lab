@@ -95,6 +95,25 @@ a printable label (`/cases/<id>/label`). The code encodes `APP_URL` (falling
 back to `NEXTAUTH_URL`), so it only works from a phone once the app is served
 from a real address rather than `localhost`.
 
+## Custom statuses
+
+On **Statuses** (`/settings/statuses`, permission "Statuses") the lab adds its own
+statuses (name, colour, and which status it comes after). People with "Move a case
+to any status" get a **Move to status** box on the case page that puts a case into
+any built-in or custom status. A manual move only changes the status: no automatic
+steps run, but roles set to be notified for that status are told. Statuses with
+cases in them can't be deleted. Technicians have both permissions by default.
+
+## Expenses and salaries
+
+**Expenses** (`/expenses`) are lab costs not tied to a case (rent, supplies). Each
+has a month and can repeat every month (until "Stop after this month"). A **base
+salary** can be set per person on the Users page. **Reports** shows one month at a
+time (or "All time"): case profit minus that month's expenses and salaries gives
+**net profit**, and the Excel/PDF exports include a net profit sheet/page. People
+who can see their own earnings also see their salary on My earnings. Salaries use
+each person's current salary for every month.
+
 ## Pricing
 
 A case's materials are entered as **material lines**: each line is an arch (Upper

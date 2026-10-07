@@ -26,6 +26,22 @@ import {
   type PdfColumn,
 } from "@/lib/pdfTable";
 
+import type { Overheads } from "@/lib/overheads";
+
+// What period the report covers; a month report also carries that month's
+// expenses and salaries so it can show net profit.
+export type ReportPeriod = { label: string; overheads: Overheads | null };
+
+// Case profit minus the month's expenses and salaries, as label/amount rows.
+function netProfitRows(caseProfit: number, o: Overheads): [string, number][] {
+  return [
+    ["Case profit", caseProfit],
+    ...o.expenses.map((e): [string, number] => [`Expense: ${e.name}${e.recurring ? " (monthly)" : ""}`, -e.amount]),
+    ...o.salaries.map((s): [string, number] => [`Salary: ${s.name}`, -s.amount]),
+    ["Net profit", caseProfit - o.expenseTotal - o.salaryTotal],
+  ];
+}
+
 const BRAND_ARGB = "FF4F46E5";
 const SOFT_ARGB = "FFEEF2FF";
 const MONEY_FORMAT = '#,##0 "EGP"';
@@ -72,7 +88,8 @@ const EXCEL_COLUMNS: { header: string; width: number; money?: boolean }[] = [
 
 export async function buildReportExcelBuffer(
   cases: ReportCase[],
-  breakdowns: Record<BreakdownKey, PersonTotal[]>
+  breakdowns: Record<BreakdownKey, PersonTotal[]>,
+  period: ReportPeriod
 ): Promise<Buffer> {
   const totals = computeTotals(cases);
   const workbook = new ExcelJS.Workbook();
@@ -160,6 +177,20 @@ export async function buildReportExcelBuffer(
     );
   }
 
+  if (period.overheads) {
+    const net = workbook.addWorksheet("Net profit");
+    net.columns = [
+      { header: period.label, width: 40 },
+      { header: "Amount", width: 18, style: { numFmt: MONEY_FORMAT } },
+    ];
+    styleHeaderRow(net.getRow(1));
+    const rows = netProfitRows(totals.profit, period.overheads);
+    rows.forEach(([label, amount], i) => {
+      const row = net.addRow([label, amount]);
+      if (i === rows.length - 1) styleTotalRow(row);
+    });
+  }
+
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
@@ -189,7 +220,8 @@ function money(value: number | null | undefined) {
 
 export async function buildReportPdfBuffer(
   cases: ReportCase[],
-  breakdowns: Record<BreakdownKey, PersonTotal[]>
+  breakdowns: Record<BreakdownKey, PersonTotal[]>,
+  period: ReportPeriod
 ): Promise<Buffer> {
   const totals = computeTotals(cases);
   const totalCosts =
@@ -201,7 +233,7 @@ export async function buildReportPdfBuffer(
     totals.photogrammetry;
   const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 20, bufferPages: true });
 
-  drawDocHeader(doc, "Case Report", [`Generated ${formatDate(new Date())}`]);
+  drawDocHeader(doc, "Case Report", [period.label, `Generated ${formatDate(new Date())}`]);
   drawStatCards(doc, [
     { label: "Cases", value: String(cases.length) },
     { label: "Revenue", value: formatMoney(totals.price) },
@@ -283,6 +315,32 @@ export async function buildReportPdfBuffer(
       }
     );
     doc.y += 18;
+  }
+
+  if (period.overheads) {
+    const o = period.overheads;
+    doc.addPage();
+    drawDocHeader(doc, "Net Profit", [period.label, `Generated ${formatDate(new Date())}`]);
+    drawStatCards(doc, [
+      { label: "Case profit", value: formatMoney(totals.profit) },
+      { label: "Expenses", value: formatMoney(o.expenseTotal) },
+      { label: "Salaries", value: formatMoney(o.salaryTotal) },
+      {
+        label: "Net profit",
+        value: formatMoney(totals.profit - o.expenseTotal - o.salaryTotal),
+        highlight: true,
+      },
+    ]);
+    const rows = netProfitRows(totals.profit, o);
+    drawTable(
+      doc,
+      [
+        { header: "Item", width: 360 },
+        { header: "Amount", width: 140, align: "right" },
+      ],
+      rows.slice(0, -1).map(([label, amount]) => [label, formatMoney(amount)]),
+      { fontSize: 9, footer: ["Net profit", formatMoney(rows[rows.length - 1][1])] }
+    );
   }
 
   drawPageFooters(doc, LAB_NAME);

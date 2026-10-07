@@ -25,7 +25,8 @@ function stepsFor(hasIbar: boolean, hasMatching: boolean, status: CaseStatus): S
   ];
 }
 
-function currentKey(status: CaseStatus, beforeIbar: boolean): string {
+function currentKey(status: CaseStatus, beforeIbar: boolean, isCustom: boolean): string {
+  if (isCustom) return status;
   if (beforeIbar) {
     if (status === "WAITING_FOR_REVIEW") return "FIRST_REVIEW";
     if (status === "IBAR_DESIGN") return "IBAR_DESIGN";
@@ -39,14 +40,25 @@ export function WorkflowStepper({
   hasIbar,
   hasMatching,
   beforeIbar,
+  customStep,
 }: {
   status: CaseStatus;
   hasIbar: boolean;
   hasMatching: boolean;
   beforeIbar: boolean;
+  customStep?: { key: string; label: string; afterBuiltIn: string };
 }) {
   const steps = stepsFor(hasIbar, hasMatching, status);
-  const currentIndex = steps.findIndex((s) => s.key === currentKey(status, beforeIbar));
+  if (customStep) {
+    const anchor = steps.findIndex((s) => s.key === customStep.afterBuiltIn);
+    steps.splice(anchor === -1 ? steps.length : anchor + 1, 0, {
+      key: customStep.key,
+      label: customStep.label,
+    });
+  }
+  const currentIndex = steps.findIndex(
+    (s) => s.key === currentKey(status, beforeIbar, !!customStep)
+  );
   const changesRequested = status === "CHANGES_REQUESTED";
 
   return (

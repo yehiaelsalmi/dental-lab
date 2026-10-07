@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { caseUrl, sendEmail } from "@/lib/email";
-import { CASE_STATUS_LABELS, type CaseStatus } from "@/lib/constants";
+import { statusLabel } from "@/lib/statuses";
 import { PHOTOGRAMMETRY_NEEDED, type Permission } from "@/lib/permissions";
 import { canViewCase, toRoleAccess, usersWithPermission } from "@/lib/access";
 
@@ -146,10 +146,10 @@ export async function notifyLabLeadersMatchingDone(caseId: string, patientName: 
 export async function notifyStatusWatchers(
   caseId: string,
   patientName: string,
-  status: CaseStatus,
+  status: string,
   actorId: string
 ) {
-  const label = CASE_STATUS_LABELS[status];
+  const label = await statusLabel(status);
   await notifyMany(
     await watchers(caseId, status, actorId),
     caseId,

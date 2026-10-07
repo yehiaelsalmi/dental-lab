@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { CASE_STATUSES, type CaseStatus } from "@/lib/constants";
 import {
   LAB_LEADER_KEY,
   LAB_LEADER_PERMISSIONS,
@@ -18,7 +17,7 @@ export type RoleAccess = {
   name: string;
   permissions: Set<Permission>;
   caseScope: CaseScope;
-  visibleStatuses: CaseStatus[]; // empty = every status
+  visibleStatuses: string[]; // empty = every status (built-in or custom keys)
   notifyOn: string[];
 };
 
@@ -67,9 +66,7 @@ export function toRoleAccess(role: {
     caseScope: isLeader ? "ALL" : scope,
     visibleStatuses: isLeader
       ? []
-      : (parseList(role.visibleStatuses).filter((s) =>
-          (CASE_STATUSES as readonly string[]).includes(s)
-        ) as CaseStatus[]),
+      : parseList(role.visibleStatuses),
     notifyOn: parseList(role.notifyOn),
   };
 }
@@ -118,7 +115,7 @@ type VisibilityFields = {
 
 export function canViewCase(access: Access, c: VisibilityFields): boolean {
   const { caseScope, visibleStatuses } = access.role;
-  if (visibleStatuses.length > 0 && !visibleStatuses.includes(c.status as CaseStatus)) return false;
+  if (visibleStatuses.length > 0 && !visibleStatuses.includes(c.status)) return false;
   if (caseScope === "OWN") {
     return [c.assignedDesignerId, c.firstDesignerId, c.ceramistId].includes(access.userId);
   }

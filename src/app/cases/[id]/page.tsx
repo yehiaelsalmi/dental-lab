@@ -16,6 +16,7 @@ import { formatEGP } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { can, canViewCase, requireAccess, usersWithPermission } from "@/lib/access";
 import { earningsOnCase } from "@/lib/earnings";
+import { findStatus, getStatuses, isBuiltInStatus } from "@/lib/statuses";
 import { DESIGN_PHASE_STATUSES, type CaseStatus } from "@/lib/constants";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -28,6 +29,7 @@ import {
   completeIbarAction,
   completeMatchingAction,
   markDeliveredAction,
+  setCaseStatusAction,
   markPhotogrammetryDoneAction,
   requestChangesAction,
   approveAction,
@@ -67,6 +69,18 @@ export default async function CaseDetailPage({
   if (!caseRecord || !canViewCase(access, caseRecord)) notFound();
 
   const status = caseRecord.status as CaseStatus;
+  const allStatuses = await getStatuses();
+  // A case in a custom status shows it in the progress bar right after the
+  // built-in status it hangs off.
+  let customStep: { key: string; label: string; afterBuiltIn: string } | undefined;
+  if (!isBuiltInStatus(caseRecord.status)) {
+    const info = findStatus(allStatuses, caseRecord.status);
+    let anchor = info.afterStatus ?? "COMPLETED";
+    for (let i = 0; i < 20 && !isBuiltInStatus(anchor); i++) {
+      anchor = findStatus(allStatuses, anchor).afterStatus ?? "COMPLETED";
+    }
+    customStep = { key: info.key, label: info.label, afterBuiltIn: anchor };
+  }
   const canAssign = can(access, "case.assign");
   const canAssignCeramist =
     canAssign &&
@@ -134,6 +148,7 @@ export default async function CaseDetailPage({
           hasIbar={hasIbar}
           hasMatching={!!caseRecord.matchingBy}
           beforeIbar={beforeIbar}
+          customStep={customStep}
         />
       </section>
 
@@ -521,6 +536,44 @@ export default async function CaseDetailPage({
               </button>
             </div>
           </form>
+        </section>
+      )}
+
+      {can(access, "case.setStatus") && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <form action={setCaseStatusAction} className="flex flex-wrap items-end gap-3">
+            <input type="hidden" name="caseId" value={caseRecord.id} />
+            <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-sm font-medium text-slate-700">
+              Move to status
+              <select
+                name="status"
+                defaultValue=""
+                required
+                className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="" disabled>
+                  Pick a status
+                </option>
+                {allStatuses
+                  .filter((s) => s.key !== caseRecord.status)
+                  .map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+            >
+              Move
+            </button>
+          </form>
+          <p className="mt-2 text-xs text-slate-500">
+            Only changes the status. The usual automatic steps (like review emails) don&apos;t run;
+            roles set to be notified for the new status are told.
+          </p>
         </section>
       )}
 

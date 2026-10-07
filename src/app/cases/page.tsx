@@ -3,11 +3,9 @@ import { Plus, Inbox, Search, X, TriangleAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { can, caseVisibilityWhere, requireAccess } from "@/lib/access";
 import {
-  CASE_STATUSES,
-  CASE_STATUS_LABELS,
-  type CaseStatus,
 } from "@/lib/constants";
 import { StatusBadge } from "@/components/StatusBadge";
+import { findStatus, getStatuses } from "@/lib/statuses";
 import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
 import { getCaseAlert, STALE_DAYS } from "@/lib/caseAlerts";
 import { isBeforeIbar } from "@/lib/caseFlow";
@@ -32,15 +30,14 @@ export default async function CasesPage({
   const sort: SortKey = SORT_OPTIONS.some((o) => o.value === sortParam)
     ? (sortParam as SortKey)
     : DEFAULT_SORT;
-  const activeStatus = (CASE_STATUSES as readonly string[]).includes(
-    statusParam ?? "",
-  )
-    ? (statusParam as CaseStatus)
-    : null;
   const access = await requireAccess();
   const { caseScope, visibleStatuses } = access.role;
+  const allStatuses = await getStatuses();
+  const activeStatus = allStatuses.some((s) => s.key === statusParam) ? statusParam! : null;
   // Status counters only for the statuses this role can see.
-  const shownStatuses = visibleStatuses.length > 0 ? visibleStatuses : [...CASE_STATUSES];
+  const shownStatuses = allStatuses
+    .filter((s) => visibleStatuses.length === 0 || visibleStatuses.includes(s.key))
+    .map((s) => s.key);
 
   const cases = await prisma.case.findMany({
     where: caseVisibilityWhere(access),
@@ -58,12 +55,8 @@ export default async function CasesPage({
       )
     : cases;
 
-  const counts = CASE_STATUSES.reduce(
-    (acc, status) => {
-      acc[status] = matchingCases.filter((c) => c.status === status).length;
-      return acc;
-    },
-    {} as Record<CaseStatus, number>,
+  const counts: Record<string, number> = Object.fromEntries(
+    allStatuses.map((s) => [s.key, matchingCases.filter((c) => c.status === s.key).length]),
   );
 
   const filteredCases = activeStatus
@@ -201,7 +194,7 @@ export default async function CasesPage({
               <p
                 className={`mt-1 text-xs font-medium ${active ? "text-brand" : "text-slate-500"}`}
               >
-                {CASE_STATUS_LABELS[status]}
+                {findStatus(allStatuses, status).label}
               </p>
             </Link>
           );
@@ -227,7 +220,7 @@ export default async function CasesPage({
                 {" "}
                 in{" "}
                 <span className="font-medium text-slate-900">
-                  {CASE_STATUS_LABELS[activeStatus]}
+                  {findStatus(allStatuses, activeStatus).label}
                 </span>
               </>
             )}
@@ -278,7 +271,7 @@ export default async function CasesPage({
                   <p className="min-w-0 break-words font-medium text-slate-900">
                     {c.patientName}
                   </p>
-                  <StatusBadge status={c.status as CaseStatus} />
+                  <StatusBadge status={c.status} />
                 </div>
                 <p className="mt-1 text-sm text-slate-500">{c.doctor.name}</p>
               {c.needsPhotogrammetry && <PhotogrammetryTag done={!!c.photogrammetryDoneAt} />}
@@ -355,7 +348,7 @@ export default async function CasesPage({
                     {c.dueDate ? new Date(c.dueDate).toLocaleDateString() : "-"}
                   </td>
                   <td className="px-5 py-4">
-                    <StatusBadge status={c.status as CaseStatus} />
+                    <StatusBadge status={c.status} />
                   </td>
                 </tr>
               );

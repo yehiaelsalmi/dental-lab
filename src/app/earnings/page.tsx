@@ -28,6 +28,7 @@ export default async function EarningsPage({
   const { month } = await searchParams;
   const me = access.userId;
 
+  const myAccount = await prisma.user.findUnique({ where: { id: me }, select: { baseSalary: true } });
   const cases = await prisma.case.findMany({
     where: {
       OR: [
@@ -64,6 +65,16 @@ export default async function EarningsPage({
           <MonthLink key={m} href={`/earnings?month=${m}`} active={selected === m} label={monthLabel(m)} />
         ))}
       </div>
+
+      {myAccount?.baseSalary ? (
+        <div className="mb-4 rounded-xl border border-brand/30 bg-brand-soft p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-brand">Base salary</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900">
+            {formatEGP(myAccount.baseSalary)} <span className="text-sm font-normal text-slate-500">/ month</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Paid monthly, on top of the case fees below.</p>
+        </div>
+      ) : null}
 
       <div className="mb-6 grid grid-cols-2 gap-4">
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">

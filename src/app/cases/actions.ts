@@ -35,6 +35,7 @@ import {
   unitTotals,
 } from "@/lib/caseMaterials";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
+import { getStatuses } from "@/lib/statuses";
 
 const createCaseSchema = z.object({
   doctorId: z.string().min(1, "Select a doctor"),
@@ -488,6 +489,27 @@ async function handOffAfterIbar(
   if (!c.assignedDesignerId) return;
   await notifyDesignerIbarDone(c.id, c.assignedDesignerId, c.patientName);
   await notifyLabLeadersAssigned(c.id, c.patientName, c.assignedDesignerId, actorId);
+}
+
+// Manual move to any status (built-in or custom). Only the status changes:
+// none of the automatic steps run, but roles watching that status are told.
+export async function setCaseStatus(caseId: string, status: string) {
+  const session = await requirePermission("case.setStatus");
+
+  try {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    const statuses = await getStatuses();
+    if (!statuses.some((s) => s.key === status)) throw new Error("Pick a status.");
+    if (status === caseRecord.status) return;
+
+    await prisma.case.update({ where: { id: caseId }, data: { status } });
+    await notifyStatusWatchers(caseId, caseRecord.patientName, status, session.userId);
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/cases");
 }
 
 export async function completeMatching(caseId: string) {

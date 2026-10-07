@@ -1,4 +1,5 @@
-import { FileSpreadsheet, FileText } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, FileSpreadsheet, FileText } from "lucide-react";
 import { requirePermission } from "@/lib/access";
 import { formatEGP } from "@/lib/money";
 import {
@@ -13,13 +14,37 @@ import {
   designerNames,
   BREAKDOWN_LABELS,
 } from "@/lib/reporting";
+import {
+  currentMonthKey,
+  isMonthKey,
+  monthLabel,
+  monthStart,
+  overheadsForMonth,
+} from "@/lib/overheads";
+
+function shiftMonth(key: string, by: number) {
+  const d = monthStart(key);
+  d.setUTCMonth(d.getUTCMonth() + by);
+  return d.toISOString().slice(0, 7);
+}
 
 const fmt = formatEGP;
 
-export default async function ReportsPage() {
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>;
+}) {
   await requirePermission("page.reports");
+  const { month: monthParam } = await searchParams;
+  // A single month by default (with its expenses, salaries and net profit);
+  // ?month=all shows every case.
+  const allTime = monthParam === "all";
+  const month = allTime ? undefined : isMonthKey(monthParam) ? monthParam : currentMonthKey();
+  const exportQuery = month ? `&month=${month}` : "";
 
-  const cases = await getReportCases();
+  const cases = await getReportCases(month);
+  const overheads = month ? await overheadsForMonth(month) : null;
   const totals = computeTotals(cases);
   const breakdowns = allBreakdowns(cases);
 
@@ -29,19 +54,20 @@ export default async function ReportsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Reports</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Every case with the automatically calculated price and costs, like the old sheet.
+            Every case with its price and costs, plus each month&apos;s expenses, salaries and net
+            profit, like the old sheet.
           </p>
         </div>
         <div className="flex gap-2">
           <a
-            href="/api/reports/export?format=xlsx"
+            href={`/api/reports/export?format=xlsx${exportQuery}`}
             className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
           >
             <FileSpreadsheet size={16} />
             Excel
           </a>
           <a
-            href="/api/reports/export?format=pdf"
+            href={`/api/reports/export?format=pdf${exportQuery}`}
             className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
           >
             <FileText size={16} />
@@ -49,6 +75,70 @@ export default async function ReportsPage() {
           </a>
         </div>
       </div>
+
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        {month ? (
+          <>
+            <Link href={`/reports?month=${shiftMonth(month, -1)}`} aria-label="Previous month" className="rounded-lg border border-slate-300 bg-white p-2 text-slate-600 hover:bg-slate-50">
+              <ChevronLeft size={16} />
+            </Link>
+            <p className="min-w-40 text-center text-base font-semibold text-slate-900">{monthLabel(month)}</p>
+            <Link href={`/reports?month=${shiftMonth(month, 1)}`} aria-label="Next month" className="rounded-lg border border-slate-300 bg-white p-2 text-slate-600 hover:bg-slate-50">
+              <ChevronRight size={16} />
+            </Link>
+            <Link href="/reports?month=all" className="ml-2 text-sm font-medium text-brand hover:text-brand-hover">
+              All time
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="text-base font-semibold text-slate-900">All time</p>
+            <Link href="/reports" className="ml-2 text-sm font-medium text-brand hover:text-brand-hover">
+              Back to monthly view
+            </Link>
+          </>
+        )}
+      </div>
+
+      {overheads && (
+        <section className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr]">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+            <Stat label="Case profit" value={totals.profit} />
+            <Stat label="Expenses" value={-overheads.expenseTotal} />
+            <Stat label="Salaries" value={-overheads.salaryTotal} />
+            <Stat
+              label="Net profit"
+              value={totals.profit - overheads.expenseTotal - overheads.salaryTotal}
+              strong
+            />
+          </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+              Expenses and salaries this month
+            </div>
+            <ul className="divide-y divide-slate-100">
+              {overheads.expenses.map((e) => (
+                <li key={e.id} className="flex justify-between px-4 py-2">
+                  <span className="text-slate-700">
+                    {e.name}
+                    {e.recurring && <span className="text-slate-400"> (monthly)</span>}
+                  </span>
+                  <span className="font-medium text-slate-900">{fmt(e.amount)}</span>
+                </li>
+              ))}
+              {overheads.salaries.map((p) => (
+                <li key={p.id} className="flex justify-between px-4 py-2">
+                  <span className="text-slate-700">Salary: {p.name}</span>
+                  <span className="font-medium text-slate-900">{fmt(p.amount)}</span>
+                </li>
+              ))}
+              {overheads.expenses.length + overheads.salaries.length === 0 && (
+                <li className="px-4 py-4 text-center text-slate-400">None for this month.</li>
+              )}
+            </ul>
+          </div>
+        </section>
+      )}
 
       <div className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[1840px] text-left text-sm">
@@ -174,6 +264,17 @@ export default async function ReportsPage() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
+  return (
+    <div className={`rounded-xl border p-4 ${strong ? "border-brand/30 bg-brand-soft" : "border-slate-200 bg-white"}`}>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${value < 0 && !strong ? "text-rose-600" : "text-slate-900"}`}>
+        {fmt(value)}
+      </p>
     </div>
   );
 }

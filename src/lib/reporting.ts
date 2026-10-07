@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { materialSummary, metalSummary } from "@/lib/caseMaterials";
+import { monthStart, nextMonthStart } from "@/lib/overheads";
 
-export async function getReportCases() {
+// Cases entered in a month ("YYYY-MM"), or every case when no month is given.
+export async function getReportCases(month?: string) {
   return prisma.case.findMany({
+    where: month ? { entryDate: { gte: monthStart(month), lt: nextMonthStart(month) } } : undefined,
     orderBy: { entryDate: "desc" },
     include: {
       doctor: true,

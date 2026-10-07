@@ -8,6 +8,7 @@ import {
   completeMatching,
   markDelivered,
   markPhotogrammetryDone,
+  setCaseStatus,
   startDesign,
   submitForReview,
   reviewCase,
@@ -71,4 +72,10 @@ export async function markPhotogrammetryDoneAction(formData: FormData) {
 export async function completeIbarAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
   await completeIbar(caseId, formData);
+}
+
+export async function setCaseStatusAction(formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  const status = String(formData.get("status") ?? "");
+  await setCaseStatus(caseId, status);
 }

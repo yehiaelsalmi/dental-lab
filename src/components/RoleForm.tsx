@@ -1,4 +1,3 @@
-import { CASE_STATUSES, CASE_STATUS_LABELS } from "@/lib/constants";
 import {
   CASE_SCOPES,
   PERMISSIONS,
@@ -24,7 +23,9 @@ export function RoleForm({
   roleId,
   locked,
   submitLabel,
+  statuses,
 }: {
+  statuses: { key: string; label: string }[];
   action: (formData: FormData) => Promise<void>;
   values: RoleFormValues;
   roleId?: string;
@@ -96,16 +97,16 @@ export function RoleForm({
             Only in these statuses (leave all ticked to see every status):
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {CASE_STATUSES.map((status) => (
-              <label key={status} className="flex items-center gap-2 text-sm text-slate-700">
+            {statuses.map((status) => (
+              <label key={status.key} className="flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
                   name="visibleStatuses"
-                  value={status}
-                  defaultChecked={allStatuses || values.visibleStatuses.includes(status)}
+                  value={status.key}
+                  defaultChecked={allStatuses || values.visibleStatuses.includes(status.key)}
                   className="h-4 w-4 shrink-0 accent-brand"
                 />
-                {CASE_STATUS_LABELS[status]}
+                {status.label}
               </label>
             ))}
           </div>
@@ -128,16 +129,16 @@ export function RoleForm({
               />
               A case needs photogrammetry
             </label>
-            {CASE_STATUSES.map((status) => (
-              <label key={status} className="flex items-center gap-2 text-sm text-slate-700">
+            {statuses.map((status) => (
+              <label key={status.key} className="flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
                   name="notifyOn"
-                  value={status}
-                  defaultChecked={values.notifyOn.includes(status)}
+                  value={status.key}
+                  defaultChecked={values.notifyOn.includes(status.key)}
                   className="h-4 w-4 shrink-0 accent-brand"
                 />
-                A case reaches {CASE_STATUS_LABELS[status]}
+                A case reaches {status.label}
               </label>
             ))}
           </div>

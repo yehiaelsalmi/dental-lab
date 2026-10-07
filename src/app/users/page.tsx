@@ -4,7 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { can, requirePermission } from "@/lib/access";
 import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
-import { changeUserRoleAction, createUser, deleteUserAction, toggleUserActiveAction } from "./actions";
+import {
+  changeUserRoleAction,
+  createUser,
+  deleteUserAction,
+  setSalaryAction,
+  toggleUserActiveAction,
+} from "./actions";
 
 const SELECT_CLASS =
   "rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -49,12 +55,13 @@ export default async function UsersPage({
       )}
 
       <section className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-3 font-medium">Name</th>
               <th className="px-5 py-3 font-medium">Email</th>
               <th className="px-5 py-3 font-medium">Role</th>
+              <th className="px-5 py-3 font-medium">Salary / month</th>
               <th className="px-5 py-3 font-medium">Status</th>
               <th className="px-5 py-3" />
             </tr>
@@ -74,6 +81,24 @@ export default async function UsersPage({
                       options={roleOptions}
                       className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand"
                     />
+                  </form>
+                </td>
+                <td className="px-5 py-3.5">
+                  <form action={setSalaryAction} className="flex items-center gap-1.5">
+                    <input type="hidden" name="userId" value={u.id} />
+                    <input
+                      name="baseSalary"
+                      type="number"
+                      min={0}
+                      step="1"
+                      defaultValue={u.baseSalary ?? ""}
+                      placeholder="None"
+                      aria-label={`Monthly salary for ${u.name}`}
+                      className="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand"
+                    />
+                    <button type="submit" className="text-xs font-medium text-slate-500 hover:text-brand">
+                      Save
+                    </button>
                   </form>
                 </td>
                 <td className="px-5 py-3.5">

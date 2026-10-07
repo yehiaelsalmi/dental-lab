@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requirePermission } from "@/lib/access";
 import { RoleForm } from "@/components/RoleForm";
+import { getStatuses } from "@/lib/statuses";
 import { createRole } from "../actions";
 
 export default async function NewRolePage({
@@ -28,6 +29,7 @@ export default async function NewRolePage({
       )}
 
       <RoleForm
+        statuses={await getStatuses()}
         action={createRole}
         submitLabel="Create role"
         values={{ name: "", permissions: [], caseScope: "ALL", visibleStatuses: [], notifyOn: [] }}

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission, toRoleAccess } from "@/lib/access";
 import { LAB_LEADER_KEY } from "@/lib/permissions";
 import { RoleForm } from "@/components/RoleForm";
+import { getStatuses } from "@/lib/statuses";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { deleteRole, updateRole } from "../actions";
 
@@ -58,6 +59,7 @@ export default async function EditRolePage({
       )}
 
       <RoleForm
+        statuses={await getStatuses()}
         action={updateRole}
         roleId={role.id}
         locked={locked}

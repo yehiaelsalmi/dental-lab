@@ -19,6 +19,7 @@ export const PERMISSIONS = [
   { key: "case.stainGlaze", group: "Workflow steps", label: "Mark stain & glaze done" },
   { key: "case.deliver", group: "Workflow steps", label: "Mark cases delivered" },
   { key: "case.photogrammetry", group: "Workflow steps", label: "Mark photogrammetry done" },
+  { key: "case.setStatus", group: "Workflow steps", label: "Move a case to any status" },
 
   { key: "money.viewAll", group: "Money", label: "See all prices, fees and profit" },
   { key: "money.viewOwn", group: "Money", label: "See their own earnings" },
@@ -31,6 +32,8 @@ export const PERMISSIONS = [
   { key: "page.roles", group: "Pages", label: "Roles" },
   { key: "page.pricing", group: "Pages", label: "Pricing" },
   { key: "page.doctors", group: "Pages", label: "Doctors (rename and delete)" },
+  { key: "page.statuses", group: "Pages", label: "Statuses (add custom statuses)" },
+  { key: "page.expenses", group: "Pages", label: "Expenses" },
   { key: "page.drive", group: "Pages", label: "Drive Settings" },
 ] as const;
 
@@ -94,6 +97,8 @@ export const ROLE_PRESETS: RolePreset[] = [
       "case.stainGlaze",
       "case.deliver",
       "case.photogrammetry",
+      "case.setStatus",
+      "page.statuses",
     ],
     caseScope: "ALL",
     visibleStatuses: [],
