@@ -33,7 +33,7 @@ export default async function UsersPage({
   const defaultRoleId = roles.find((r) => r.key === "DESIGNER")?.id ?? roles[0]?.id ?? "";
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-10">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Users</h1>
       <p className="mb-6 text-sm text-slate-500">
         Manage who can sign in to the lab system and which role each person has.
