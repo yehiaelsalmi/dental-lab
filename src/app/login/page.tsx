@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { KeyRound } from "lucide-react";
-import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
+import { getLabSettings } from "@/lib/labSettings";
+import { LabMark } from "@/components/LabMark";
 import { loginAction, loginWithGoogle } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -15,16 +16,17 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const { error, next } = await searchParams;
+  const lab = await getLabSettings();
   const googleConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-lg font-bold text-white shadow-lg shadow-brand/30">
-            {LAB_INITIALS}
+          <div className="mb-3">
+            <LabMark lab={lab} size={48} />
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">{LAB_NAME}</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{lab.name}</h1>
           <p className="mt-1 text-sm text-slate-500">Sign in to manage cases</p>
         </div>
 

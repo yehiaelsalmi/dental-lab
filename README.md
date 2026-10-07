@@ -104,6 +104,22 @@ a printable label (`/cases/<id>/label`). The code encodes `APP_URL` (falling
 back to `NEXTAUTH_URL`), so it only works from a phone once the app is served
 from a real address rather than `localhost`.
 
+## Custom fields
+
+On **Custom fields** (`/settings/fields`, permission "Custom fields") the lab adds its
+own fields to the New Case and Edit forms: short/long text, number, dropdown, yes/no
+or date, optionally required, in any order. Values show on the case page ("More
+details"), as extra columns in Reports and the Excel export. Fields that were filled
+in can't be deleted, only archived (hidden from forms and reports, values kept).
+
+## Lab settings
+
+**Lab settings** (`/settings/lab`, permission "Lab settings") holds the lab name and
+logo (sidebar, login, labels, emails, invoice and report PDFs), invoice details
+(address, phone, payment details, footer note) and the case alert timings
+("forgotten" after N days, "due soon" within N days). Stored in AppSetting
+(`src/lib/labSettings.ts`).
+
 ## Custom statuses
 
 On **Statuses** (`/settings/statuses`, permission "Statuses") the lab adds its own

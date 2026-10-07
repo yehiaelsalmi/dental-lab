@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission, usersWithPermission } from "@/lib/access";
 import { FileDropField } from "@/components/FileDropField";
 import { CaseFields } from "@/components/CaseFields";
+import { activeFields } from "@/lib/customFields";
 import { createCase } from "../actions";
 
 export default async function NewCasePage({
@@ -14,6 +15,7 @@ export default async function NewCasePage({
   await requirePermission("case.create");
   const { error } = await searchParams;
 
+  const customFields = await activeFields();
   const [designers, doctors, ibarDesigners, materials, metalTypes] = await Promise.all([
     usersWithPermission("work.design"),
     prisma.doctor.findMany({ orderBy: { name: "asc" } }),
@@ -48,6 +50,7 @@ export default async function NewCasePage({
           materials={materials}
           metalTypes={metalTypes}
           ibarDesigners={ibarDesigners}
+          customFields={customFields}
         />
 
         <div>

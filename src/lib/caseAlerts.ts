@@ -1,9 +1,9 @@
 import type { CaseStatus } from "@/lib/constants";
 import { activeDesignerId } from "@/lib/caseFlow";
 
-// A case assigned to a designer that hasn't moved for this many days counts
-// as forgotten.
-export const STALE_DAYS = 2;
+// Defaults; the Lab Leader can change both on Lab Settings.
+export const DEFAULT_ALERT_OPTIONS = { staleDays: 2, dueSoonDays: 1 };
+export type AlertOptions = typeof DEFAULT_ALERT_OPTIONS;
 
 const LAB_TIME_ZONE = "Africa/Cairo";
 const FINISHED: CaseStatus[] = ["COMPLETED", "DELIVERED"];
@@ -42,6 +42,7 @@ export function getCaseAlert(
     updatedAt: Date;
   },
   now: Date = new Date(),
+  options: AlertOptions = DEFAULT_ALERT_OPTIONS,
 ): CaseAlert | null {
   const status = c.status as CaseStatus;
   if (FINISHED.includes(status)) return null;
@@ -51,14 +52,18 @@ export function getCaseAlert(
     const due = c.dueDate.toISOString().slice(0, 10);
     if (due < today) return { label: "Overdue" };
     if (due === today) return { label: "Due today" };
-    if (due === addDays(today, 1)) return { label: "Due tomorrow" };
+    for (let d = 1; d <= options.dueSoonDays; d++) {
+      if (due === addDays(today, d)) {
+        return { label: d === 1 ? "Due tomorrow" : `Due in ${d} days` };
+      }
+    }
   }
 
   if (activeDesignerId(c) && WAITING_ON_DESIGNER.includes(status)) {
     const idleDays = Math.floor(
       (now.getTime() - c.updatedAt.getTime()) / DAY_MS,
     );
-    if (idleDays >= STALE_DAYS)
+    if (idleDays >= options.staleDays)
       return { label: `No progress for ${idleDays} days` };
   }
 

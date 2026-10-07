@@ -4,6 +4,7 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { VISIBILITY_INCLUDE, can, canViewCase, requirePermission } from "@/lib/access";
 import { CaseFields } from "@/components/CaseFields";
+import { activeFields } from "@/lib/customFields";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { deleteCase, updateCase } from "../../actions";
 
@@ -25,6 +26,7 @@ export default async function EditCasePage({
         ...VISIBILITY_INCLUDE,
         units: { orderBy: { createdAt: "asc" } },
         materials: { orderBy: { createdAt: "asc" } },
+        fieldValues: true,
       },
     }),
     prisma.doctor.findMany({ orderBy: { name: "asc" } }),
@@ -33,6 +35,7 @@ export default async function EditCasePage({
     prisma.metalType.findMany({ orderBy: { name: "asc" } }),
   ]);
   if (!caseRecord || !canViewCase(access, caseRecord)) notFound();
+  const customFields = await activeFields();
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-10">
@@ -66,7 +69,9 @@ export default async function EditCasePage({
           materials={materials}
           metalTypes={metalTypes}
           ibarDesigners={ibarDesigners}
+          customFields={customFields}
           defaults={{
+            fieldValues: Object.fromEntries(caseRecord.fieldValues.map((v) => [v.fieldId, v.value])),
             doctorId: caseRecord.doctorId,
             patientName: caseRecord.patientName,
             lines: caseRecord.materials.map((l) => ({

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { materialSummary } from "@/lib/caseMaterials";
 import { requirePermission } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
-import { LAB_NAME } from "@/lib/constants";
+import { getLabSettings, pdfLab } from "@/lib/labSettings";
 import {
   PDFDocument,
   PDF_COLORS,
@@ -53,7 +53,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const left = doc.page.margins.left;
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
-  drawDocHeader(doc, "INVOICE", [invoiceNumber, `Issued ${formatDate(invoice.createdAt)}`]);
+  const settings = await getLabSettings();
+  drawDocHeader(doc, pdfLab(settings), "INVOICE", [invoiceNumber, `Issued ${formatDate(invoice.createdAt)}`]);
+
+  // The lab's own contact details (Lab Settings), when filled in.
+  const contact = [settings.invoiceAddress, settings.invoicePhone].filter(Boolean).join("\n");
+  if (contact) {
+    doc.font("Helvetica").fontSize(9).fillColor(PDF_COLORS.muted);
+    doc.text(contact, left, doc.y - 6, { width: pageWidth / 2 });
+    doc.y += 10;
+  }
 
   // Billed-to and period, side by side.
   const infoTop = doc.y;
@@ -109,9 +118,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     boxTop + 12,
     { lineBreak: false }
   );
-  doc.text("Thank you for working with us.", left, boxTop + 26, { lineBreak: false });
+  doc.y = boxTop + boxHeight + 22;
 
-  drawPageFooters(doc, `${LAB_NAME} - ${invoiceNumber}`);
+  if (settings.invoicePayment) {
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(PDF_COLORS.text);
+    doc.text("PAYMENT DETAILS", left, doc.y);
+    doc.font("Helvetica").fontSize(9).fillColor(PDF_COLORS.muted);
+    doc.text(settings.invoicePayment, left, doc.y + 4, { width: pageWidth });
+    doc.y += 12;
+  }
+  doc.font("Helvetica").fontSize(9).fillColor(PDF_COLORS.muted);
+  doc.text(settings.invoiceFooter || "Thank you for working with us.", left, doc.y, { width: pageWidth });
+
+  drawPageFooters(doc, `${settings.name} - ${invoiceNumber}`);
   const buffer = await pdfToBuffer(doc);
 
   return new Response(new Uint8Array(buffer), {

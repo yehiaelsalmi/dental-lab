@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
-import { LAB_NAME } from "@/lib/constants";
+import { getLabSettings, pdfLab } from "@/lib/labSettings";
+import { activeFields } from "@/lib/customFields";
 import {
   type ReportCase,
   type BreakdownKey,
@@ -10,6 +11,7 @@ import {
   caseMetalsText,
   staffFees,
   staffText,
+  caseFieldText,
   computeTotals,
   designerFees,
   designerNames,
@@ -97,14 +99,18 @@ export async function buildReportExcelBuffer(
 ): Promise<Buffer> {
   const totals = computeTotals(cases);
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = LAB_NAME;
+  workbook.creator = (await getLabSettings()).name;
 
   const sheet = workbook.addWorksheet("Cases", { views: [{ state: "frozen", ySplit: 1 }] });
-  sheet.columns = EXCEL_COLUMNS.map((c) => ({
-    header: c.header,
-    width: c.width,
-    style: c.money ? { numFmt: MONEY_FORMAT } : {},
-  }));
+  const customFields = await activeFields();
+  sheet.columns = [
+    ...EXCEL_COLUMNS.map((c) => ({
+      header: c.header,
+      width: c.width,
+      style: c.money ? { numFmt: MONEY_FORMAT } : {},
+    })),
+    ...customFields.map((f) => ({ header: f.label, width: 20, style: {} })),
+  ];
   styleHeaderRow(sheet.getRow(1));
 
   cases.forEach((c) => {
@@ -132,6 +138,7 @@ export async function buildReportExcelBuffer(
       staffText(c),
       c.assignments.length ? staffFees(c) : null,
       caseProfit(c),
+      ...customFields.map((f) => caseFieldText(c, f)),
     ]);
   });
   sheet.getColumn(1).numFmt = "dd mmm yyyy";
@@ -163,7 +170,10 @@ export async function buildReportExcelBuffer(
       totals.profit,
     ])
   );
-  sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: EXCEL_COLUMNS.length } };
+  sheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: EXCEL_COLUMNS.length + customFields.length },
+  };
 
   for (const key of Object.keys(breakdowns) as BreakdownKey[]) {
     const personSheet = workbook.addWorksheet(BREAKDOWN_LABELS[key].slice(0, 31), {
@@ -241,8 +251,9 @@ export async function buildReportPdfBuffer(
     totals.photogrammetry +
     totals.staff;
   const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 20, bufferPages: true });
+  const lab = pdfLab(await getLabSettings());
 
-  drawDocHeader(doc, "Case Report", [period.label, `Generated ${formatDate(new Date())}`]);
+  drawDocHeader(doc, lab, "Case Report", [period.label, `Generated ${formatDate(new Date())}`]);
   drawStatCards(doc, [
     { label: "Cases", value: String(cases.length) },
     { label: "Revenue", value: formatMoney(totals.price) },
@@ -303,7 +314,7 @@ export async function buildReportPdfBuffer(
   ];
 
   doc.addPage();
-  drawDocHeader(doc, "By Person", [`Generated ${formatDate(new Date())}`]);
+  drawDocHeader(doc, lab, "By Person", [`Generated ${formatDate(new Date())}`]);
   for (const key of Object.keys(breakdowns) as BreakdownKey[]) {
     if (doc.y > doc.page.height - doc.page.margins.bottom - 90) {
       doc.addPage();
@@ -329,7 +340,7 @@ export async function buildReportPdfBuffer(
   if (period.overheads) {
     const o = period.overheads;
     doc.addPage();
-    drawDocHeader(doc, "Net Profit", [period.label, `Generated ${formatDate(new Date())}`]);
+    drawDocHeader(doc, lab, "Net Profit", [period.label, `Generated ${formatDate(new Date())}`]);
     drawStatCards(doc, [
       { label: "Case profit", value: formatMoney(totals.profit) },
       { label: "Expenses", value: formatMoney(o.expenseTotal) },
@@ -352,6 +363,6 @@ export async function buildReportPdfBuffer(
     );
   }
 
-  drawPageFooters(doc, LAB_NAME);
+  drawPageFooters(doc, lab.name);
   return pdfToBuffer(doc);
 }

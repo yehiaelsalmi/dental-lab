@@ -1,5 +1,5 @@
 import PDFDocument from "pdfkit";
-import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
+import type { PdfLab } from "@/lib/labSettings";
 import { formatEGP } from "@/lib/money";
 
 export const PDF_COLORS = {
@@ -116,6 +116,7 @@ export function drawTable(
 // Lab logo block on the left, document title on the right, then a rule.
 export function drawDocHeader(
   doc: PDFKit.PDFDocument,
+  lab: PdfLab,
   title: string,
   rightLines: string[] = []
 ) {
@@ -123,12 +124,23 @@ export function drawDocHeader(
   const right = doc.page.width - doc.page.margins.right;
   const top = doc.page.margins.top;
 
-  doc.roundedRect(left, top, 34, 34, 6).fill(PDF_COLORS.brand);
-  doc.font("Helvetica-Bold").fontSize(13).fillColor("#ffffff");
-  doc.text(LAB_INITIALS, left, top + 11, { width: 34, align: "center", lineBreak: false });
+  let drewLogo = false;
+  if (lab.logo) {
+    try {
+      doc.image(lab.logo, left, top, { fit: [34, 34], align: "center", valign: "center" });
+      drewLogo = true;
+    } catch {
+      // An unreadable logo falls back to the initials.
+    }
+  }
+  if (!drewLogo) {
+    doc.roundedRect(left, top, 34, 34, 6).fill(PDF_COLORS.brand);
+    doc.font("Helvetica-Bold").fontSize(13).fillColor("#ffffff");
+    doc.text(lab.initials, left, top + 11, { width: 34, align: "center", lineBreak: false });
+  }
 
   doc.font("Helvetica-Bold").fontSize(13).fillColor(PDF_COLORS.text);
-  doc.text(LAB_NAME, left + 44, top + 4, { lineBreak: false });
+  doc.text(lab.name, left + 44, top + 4, { lineBreak: false });
   doc.font("Helvetica").fontSize(9).fillColor(PDF_COLORS.muted);
   doc.text("Dental laboratory", left + 44, top + 21, { lineBreak: false });
 

@@ -176,6 +176,8 @@ model Case {
   materials     CaseMaterial[]
   // People from assignable roles (milling, printing, ...), one per role.
   assignments   CaseAssignment[]
+  // Values for the lab's own fields (see CustomField).
+  fieldValues   CaseFieldValue[]
   invoiceLines  InvoiceLine[]
 
   createdAt DateTime @default(now())
@@ -326,4 +328,31 @@ model CaseAssignment {
   createdAt DateTime @default(now())
 
   @@unique([caseId, roleId])
+}
+
+// Fields the lab adds to the case form itself (e.g. "Implant brand").
+// type: TEXT | LONGTEXT | NUMBER | SELECT | CHECKBOX | DATE; options is a JSON
+// string array for SELECT. Archived fields keep their values but leave the forms.
+model CustomField {
+  id        String   @id @default(cuid())
+  label     String   @unique
+  type      String
+  options   String   @default("[]")
+  required  Boolean  @default(false)
+  position  Int      @default(0)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  values CaseFieldValue[]
+}
+
+model CaseFieldValue {
+  id      String      @id @default(cuid())
+  caseId  String
+  case    Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  fieldId String
+  field   CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  value   String
+
+  @@unique([caseId, fieldId])
 }

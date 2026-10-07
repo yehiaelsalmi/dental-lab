@@ -37,6 +37,7 @@ import {
 } from "@/lib/caseMaterials";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 import { getStatuses } from "@/lib/statuses";
+import { activeFields, parseFieldValues, saveFieldValues } from "@/lib/customFields";
 
 const createCaseSchema = z.object({
   doctorId: z.string().min(1, "Select a doctor"),
@@ -139,6 +140,7 @@ export async function createCase(formData: FormData) {
     const units = parseUnits(formData);
     const lineInputs = parseLineInputs(formData);
     const pricedLines = await priceLines(lineInputs);
+    const fieldValues = parseFieldValues(formData, await activeFields());
 
     const doctor =
       data.doctorId === "__new__"
@@ -198,6 +200,8 @@ export async function createCase(formData: FormData) {
         createdById: session.userId,
       },
     });
+
+    await saveFieldValues(created.id, fieldValues);
 
     if (scanFile instanceof File && scanFile.size > 0) {
       await attachFile(created.id, folder.id, scanFile, "SCAN", session.userId);
@@ -631,6 +635,7 @@ export async function updateCase(formData: FormData) {
     const units = parseUnits(formData);
     const lineInputs = parseLineInputs(formData);
     const pricedLines = await priceLines(lineInputs);
+    const fieldValues = parseFieldValues(formData, await activeFields());
 
     const doctor =
       data.doctorId === "__new__"
@@ -707,6 +712,8 @@ export async function updateCase(formData: FormData) {
         ...pricing,
       },
     });
+
+    await saveFieldValues(caseId, fieldValues);
 
     if (data.needsPhotogrammetry && !previous.needsPhotogrammetry) {
       await notifyPhotogrammetryNeeded(caseId, data.patientName);

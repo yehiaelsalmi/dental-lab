@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { LAB_NAME } from "@/lib/constants";
+import { getLabSettings } from "@/lib/labSettings";
 
 function isConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -22,6 +22,11 @@ export function caseUrl(caseId: string) {
 // Fire-and-forget: a mail problem must never break the action that triggered it.
 export function sendEmail(to: string | string[], subject: string, message: string, link?: string) {
   if (!isConfigured()) return;
+  void deliver(to, subject, message, link);
+}
+
+async function deliver(to: string | string[], subject: string, message: string, link?: string) {
+  const labName = (await getLabSettings().catch(() => null))?.name ?? "Dental lab";
 
   const recipients = Array.isArray(to) ? to : [to];
   if (recipients.length === 0) return;
@@ -38,14 +43,14 @@ export function sendEmail(to: string | string[], subject: string, message: strin
   const safeMessage = escapeHtml(message);
   const html = `<p>${safeMessage}</p>${
     link ? `<p><a href="${escapeHtml(link)}">Open the case</a></p>` : ""
-  }<p style="color:#64748b">${escapeHtml(LAB_NAME)}</p>`;
+  }<p style="color:#64748b">${escapeHtml(labName)}</p>`;
 
   transporter
     .sendMail({
       from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
       to: recipients,
       subject,
-      text: `${message}${link ? `\n\n${link}` : ""}\n\n${LAB_NAME}`,
+      text: `${message}${link ? `\n\n${link}` : ""}\n\n${labName}`,
       html,
     })
     .catch((error) => {

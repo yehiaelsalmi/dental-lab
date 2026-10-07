@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { materialSummary, metalSummary } from "@/lib/caseMaterials";
 import { monthStart, nextMonthStart } from "@/lib/overheads";
+import { formatFieldValue } from "@/lib/customFields";
 
 // Cases entered in a month ("YYYY-MM"), or every case when no month is given.
 export async function getReportCases(month?: string) {
@@ -15,8 +16,14 @@ export async function getReportCases(month?: string) {
       assignedDesigner: true,
       firstDesigner: true,
       assignments: { include: { role: true, user: true } },
+      fieldValues: true,
     },
   });
+}
+
+// A case's value for one custom field, formatted for a report cell.
+export function caseFieldText(c: ReportCase, field: { id: string; type: string }): string {
+  return formatFieldValue(field.type, c.fieldValues.find((v) => v.fieldId === field.id)?.value);
 }
 
 export type ReportCase = Awaited<ReturnType<typeof getReportCases>>[number];

@@ -35,6 +35,8 @@ export const PERMISSIONS = [
   { key: "page.doctors", group: "Pages", label: "Doctors (rename and delete)" },
   { key: "page.statuses", group: "Pages", label: "Statuses (add custom statuses)" },
   { key: "page.expenses", group: "Pages", label: "Expenses" },
+  { key: "page.fields", group: "Pages", label: "Custom fields (add fields to the case form)" },
+  { key: "page.settings", group: "Pages", label: "Lab settings (name, logo, invoice details, alerts)" },
   { key: "page.drive", group: "Pages", label: "Drive Settings" },
 ] as const;
 

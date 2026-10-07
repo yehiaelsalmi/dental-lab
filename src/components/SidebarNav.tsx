@@ -17,6 +17,8 @@ import {
   Banknote,
   UsersRound,
   ChevronDown,
+  Settings2,
+  TextCursorInput,
 } from "lucide-react";
 
 // `show` and `team` are decided on the server from the user's permissions.
@@ -31,8 +33,10 @@ const LINKS = [
   { href: "/users", label: "Users", icon: Users },
   { href: "/settings/roles", label: "Roles", icon: ShieldCheck },
   { href: "/settings/statuses", label: "Statuses", icon: ListChecks },
+  { href: "/settings/fields", label: "Custom fields", icon: TextCursorInput },
   { href: "/settings/pricing", label: "Pricing", icon: Tag },
   { href: "/settings/google", label: "Drive Settings", icon: Cloud },
+  { href: "/settings/lab", label: "Lab settings", icon: Settings2 },
 ] as const;
 
 export type NavHref = Exclude<(typeof LINKS)[number]["href"], "TEAM">;

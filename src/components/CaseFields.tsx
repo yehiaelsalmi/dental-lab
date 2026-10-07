@@ -1,6 +1,7 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { UnitCodesField } from "@/components/UnitCodesField";
 import { MaterialLinesField, type MaterialLineDefault } from "@/components/MaterialLinesField";
+import { fieldInputName, type FieldDef } from "@/lib/customFields";
 
 type Option = { id: string; name: string };
 
@@ -8,6 +9,7 @@ export type CaseFieldDefaults = {
   doctorId?: string;
   patientName?: string;
   lines?: MaterialLineDefault[];
+  fieldValues?: Record<string, string>;
   system?: string | null;
   shade?: string | null;
   dueDate?: Date | null;
@@ -26,8 +28,10 @@ export function CaseFields({
   materials,
   metalTypes,
   ibarDesigners,
+  customFields = [],
   defaults = {},
 }: {
+  customFields?: FieldDef[];
   doctors: Option[];
   materials: Option[];
   metalTypes: Option[];
@@ -93,6 +97,17 @@ export function CaseFields({
         </div>
       </div>
 
+      {customFields.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">More details</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {customFields.map((f) => (
+              <CustomFieldInput key={f.id} field={f} value={defaults.fieldValues?.[f.id]} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Materials</h2>
         <MaterialLinesField materials={materials} metalTypes={metalTypes} defaultLines={defaults.lines} />
@@ -132,6 +147,46 @@ function Field({
         defaultValue={defaultValue}
         className={INPUT_CLASS}
       />
+    </label>
+  );
+}
+
+// One of the lab's own fields (Custom fields page), by type.
+function CustomFieldInput({ field, value }: { field: FieldDef; value?: string }) {
+  const name = fieldInputName(field.id);
+  const label = `${field.label}${field.required ? "" : " (optional)"}`;
+  if (field.type === "CHECKBOX") {
+    return (
+      <label className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+        <input type="checkbox" name={name} defaultChecked={value === "yes"} className="h-4 w-4 accent-brand" />
+        {field.label}
+      </label>
+    );
+  }
+  return (
+    <label className={`flex flex-col gap-1.5 text-sm font-medium text-slate-700 ${field.type === "LONGTEXT" ? "sm:col-span-2" : ""}`}>
+      {label}
+      {field.type === "LONGTEXT" ? (
+        <textarea name={name} rows={3} required={field.required} defaultValue={value} className={INPUT_CLASS} />
+      ) : field.type === "SELECT" ? (
+        <select name={name} required={field.required} defaultValue={value ?? ""} className={INPUT_CLASS}>
+          <option value="">{field.required ? "Select" : "None"}</option>
+          {field.options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          name={name}
+          type={field.type === "NUMBER" ? "number" : field.type === "DATE" ? "date" : "text"}
+          step={field.type === "NUMBER" ? "any" : undefined}
+          required={field.required}
+          defaultValue={value}
+          className={INPUT_CLASS}
+        />
+      )}
     </label>
   );
 }

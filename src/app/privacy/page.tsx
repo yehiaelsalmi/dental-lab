@@ -1,23 +1,23 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
+import { getLabSettings } from "@/lib/labSettings";
+import { LabMark } from "@/components/LabMark";
 
-export const metadata: Metadata = {
-  title: `Privacy Policy - ${LAB_NAME}`,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: `Privacy Policy - ${(await getLabSettings()).name}` };
+}
 
 const CONTACT_EMAIL = "alexallonfourlab@gmail.com";
 const LAST_UPDATED = "5 October 2026";
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const lab = await getLabSettings();
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8 sm:py-12">
       <div className="mb-8 flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-sm font-bold text-white">
-          {LAB_INITIALS}
-        </div>
+        <LabMark lab={lab} size={40} />
         <div>
-          <p className="text-sm font-semibold text-slate-900">{LAB_NAME}</p>
+          <p className="text-sm font-semibold text-slate-900">{lab.name}</p>
           <p className="text-xs text-slate-500">Case management system</p>
         </div>
       </div>
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
       <div className="flex flex-col gap-7 text-sm leading-relaxed text-slate-700">
         <Section title="Who this applies to">
           <p>
-            This system is the internal case management tool of {LAB_NAME}. It is used only by the
+            This system is the internal case management tool of {lab.name}. It is used only by the
             lab&apos;s own staff, whose accounts are created by the lab. There is no public sign-up.
           </p>
         </Section>

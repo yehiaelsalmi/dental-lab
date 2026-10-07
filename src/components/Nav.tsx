@@ -3,7 +3,8 @@ import { Bell } from "lucide-react";
 import { can, getAccess, toRoleAccess, type Access } from "@/lib/access";
 import { LAB_LEADER_KEY } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
+import { getLabSettings } from "@/lib/labSettings";
+import { LabMark } from "@/components/LabMark";
 import { SidebarNav, type NavHref, type TeamLink } from "@/components/SidebarNav";
 import { SignOutButton } from "@/components/SignOutButton";
 import { MobileMenu } from "@/components/MobileMenu";
@@ -20,8 +21,10 @@ function visibleLinks(access: Access): NavHref[] {
     ["/users", can(access, "page.users")],
     ["/settings/roles", can(access, "page.roles")],
     ["/settings/statuses", can(access, "page.statuses")],
+    ["/settings/fields", can(access, "page.fields")],
     ["/settings/pricing", can(access, "page.pricing")],
     ["/settings/google", can(access, "page.drive")],
+    ["/settings/lab", can(access, "page.settings")],
   ];
   return links.filter(([, ok]) => ok).map(([href]) => href);
 }
@@ -52,6 +55,7 @@ export async function Nav() {
   const name = access.name || email || "?";
   const show = visibleLinks(access);
   const team = await teamLinks(access);
+  const lab = await getLabSettings();
   const initials = name
     .split(" ")
     .map((part) => part[0])
@@ -65,11 +69,9 @@ export async function Nav() {
 
   const logo = (
     <div className="flex min-w-0 items-center gap-2.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
-        {LAB_INITIALS}
-      </div>
+      <LabMark lab={lab} size={36} />
       <p className="min-w-0 truncate text-sm font-semibold leading-tight text-slate-900 md:whitespace-normal">
-        {LAB_NAME}
+        {lab.name}
       </p>
     </div>
   );

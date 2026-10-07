@@ -17,6 +17,7 @@ import { prisma } from "@/lib/prisma";
 import { can, canViewCase, requireAccess, usersWithPermission } from "@/lib/access";
 import { earningsOnCase } from "@/lib/earnings";
 import { findStatus, getStatuses, isBuiltInStatus } from "@/lib/statuses";
+import { formatFieldValue } from "@/lib/customFields";
 import { DESIGN_PHASE_STATUSES, type CaseStatus } from "@/lib/constants";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -61,6 +62,7 @@ export default async function CaseDetailPage({
       photogrammetryDoneBy: true,
       ibarDesigner: true,
       assignments: { include: { role: true, user: true } },
+      fieldValues: { include: { field: true }, orderBy: { field: { position: "asc" } } },
       materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } },
       units: { orderBy: { createdAt: "asc" } },
       files: { orderBy: { createdAt: "asc" } },
@@ -209,6 +211,20 @@ export default async function CaseDetailPage({
           </div>
         )}
       </section>
+
+      {caseRecord.fieldValues.length > 0 && (
+        <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm">
+          <h2 className="col-span-2 text-sm font-semibold text-slate-900">More details</h2>
+          {caseRecord.fieldValues.map((v) => (
+            <Info
+              key={v.id}
+              label={v.field.label}
+              value={formatFieldValue(v.field.type, v.value)}
+              full={v.field.type === "LONGTEXT"}
+            />
+          ))}
+        </section>
+      )}
 
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Materials</h2>

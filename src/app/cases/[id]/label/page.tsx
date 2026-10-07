@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { VISIBILITY_INCLUDE, canViewCase, requireAccess } from "@/lib/access";
 import { caseUrl } from "@/lib/email";
-import { LAB_NAME } from "@/lib/constants";
+import { getLabSettings } from "@/lib/labSettings";
 import { PrintButton } from "@/components/PrintButton";
 import { materialSummary } from "@/lib/caseMaterials";
 
@@ -38,7 +38,7 @@ export default async function CaseLabelPage({ params }: { params: Promise<{ id: 
       </div>
 
       <div className="flex flex-col items-center rounded-xl border border-slate-300 bg-white p-6 text-center">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{LAB_NAME}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{(await getLabSettings()).name}</p>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qrDataUrl} alt="Case QR code" width={240} height={240} className="my-4" />
         <p className="text-lg font-semibold text-slate-900">{caseRecord.patientName}</p>

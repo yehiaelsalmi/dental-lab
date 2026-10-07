@@ -7,7 +7,8 @@ import {
 import { StatusBadge } from "@/components/StatusBadge";
 import { findStatus, getStatuses } from "@/lib/statuses";
 import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
-import { getCaseAlert, STALE_DAYS } from "@/lib/caseAlerts";
+import { getCaseAlert } from "@/lib/caseAlerts";
+import { getLabSettings } from "@/lib/labSettings";
 import { isBeforeIbar } from "@/lib/caseFlow";
 
 const SORT_OPTIONS = [
@@ -82,7 +83,10 @@ export default async function CasesPage({
   // Cases due by tomorrow or stuck with a designer go on top, in red; each
   // group keeps the chosen sort order.
   const now = new Date();
-  const alerts = new Map(sortedCases.map((c) => [c.id, getCaseAlert(c, now)]));
+  const { staleDays, dueSoonDays } = await getLabSettings();
+  const alerts = new Map(
+    sortedCases.map((c) => [c.id, getCaseAlert(c, now, { staleDays, dueSoonDays })]),
+  );
   const visibleCases = [
     ...sortedCases.filter((c) => alerts.get(c.id)),
     ...sortedCases.filter((c) => !alerts.get(c.id)),
@@ -241,9 +245,14 @@ export default async function CasesPage({
         <p className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
           <TriangleAlert size={16} className="mt-0.5 shrink-0" />
           <span>
-            {alertCount} case{alertCount === 1 ? " needs" : "s need"} attention:
-            due by tomorrow, or no progress from the designer for {STALE_DAYS}+
-            days. They&apos;re shown first, in red.
+            {alertCount} case{alertCount === 1 ? " needs" : "s need"} attention:{" "}
+            {dueSoonDays === 0
+              ? "due today or overdue"
+              : dueSoonDays === 1
+                ? "due by tomorrow"
+                : `due within ${dueSoonDays} days`}
+            , or no progress from the designer for {staleDays}+ days. They&apos;re shown first,
+            in red.
           </span>
         </p>
       )}

@@ -14,6 +14,7 @@ import {
   designerNames,
   staffFees,
   staffText,
+  caseFieldText,
   BREAKDOWN_LABELS,
 } from "@/lib/reporting";
 import {
@@ -23,6 +24,7 @@ import {
   monthStart,
   overheadsForMonth,
 } from "@/lib/overheads";
+import { activeFields } from "@/lib/customFields";
 
 function shiftMonth(key: string, by: number) {
   const d = monthStart(key);
@@ -46,6 +48,7 @@ export default async function ReportsPage({
   const exportQuery = month ? `&month=${month}` : "";
 
   const cases = await getReportCases(month);
+  const customFields = await activeFields();
   const overheads = month ? await overheadsForMonth(month) : null;
   const totals = computeTotals(cases);
   const breakdowns = allBreakdowns(cases);
@@ -167,6 +170,11 @@ export default async function ReportsPage({
               <th className="px-4 py-3 font-medium">Other roles</th>
               <th className="px-4 py-3 text-right font-medium">Fees</th>
               <th className="px-4 py-3 text-right font-medium">Profit</th>
+              {customFields.map((f) => (
+                <th key={f.id} className="px-4 py-3 font-medium">
+                  {f.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -215,11 +223,16 @@ export default async function ReportsPage({
                 <td className="px-4 py-2.5 text-right font-medium text-slate-900">
                   {fmt(caseProfit(c))}
                 </td>
+                {customFields.map((f) => (
+                  <td key={f.id} className="whitespace-nowrap px-4 py-2.5 text-slate-600">
+                    {caseFieldText(c, f)}
+                  </td>
+                ))}
               </tr>
             ))}
             {cases.length === 0 && (
               <tr>
-                <td colSpan={21} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={21 + customFields.length} className="px-4 py-10 text-center text-slate-400">
                   No cases yet.
                 </td>
               </tr>
@@ -245,6 +258,9 @@ export default async function ReportsPage({
                 <td />
                 <td className="px-4 py-3 text-right">{fmt(totals.staff)}</td>
                 <td className="px-4 py-3 text-right">{fmt(totals.profit)}</td>
+                {customFields.map((f) => (
+                  <td key={f.id} />
+                ))}
               </tr>
             </tfoot>
           )}
