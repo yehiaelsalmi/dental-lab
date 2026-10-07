@@ -70,6 +70,8 @@ export default async function EditRolePage({
           caseScope: access.caseScope,
           visibleStatuses: access.visibleStatuses,
           notifyOn: access.notifyOn,
+          assignable: role.assignable,
+          feePerUnit: role.feePerUnit,
         }}
       />
 

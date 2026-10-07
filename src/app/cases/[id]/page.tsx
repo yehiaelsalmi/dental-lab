@@ -27,6 +27,7 @@ import {
   assignCeramistAction,
   assignDesignerAction,
   completeIbarAction,
+  assignRolePersonAction,
   completeMatchingAction,
   markDeliveredAction,
   setCaseStatusAction,
@@ -59,6 +60,7 @@ export default async function CaseDetailPage({
       ceramist: true,
       photogrammetryDoneBy: true,
       ibarDesigner: true,
+      assignments: { include: { role: true, user: true } },
       materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } },
       units: { orderBy: { createdAt: "asc" } },
       files: { orderBy: { createdAt: "asc" } },
@@ -86,9 +88,16 @@ export default async function CaseDetailPage({
     canAssign &&
     (["MATCHING", "WAITING_FOR_REVIEW", "MILLING", "STAIN_AND_GLAZE", "COMPLETED"] as CaseStatus[]).includes(status);
 
-  const [ceramists, designers] = await Promise.all([
+  const [ceramists, designers, assignableRoles] = await Promise.all([
     canAssignCeramist ? usersWithPermission("work.ceramist") : [],
     canAssign ? usersWithPermission("work.design") : [],
+    canAssign
+      ? prisma.role.findMany({
+          where: { assignable: true },
+          orderBy: { name: "asc" },
+          include: { users: { where: { active: true, deletedAt: null }, orderBy: { name: "asc" } } },
+        })
+      : [],
   ]);
 
   const qrDataUrl = await QRCode.toDataURL(caseUrl(caseRecord.id), { margin: 1, width: 220 });
@@ -172,6 +181,9 @@ export default async function CaseDetailPage({
         />
         <Info label="Ceramist" value={caseRecord.ceramist?.name ?? "-"} />
         <Info label="Matching" value={caseRecord.matchingBy ?? "-"} />
+        {caseRecord.assignments.map((a) => (
+          <Info key={a.id} label={a.role.name} value={a.user.name} />
+        ))}
         <Info
           label="Photogrammetry"
           value={
@@ -257,6 +269,9 @@ export default async function CaseDetailPage({
           <Money label="Ibar fee" value={caseRecord.ibarFee} />
           <Money label="Metal cost" value={caseRecord.metalCost} />
           <Money label="Milling cost" value={caseRecord.millingCost} />
+          {caseRecord.assignments.map((a) => (
+            <Money key={a.id} label={`${a.role.name} fee (${a.user.name})`} value={a.fee} />
+          ))}
           <Money label="Photogrammetry cost" value={caseRecord.photogrammetryCost} />
           <Money
             label="Profit"
@@ -270,7 +285,8 @@ export default async function CaseDetailPage({
                   (caseRecord.ibarFee ?? 0) -
                   (caseRecord.metalCost ?? 0) -
                   (caseRecord.millingCost ?? 0) -
-                  (caseRecord.photogrammetryCost ?? 0)
+                  (caseRecord.photogrammetryCost ?? 0) -
+                  caseRecord.assignments.reduce((sum, a) => sum + (a.fee ?? 0), 0)
             }
             emphasize
           />
@@ -536,6 +552,52 @@ export default async function CaseDetailPage({
               </button>
             </div>
           </form>
+        </section>
+      )}
+
+      {assignableRoles.length > 0 && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">Team</h2>
+          <p className="mb-4 text-xs text-slate-500">
+            Assign people for other jobs at any stage. They&apos;re notified when assigned.
+          </p>
+          <div className="flex flex-col gap-3">
+            {assignableRoles.map((role) => {
+              const current = caseRecord.assignments.find((a) => a.roleId === role.id);
+              return (
+                <form key={role.id} action={assignRolePersonAction} className="flex flex-wrap items-end gap-3">
+                  <input type="hidden" name="caseId" value={caseRecord.id} />
+                  <input type="hidden" name="roleId" value={role.id} />
+                  <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-sm font-medium text-slate-700">
+                    {role.name}
+                    <select
+                      name="userId"
+                      defaultValue={current?.userId ?? ""}
+                      className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    >
+                      <option value="">Nobody</option>
+                      {role.users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                  >
+                    Save
+                  </button>
+                  {role.users.length === 0 && (
+                    <span className="w-full text-xs text-amber-600">
+                      Nobody has the {role.name} role yet. Add them on the Users page.
+                    </span>
+                  )}
+                </form>
+              );
+            })}
+          </div>
         </section>
       )}
 

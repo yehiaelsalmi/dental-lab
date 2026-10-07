@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { caseUrl, sendEmail } from "@/lib/email";
 import { statusLabel } from "@/lib/statuses";
 import { PHOTOGRAMMETRY_NEEDED, type Permission } from "@/lib/permissions";
-import { canViewCase, toRoleAccess, usersWithPermission } from "@/lib/access";
+import { VISIBILITY_INCLUDE, canViewCase, toRoleAccess, usersWithPermission } from "@/lib/access";
 
 type Recipient = { id: string; email: string };
 
@@ -38,7 +38,7 @@ async function userRecipient(userId: string): Promise<Recipient[]> {
 // Users whose role is set to be notified on `event` and who can see the case.
 async function watchers(caseId: string, event: string, excludeUserId?: string) {
   const [caseRecord, users] = await Promise.all([
-    prisma.case.findUnique({ where: { id: caseId } }),
+    prisma.case.findUnique({ where: { id: caseId }, include: VISIBILITY_INCLUDE }),
     prisma.user.findMany({ where: { active: true }, include: { role: true } }),
   ]);
   if (!caseRecord) return [];
@@ -59,6 +59,20 @@ export async function notifyDesignerAssigned(caseId: string, designerId: string,
     caseId,
     `New case assigned: ${patientName}`,
     `You were assigned a new case: ${patientName}`
+  );
+}
+
+export async function notifyRoleAssigned(
+  caseId: string,
+  userId: string,
+  roleName: string,
+  patientName: string
+) {
+  await notifyMany(
+    await userRecipient(userId),
+    caseId,
+    `Case assigned to you: ${patientName}`,
+    `You were assigned to case ${patientName} (${roleName})`
   );
 }
 

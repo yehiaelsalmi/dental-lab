@@ -14,6 +14,7 @@ export async function getReportCases(month?: string) {
       ibarDesigner: true,
       assignedDesigner: true,
       firstDesigner: true,
+      assignments: { include: { role: true, user: true } },
     },
   });
 }
@@ -42,8 +43,19 @@ export function caseProfit(c: ReportCase): number {
     (c.ibarFee ?? 0) -
     (c.metalCost ?? 0) -
     (c.millingCost ?? 0) -
-    (c.photogrammetryCost ?? 0)
+    (c.photogrammetryCost ?? 0) -
+    staffFees(c)
   );
+}
+
+// Fees for people from assignable roles (milling, printing, ...) on a case.
+export function staffFees(c: { assignments: { fee: number | null }[] }): number {
+  return c.assignments.reduce((sum, a) => sum + (a.fee ?? 0), 0);
+}
+
+// "Milling: Ahmed, Printing: Sara" for one report cell.
+export function staffText(c: ReportCase): string {
+  return c.assignments.map((a) => `${a.role.name}: ${a.user.name}`).join(", ");
 }
 
 export function computeTotals(cases: ReportCase[]) {
@@ -56,9 +68,10 @@ export function computeTotals(cases: ReportCase[]) {
       acc.metal += c.metalCost ?? 0;
       acc.milling += c.millingCost ?? 0;
       acc.photogrammetry += c.photogrammetryCost ?? 0;
+      acc.staff += staffFees(c);
       return acc;
     },
-    { price: 0, ceramist: 0, designer: 0, ibar: 0, metal: 0, milling: 0, photogrammetry: 0 }
+    { price: 0, ceramist: 0, designer: 0, ibar: 0, metal: 0, milling: 0, photogrammetry: 0, staff: 0 }
   );
   const profit =
     totals.price -
@@ -67,7 +80,8 @@ export function computeTotals(cases: ReportCase[]) {
     totals.ibar -
     totals.metal -
     totals.milling -
-    totals.photogrammetry;
+    totals.photogrammetry -
+    totals.staff;
   return { ...totals, profit };
 }
 
@@ -83,7 +97,7 @@ export function designerFees(c: ReportCase): number | null {
 
 export type PersonTotal = { id: string; name: string; count: number; amount: number };
 
-const BREAKDOWN_KEYS = ["doctor", "ceramist", "designer", "ibar"] as const;
+const BREAKDOWN_KEYS = ["doctor", "ceramist", "designer", "ibar", "staff"] as const;
 export type BreakdownKey = (typeof BREAKDOWN_KEYS)[number];
 
 export const BREAKDOWN_LABELS: Record<BreakdownKey, string> = {
@@ -91,6 +105,7 @@ export const BREAKDOWN_LABELS: Record<BreakdownKey, string> = {
   ceramist: "Ceramists (fees)",
   designer: "Designers (fees)",
   ibar: "Ibar designers (fees)",
+  staff: "Other roles (fees)",
 };
 
 export function breakdownBy(cases: ReportCase[], key: BreakdownKey): PersonTotal[] {
@@ -109,7 +124,13 @@ export function breakdownBy(cases: ReportCase[], key: BreakdownKey): PersonTotal
                 { id: c.firstDesignerId, name: c.firstDesigner?.name, amount: c.firstDesignerFee ?? 0 },
                 { id: c.assignedDesignerId, name: c.assignedDesigner?.name, amount: c.designerFee ?? 0 },
               ]
-            : [{ id: c.ibarDesignerId, name: c.ibarDesigner?.name, amount: c.ibarFee ?? 0 }];
+            : key === "ibar"
+              ? [{ id: c.ibarDesignerId, name: c.ibarDesigner?.name, amount: c.ibarFee ?? 0 }]
+              : c.assignments.map((a) => ({
+                  id: a.userId,
+                  name: `${a.user.name} (${a.role.name})`,
+                  amount: a.fee ?? 0,
+                }));
 
     for (const { id, name, amount } of shares) {
       if (!id || !name) continue;

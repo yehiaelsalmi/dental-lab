@@ -32,7 +32,15 @@ export default async function NewRolePage({
         statuses={await getStatuses()}
         action={createRole}
         submitLabel="Create role"
-        values={{ name: "", permissions: [], caseScope: "ALL", visibleStatuses: [], notifyOn: [] }}
+        values={{
+          name: "",
+          permissions: [],
+          caseScope: "ALL",
+          visibleStatuses: [],
+          notifyOn: [],
+          assignable: false,
+          feePerUnit: null,
+        }}
       />
     </div>
   );

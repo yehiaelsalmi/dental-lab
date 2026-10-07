@@ -19,6 +19,8 @@ const roleSchema = z.object({
   caseScope: z.enum(CASE_SCOPES.map((s) => s.key) as [string, ...string[]]),
   visibleStatuses: z.array(z.string()).min(1, "Tick at least one status the role can see"),
   notifyOn: z.array(z.string()),
+  assignable: z.boolean(),
+  feePerUnit: z.number().nonnegative("The fee can't be negative").nullable(),
 });
 
 // Built-in and custom statuses; unknown keys from the form are dropped.
@@ -30,6 +32,8 @@ async function parseRole(formData: FormData) {
     caseScope: formData.get("caseScope"),
     visibleStatuses: formData.getAll("visibleStatuses"),
     notifyOn: formData.getAll("notifyOn"),
+    assignable: formData.get("assignable") === "on",
+    feePerUnit: String(formData.get("feePerUnit") ?? "").trim() === "" ? null : Number(formData.get("feePerUnit")),
   });
   if (!result.success) return result;
   const known = (k: string) => statusKeys.includes(k);
@@ -53,6 +57,8 @@ function toData(data: z.infer<typeof roleSchema>) {
     caseScope: data.caseScope,
     visibleStatuses: JSON.stringify(data.visibleStatuses),
     notifyOn: JSON.stringify(data.notifyOn),
+    assignable: data.assignable,
+    feePerUnit: data.assignable ? data.feePerUnit : null,
   };
 }
 
@@ -116,6 +122,14 @@ export async function deleteRole(formData: FormData) {
   if (!role) redirect("/settings/roles");
   if (role.key === LAB_LEADER_KEY) {
     redirect(`${back}?error=${encodeURIComponent("The Lab Leader role can't be deleted.")}`);
+  }
+  const usedOnCases = await prisma.caseAssignment.count({ where: { roleId: id } });
+  if (usedOnCases > 0) {
+    redirect(
+      `${back}?error=${encodeURIComponent(
+        `This role is assigned on ${usedOnCases} case${usedOnCases === 1 ? "" : "s"}, so it can't be deleted.`
+      )}`
+    );
   }
   if (role._count.users > 0) {
     redirect(

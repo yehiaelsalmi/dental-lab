@@ -15,6 +15,7 @@ import type { Permission } from "@/lib/permissions";
 import { createCaseFolder, uploadFileToDrive } from "@/lib/googleDrive";
 import {
   notifyCeramistAssigned,
+  notifyRoleAssigned,
   notifyDesignerAssigned,
   notifyDesignerIbarDone,
   notifyLabLeadersAssigned,
@@ -489,6 +490,43 @@ async function handOffAfterIbar(
   if (!c.assignedDesignerId) return;
   await notifyDesignerIbarDone(c.id, c.assignedDesignerId, c.patientName);
   await notifyLabLeadersAssigned(c.id, c.patientName, c.assignedDesignerId, actorId);
+}
+
+// Puts a person from an assignable role (milling, printing, ...) on a case, at
+// any stage; an empty userId removes them. Their fee (role fee per unit x the
+// case's units) is locked now.
+export async function assignRolePerson(caseId: string, roleId: string, userId: string | null) {
+  const session = await requirePermission("case.assign");
+
+  try {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    const role = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!role || !role.assignable) throw new Error("That role can't be assigned to cases.");
+    const current = await prisma.caseAssignment.findUnique({
+      where: { caseId_roleId: { caseId, roleId } },
+    });
+
+    if (!userId) {
+      if (current) await prisma.caseAssignment.delete({ where: { id: current.id } });
+    } else if (userId !== current?.userId) {
+      const person = await prisma.user.findUnique({ where: { id: userId } });
+      if (!person || !person.active || person.roleId !== roleId) {
+        throw new Error(`That person doesn't have the ${role.name} role.`);
+      }
+      const units = (caseRecord.unitsUpper ?? 0) + (caseRecord.unitsLower ?? 0);
+      const fee = role.feePerUnit != null ? role.feePerUnit * units : null;
+      await prisma.caseAssignment.upsert({
+        where: { caseId_roleId: { caseId, roleId } },
+        create: { caseId, roleId, userId, fee },
+        update: { userId, fee },
+      });
+      await notifyRoleAssigned(caseId, userId, role.name, caseRecord.patientName);
+    }
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath(`/cases/${caseId}`);
 }
 
 // Manual move to any status (built-in or custom). Only the status changes:

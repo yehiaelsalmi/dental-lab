@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { can, getAccess, type Access } from "@/lib/access";
+import { can, getAccess, toRoleAccess, type Access } from "@/lib/access";
+import { LAB_LEADER_KEY } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
-import { SidebarNav, type NavHref } from "@/components/SidebarNav";
+import { SidebarNav, type NavHref, type TeamLink } from "@/components/SidebarNav";
 import { SignOutButton } from "@/components/SignOutButton";
 import { MobileMenu } from "@/components/MobileMenu";
 
@@ -12,8 +13,6 @@ function visibleLinks(access: Access): NavHref[] {
     ["/cases", true],
     // Leaders who see all money use Reports instead.
     ["/earnings", can(access, "money.viewOwn") && !can(access, "money.viewAll")],
-    ["/designers", can(access, "page.designers")],
-    ["/ceramists", can(access, "page.ceramists")],
     ["/reports", can(access, "page.reports")],
     ["/invoices", can(access, "page.invoices")],
     ["/expenses", can(access, "page.expenses")],
@@ -27,6 +26,24 @@ function visibleLinks(access: Access): NavHref[] {
   return links.filter(([, ok]) => ok).map(([href]) => href);
 }
 
+// The Team dropdown: Designers, Ceramists, then a page per other role (not the
+// Lab Leader, and not roles already covered by the designer/ceramist pages).
+async function teamLinks(access: Access): Promise<TeamLink[]> {
+  const links: TeamLink[] = [];
+  if (can(access, "page.designers")) links.push({ href: "/designers", label: "Designers" });
+  if (can(access, "page.ceramists")) links.push({ href: "/ceramists", label: "Ceramists" });
+  if (can(access, "page.team")) {
+    const roles = await prisma.role.findMany({ orderBy: { name: "asc" } });
+    for (const role of roles) {
+      if (role.key === LAB_LEADER_KEY) continue;
+      const perms = toRoleAccess(role).permissions;
+      if (perms.has("work.design") || perms.has("work.ceramist")) continue;
+      links.push({ href: `/team/${role.id}`, label: role.name });
+    }
+  }
+  return links;
+}
+
 export async function Nav() {
   const access = await getAccess();
   if (!access) return null;
@@ -34,6 +51,7 @@ export async function Nav() {
   const { email } = access;
   const name = access.name || email || "?";
   const show = visibleLinks(access);
+  const team = await teamLinks(access);
   const initials = name
     .split(" ")
     .map((part) => part[0])
@@ -96,7 +114,7 @@ export async function Nav() {
         <div className="flex min-w-0 items-center gap-1">
           <MobileMenu>
             <div className="flex-1 py-2">
-              <SidebarNav show={show} />
+              <SidebarNav show={show} team={team} />
             </div>
             {account}
           </MobileMenu>
@@ -112,7 +130,7 @@ export async function Nav() {
           {bell}
         </div>
         <div className="flex-1 overflow-y-auto py-4">
-          <SidebarNav show={show} />
+          <SidebarNav show={show} team={team} />
         </div>
         {account}
       </aside>

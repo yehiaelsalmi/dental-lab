@@ -8,6 +8,8 @@ import {
   caseProfit,
   caseMaterialsText,
   caseMetalsText,
+  staffFees,
+  staffText,
   computeTotals,
   designerFees,
   designerNames,
@@ -83,6 +85,8 @@ const EXCEL_COLUMNS: { header: string; width: number; money?: boolean }[] = [
   { header: "Metal cost", width: 13, money: true },
   { header: "Milling cost", width: 13, money: true },
   { header: "Photogrammetry cost", width: 20, money: true },
+  { header: "Other roles", width: 30 },
+  { header: "Other roles fees", width: 16, money: true },
   { header: "Profit", width: 14, money: true },
 ];
 
@@ -125,6 +129,8 @@ export async function buildReportExcelBuffer(
       c.metalCost ?? null,
       c.millingCost ?? null,
       c.photogrammetryCost ?? null,
+      staffText(c),
+      c.assignments.length ? staffFees(c) : null,
       caseProfit(c),
     ]);
   });
@@ -152,6 +158,8 @@ export async function buildReportExcelBuffer(
       totals.metal,
       totals.milling,
       totals.photogrammetry,
+      "",
+      totals.staff,
       totals.profit,
     ])
   );
@@ -230,7 +238,8 @@ export async function buildReportPdfBuffer(
     totals.ibar +
     totals.metal +
     totals.milling +
-    totals.photogrammetry;
+    totals.photogrammetry +
+    totals.staff;
   const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 20, bufferPages: true });
 
   drawDocHeader(doc, "Case Report", [period.label, `Generated ${formatDate(new Date())}`]);

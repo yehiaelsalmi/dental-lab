@@ -28,6 +28,15 @@ and the last active Lab Leader can't be disabled or demoted), **Technician**,
 **Users** page. Permissions are read fresh on every request (`src/lib/access.ts`,
 list in `src/lib/permissions.ts`), so changes apply immediately.
 
+A role can also be marked **"Can be assigned to cases"** (e.g. Milling, Printing),
+with an optional **fee per unit**. Any case then gets a **Team** section where a
+person with that role can be assigned (or changed/removed) at any stage; they're
+notified, they can see the case if their role is set to "only cases they're
+assigned to", and their fee (fee per unit x the case's units, locked when assigned)
+shows on My earnings, on the case's money section and in Reports ("Other roles"),
+where it's taken off profit. The sidebar's **Team** dropdown lists Designers,
+Ceramists and a page per other role (`/team/<roleId>`, permission "Team pages").
+
 Ceramists are user accounts (a role with "can be assigned as a ceramist"); the
 ceramist picked on a case is notified. Roles with "see their own earnings" get a
 **My earnings** page and a "Your earnings" box on their cases: designer fees,

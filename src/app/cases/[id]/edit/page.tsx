@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { can, canViewCase, requirePermission } from "@/lib/access";
+import { VISIBILITY_INCLUDE, can, canViewCase, requirePermission } from "@/lib/access";
 import { CaseFields } from "@/components/CaseFields";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { deleteCase, updateCase } from "../../actions";
@@ -21,7 +21,11 @@ export default async function EditCasePage({
   const [caseRecord, doctors, ibarDesigners, materials, metalTypes] = await Promise.all([
     prisma.case.findUnique({
       where: { id },
-      include: { units: { orderBy: { createdAt: "asc" } }, materials: { orderBy: { createdAt: "asc" } } },
+      include: {
+        ...VISIBILITY_INCLUDE,
+        units: { orderBy: { createdAt: "asc" } },
+        materials: { orderBy: { createdAt: "asc" } },
+      },
     }),
     prisma.doctor.findMany({ orderBy: { name: "asc" } }),
     prisma.ibarDesigner.findMany({ orderBy: { name: "asc" } }),

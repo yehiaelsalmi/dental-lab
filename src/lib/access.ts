@@ -111,13 +111,21 @@ type VisibilityFields = {
   assignedDesignerId: string | null;
   firstDesignerId: string | null;
   ceramistId: string | null;
+  // People assigned through an assignable role (milling, printing, ...).
+  assignments?: { userId: string }[];
 };
+
+// Include this when loading a case that goes through canViewCase.
+export const VISIBILITY_INCLUDE = { assignments: { select: { userId: true } } } as const;
 
 export function canViewCase(access: Access, c: VisibilityFields): boolean {
   const { caseScope, visibleStatuses } = access.role;
   if (visibleStatuses.length > 0 && !visibleStatuses.includes(c.status)) return false;
   if (caseScope === "OWN") {
-    return [c.assignedDesignerId, c.firstDesignerId, c.ceramistId].includes(access.userId);
+    return (
+      [c.assignedDesignerId, c.firstDesignerId, c.ceramistId].includes(access.userId) ||
+      (c.assignments ?? []).some((a) => a.userId === access.userId)
+    );
   }
   if (caseScope === "PHOTOGRAMMETRY") return c.needsPhotogrammetry;
   return true;
@@ -134,6 +142,7 @@ export function caseVisibilityWhere(access: Access): Prisma.CaseWhereInput {
         { assignedDesignerId: access.userId },
         { firstDesignerId: access.userId },
         { ceramistId: access.userId },
+        { assignments: { some: { userId: access.userId } } },
       ],
     });
   }
@@ -143,7 +152,7 @@ export function caseVisibilityWhere(access: Access): Prisma.CaseWhereInput {
 
 // Loads a case the user is allowed to see, or redirects with an error.
 export async function requireVisibleCase(access: Access, caseId: string) {
-  const caseRecord = await prisma.case.findUnique({ where: { id: caseId } });
+  const caseRecord = await prisma.case.findUnique({ where: { id: caseId }, include: VISIBILITY_INCLUDE });
   if (!caseRecord || !canViewCase(access, caseRecord)) {
     throw new Error("You don't have access to this case.");
   }

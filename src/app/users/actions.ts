@@ -102,6 +102,7 @@ export async function deleteUserAction(formData: FormData) {
           { firstDesignerId: userId },
           { ceramistId: userId },
           { photogrammetryDoneById: userId },
+          { assignments: { some: { userId } } },
         ],
       },
     }),

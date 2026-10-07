@@ -11,6 +11,8 @@ export type RoleFormValues = {
   caseScope: CaseScope;
   visibleStatuses: string[]; // empty = every status
   notifyOn: string[];
+  assignable: boolean;
+  feePerUnit: number | null;
 };
 
 const GROUPS = [...new Set(PERMISSIONS.map((p) => p.group))];
@@ -48,6 +50,39 @@ export function RoleForm({
               placeholder="e.g. Milling"
               className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
+          </label>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
+          <label className="flex items-start gap-2.5 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="assignable"
+              defaultChecked={values.assignable}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+            />
+            <span>
+              <span className="font-medium text-slate-900">Can be assigned to cases</span>
+              <span className="block text-xs text-slate-500">
+                For jobs like Milling or Printing: a person with this role can be put on any case,
+                at any stage, from the case page. They&apos;re notified when assigned.
+              </span>
+            </span>
+          </label>
+          <label className="mt-4 flex max-w-xs flex-col gap-1.5 text-sm font-medium text-slate-700">
+            Fee per unit (optional, EGP)
+            <input
+              name="feePerUnit"
+              type="number"
+              min={0}
+              step="0.01"
+              defaultValue={values.feePerUnit ?? undefined}
+              className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+            <span className="text-xs font-normal text-slate-500">
+              What the assigned person earns per unit. Locked onto the case when they&apos;re
+              assigned; shown on their earnings and taken off profit.
+            </span>
           </label>
         </section>
 

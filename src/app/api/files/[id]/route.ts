@@ -1,5 +1,5 @@
 import { Readable } from "node:stream";
-import { canViewCase, getAccess } from "@/lib/access";
+import { VISIBILITY_INCLUDE, canViewCase, getAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { downloadFileStream } from "@/lib/googleDrive";
 
@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const file = await prisma.caseFile.findUnique({
     where: { id },
-    include: { case: true },
+    include: { case: { include: VISIBILITY_INCLUDE } },
   });
   if (!file) return new Response("Not found", { status: 404 });
 

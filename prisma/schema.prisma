@@ -33,6 +33,7 @@ model User {
   casesAssigned Case[]         @relation("AssignedDesigner")
   casesFirstDesigned Case[]    @relation("FirstDesigner")
   casesAsCeramist    Case[]    @relation("CaseCeramist")
+  caseAssignments    CaseAssignment[]
   photogrammetryDone Case[]    @relation("PhotogrammetryDoneBy")
   filesUploaded CaseFile[]
   reviews       CaseReview[]
@@ -61,9 +62,14 @@ model Role {
   caseScope       String   @default("ALL")
   visibleStatuses String   @default("[]")
   notifyOn        String   @default("[]")
+  // People with an assignable role (e.g. Milling, Printing) can be put on any
+  // case at any time from the case page; feePerUnit is what they earn per unit.
+  assignable      Boolean  @default(false)
+  feePerUnit      Float?
   createdAt       DateTime @default(now())
 
-  users User[]
+  users       User[]
+  assignments CaseAssignment[]
 }
 
 model IbarDesigner {
@@ -168,6 +174,8 @@ model Case {
   units         CaseUnit[]
   // What the case is made of: one line per arch + material (+ optional metal).
   materials     CaseMaterial[]
+  // People from assignable roles (milling, printing, ...), one per role.
+  assignments   CaseAssignment[]
   invoiceLines  InvoiceLine[]
 
   createdAt DateTime @default(now())
@@ -302,4 +310,20 @@ model Expense {
   recurring Boolean   @default(false)
   endMonth  DateTime?
   createdAt DateTime  @default(now())
+}
+
+// A person from an assignable role working on a case. The fee is locked when
+// they're assigned (role fee per unit x the case's units).
+model CaseAssignment {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  fee       Float?
+  createdAt DateTime @default(now())
+
+  @@unique([caseId, roleId])
 }

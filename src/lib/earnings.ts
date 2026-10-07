@@ -18,6 +18,7 @@ type EarningFields = {
   ceramistFee: number | null;
   photogrammetryDoneById: string | null;
   photogrammetryCost: number | null;
+  assignments?: { userId: string; fee: number | null; role: { name: string } }[];
 };
 
 // What one person earns on a case, and whether their part is done (so the
@@ -46,6 +47,11 @@ export function earningsOnCase(c: EarningFields, userId: string): EarningItem[] 
   }
   if (c.photogrammetryDoneById === userId) {
     items.push({ label: "Photogrammetry", amount: c.photogrammetryCost, done: true });
+  }
+  for (const a of c.assignments ?? []) {
+    if (a.userId === userId) {
+      items.push({ label: a.role.name, amount: a.fee, done: FINISHED.includes(status) });
+    }
   }
   return items;
 }

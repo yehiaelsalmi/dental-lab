@@ -36,9 +36,10 @@ export default async function EarningsPage({
         { assignedDesignerId: me },
         { ceramistId: me },
         { photogrammetryDoneById: me },
+        { assignments: { some: { userId: me } } },
       ],
     },
-    include: { doctor: true },
+    include: { doctor: true, assignments: { include: { role: true } } },
     orderBy: { entryDate: "desc" },
   });
 

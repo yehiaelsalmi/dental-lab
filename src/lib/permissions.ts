@@ -6,7 +6,7 @@ export const PERMISSIONS = [
   { key: "case.create", group: "Cases", label: "Create cases" },
   { key: "case.edit", group: "Cases", label: "Edit case details" },
   { key: "case.delete", group: "Cases", label: "Delete cases" },
-  { key: "case.assign", group: "Cases", label: "Assign designers and ceramists" },
+  { key: "case.assign", group: "Cases", label: "Assign people to cases (designers, ceramists and other roles)" },
   { key: "files.drive", group: "Cases", label: "Open files directly in Google Drive" },
 
   { key: "work.design", group: "Work", label: "Can be assigned as a designer (designs and submits their cases)" },
@@ -26,6 +26,7 @@ export const PERMISSIONS = [
 
   { key: "page.designers", group: "Pages", label: "Designers page" },
   { key: "page.ceramists", group: "Pages", label: "Ceramists page" },
+  { key: "page.team", group: "Pages", label: "Team pages for other roles (e.g. Milling, Technician)" },
   { key: "page.reports", group: "Pages", label: "Reports" },
   { key: "page.invoices", group: "Pages", label: "Invoices" },
   { key: "page.users", group: "Pages", label: "Users" },

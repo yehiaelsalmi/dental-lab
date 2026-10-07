@@ -4,6 +4,7 @@ import {
   advanceProduction,
   assignCeramist,
   assignDesigner,
+  assignRolePerson,
   completeIbar,
   completeMatching,
   markDelivered,
@@ -78,4 +79,11 @@ export async function setCaseStatusAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
   const status = String(formData.get("status") ?? "");
   await setCaseStatus(caseId, status);
+}
+
+export async function assignRolePersonAction(formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  const roleId = formData.get("roleId") as string;
+  const userId = (formData.get("userId") as string) || null;
+  await assignRolePerson(caseId, roleId, userId);
 }

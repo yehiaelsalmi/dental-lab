@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
-import { canViewCase, requireAccess } from "@/lib/access";
+import { VISIBILITY_INCLUDE, canViewCase, requireAccess } from "@/lib/access";
 import { caseUrl } from "@/lib/email";
 import { LAB_NAME } from "@/lib/constants";
 import { PrintButton } from "@/components/PrintButton";
@@ -15,7 +15,7 @@ export default async function CaseLabelPage({ params }: { params: Promise<{ id: 
 
   const caseRecord = await prisma.case.findUnique({
     where: { id },
-    include: { doctor: true, materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } } },
+    include: { ...VISIBILITY_INCLUDE, doctor: true, materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } } },
   });
   if (!caseRecord || !canViewCase(access, caseRecord)) notFound();
 
