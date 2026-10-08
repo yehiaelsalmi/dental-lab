@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { LAB_NAME } from "@/lib/constants";
+import { LAB_INITIALS, LAB_NAME } from "@/lib/constants";
 
 // Settings the Lab Leader edits on the Lab Settings page, stored in AppSetting.
 export const LAB_SETTING_KEYS = {
@@ -47,7 +47,8 @@ export const getLabSettings = cache(async (): Promise<LabSettings> => {
   const name = get(LAB_SETTING_KEYS.name)?.trim() || LAB_NAME;
   return {
     name,
-    initials: initialsOf(name),
+    // Keep the lab's own "A4" mark until the name is changed.
+    initials: name === LAB_NAME ? LAB_INITIALS : initialsOf(name),
     logoDataUrl: get(LAB_SETTING_KEYS.logo) || null,
     invoiceAddress: get(LAB_SETTING_KEYS.invoiceAddress) ?? "",
     invoicePhone: get(LAB_SETTING_KEYS.invoicePhone) ?? "",

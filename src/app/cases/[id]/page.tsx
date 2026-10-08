@@ -32,6 +32,9 @@ import {
   completeMatchingAction,
   markDeliveredAction,
   setCaseStatusAction,
+  submitWorkAction,
+  approveWorkAction,
+  requestWorkChangesAction,
   markPhotogrammetryDoneAction,
   requestChangesAction,
   approveAction,
@@ -63,6 +66,10 @@ export default async function CaseDetailPage({
       ibarDesigner: true,
       assignments: { include: { role: true, user: true } },
       fieldValues: { include: { field: true }, orderBy: { field: { position: "asc" } } },
+      workSubmissions: {
+        orderBy: { createdAt: "desc" },
+        include: { file: true, uploadedBy: true, reviewedBy: true },
+      },
       materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } },
       units: { orderBy: { createdAt: "asc" } },
       files: { orderBy: { createdAt: "asc" } },
@@ -115,6 +122,11 @@ export default async function CaseDetailPage({
     !caseRecord.photogrammetryDoneAt &&
     can(access, "case.photogrammetry");
   const productionPermission = status === "MILLING" ? "case.milling" : "case.stainGlaze";
+  // Uploading work for review is only for people working on this case.
+  const canSubmitWork =
+    can(access, "work.upload") &&
+    ([caseRecord.assignedDesignerId, caseRecord.firstDesignerId, caseRecord.ceramistId].includes(userId) ||
+      caseRecord.assignments.some((a) => a.userId === userId));
   const myEarnings =
     !can(access, "money.viewAll") && can(access, "money.viewOwn")
       ? earningsOnCase(caseRecord, userId)
@@ -614,6 +626,97 @@ export default async function CaseDetailPage({
               );
             })}
           </div>
+        </section>
+      )}
+
+      {(canSubmitWork || caseRecord.workSubmissions.length > 0) && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">Submitted work</h2>
+          <p className="mb-4 text-xs text-slate-500">
+            Files uploaded for review by the people working on this case.
+          </p>
+
+          {caseRecord.workSubmissions.length > 0 && (
+            <ul className="mb-4 flex flex-col divide-y divide-slate-100 rounded-lg border border-slate-200">
+              {caseRecord.workSubmissions.map((w) => (
+                <li key={w.id} className="flex flex-col gap-2 p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <a
+                      href={viaApp ? `/api/files/${w.file.id}` : w.file.driveLink}
+                      {...(viaApp ? {} : { target: "_blank", rel: "noreferrer" })}
+                      className="flex items-center gap-2 font-medium text-slate-800 hover:text-brand"
+                    >
+                      <FileText size={15} className="shrink-0 text-slate-400" />
+                      {w.file.fileName}
+                    </a>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        w.status === "APPROVED"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : w.status === "CHANGES_REQUESTED"
+                            ? "bg-rose-50 text-rose-700"
+                            : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {w.status === "APPROVED" ? "Approved" : w.status === "CHANGES_REQUESTED" ? "Changes requested" : "Waiting for review"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {w.uploadedBy.name} ({w.roleName}) · {new Date(w.createdAt).toLocaleString()}
+                  </p>
+                  {w.note && <p className="text-slate-600">{w.note}</p>}
+                  {w.reviewedBy && (
+                    <p className="text-xs text-slate-500">
+                      Reviewed by {w.reviewedBy.name}
+                      {w.reviewComment ? `: ${w.reviewComment}` : ""}
+                    </p>
+                  )}
+                  {w.status === "PENDING" && can(access, "case.reviewWork") && (
+                    <form action={requestWorkChangesAction} className="flex flex-wrap items-center gap-2">
+                      <input type="hidden" name="submissionId" value={w.id} />
+                      <input
+                        name="comment"
+                        placeholder="Comment (optional)"
+                        className="min-w-48 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-brand"
+                      />
+                      <button
+                        formAction={approveWorkAction}
+                        className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                      >
+                        <CheckCircle2 size={14} />
+                        Approve
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700"
+                      >
+                        <XCircle size={14} />
+                        Request changes
+                      </button>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {canSubmitWork && (
+            <form action={submitWorkAction} className="flex flex-col gap-3">
+              <input type="hidden" name="caseId" value={caseRecord.id} />
+              <FileDropField name="workFile" required hint="The file to be reviewed (any type)" />
+              <input
+                name="note"
+                placeholder="Note for the reviewer (optional)"
+                className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+              <button
+                type="submit"
+                className="self-start rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-hover"
+              >
+                Submit for review
+              </button>
+            </form>
+          )}
         </section>
       )}
 

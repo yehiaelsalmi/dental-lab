@@ -25,6 +25,8 @@ import {
   notifyPhotogrammetryDone,
   notifyPhotogrammetryNeeded,
   notifyStatusWatchers,
+  notifyWorkReviewed,
+  notifyWorkSubmitted,
 } from "@/lib/notifications";
 import type { CaseFileType, CaseStatus, ReviewDecision } from "@/lib/constants";
 import { ceramistFeeFor, computeCasePricing, designerFeeFor } from "@/lib/pricing";
@@ -97,7 +99,7 @@ async function attachFile(
     buffer
   );
 
-  await prisma.caseFile.create({
+  return prisma.caseFile.create({
     data: {
       caseId,
       type,
@@ -531,6 +533,60 @@ export async function assignRolePerson(caseId: string, roleId: string, userId: s
   }
 
   revalidatePath(`/cases/${caseId}`);
+}
+
+// Someone working on the case (designer, ceramist or an assignable role like
+// Milling) uploads a file for review. The case status doesn't change.
+export async function submitWork(caseId: string, formData: FormData) {
+  const session = await requirePermission("work.upload");
+
+  try {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    const onCase =
+      [caseRecord.assignedDesignerId, caseRecord.firstDesignerId, caseRecord.ceramistId].includes(session.userId) ||
+      caseRecord.assignments.some((a) => a.userId === session.userId);
+    if (!onCase) throw new Error("You can only upload work on cases you're assigned to.");
+    if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
+
+    const file = formData.get("workFile");
+    if (!(file instanceof File) || file.size === 0) throw new Error("Attach the file to submit.");
+    const note = String(formData.get("note") ?? "").trim() || null;
+
+    const saved = await attachFile(caseId, caseRecord.driveFolderId, file, "WORK", session.userId);
+    await prisma.workSubmission.create({
+      data: { caseId, fileId: saved.id, uploadedById: session.userId, roleName: session.role.name, note },
+    });
+    await notifyWorkSubmitted(caseId, caseRecord.patientName, session.name, session.role.name, session.userId);
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function reviewWork(submissionId: string, approved: boolean, comment: string | undefined) {
+  const session = await requirePermission("case.reviewWork");
+  const submission = await prisma.workSubmission.findUnique({ where: { id: submissionId } });
+  if (!submission) redirect("/cases");
+
+  try {
+    const caseRecord = await requireVisibleCase(session, submission.caseId);
+    if (submission.status !== "PENDING") throw new Error("This upload was already reviewed.");
+    await prisma.workSubmission.update({
+      where: { id: submissionId },
+      data: {
+        status: approved ? "APPROVED" : "CHANGES_REQUESTED",
+        reviewComment: comment?.trim() || null,
+        reviewedById: session.userId,
+        reviewedAt: new Date(),
+      },
+    });
+    await notifyWorkReviewed(submission.caseId, caseRecord.patientName, submission.uploadedById, approved, comment?.trim() || null);
+  } catch (error) {
+    redirect(`/cases/${submission.caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath(`/cases/${submission.caseId}`);
 }
 
 // Manual move to any status (built-in or custom). Only the status changes:

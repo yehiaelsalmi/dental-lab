@@ -35,7 +35,7 @@ export const DESIGN_PHASE_STATUSES: CaseStatus[] = [
   "CHANGES_REQUESTED",
 ];
 
-export const CASE_FILE_TYPES = ["SCAN", "IBAR", "DESIGN", "PHOTOGRAMMETRY"] as const;
+export const CASE_FILE_TYPES = ["SCAN", "IBAR", "DESIGN", "PHOTOGRAMMETRY", "WORK"] as const;
 export type CaseFileType = (typeof CASE_FILE_TYPES)[number];
 
 export const REVIEW_DECISIONS = ["APPROVED", "CHANGES_REQUESTED"] as const;

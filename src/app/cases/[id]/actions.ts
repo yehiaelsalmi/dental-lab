@@ -10,6 +10,8 @@ import {
   markDelivered,
   markPhotogrammetryDone,
   setCaseStatus,
+  submitWork,
+  reviewWork,
   startDesign,
   submitForReview,
   reviewCase,
@@ -86,4 +88,17 @@ export async function assignRolePersonAction(formData: FormData) {
   const roleId = formData.get("roleId") as string;
   const userId = (formData.get("userId") as string) || null;
   await assignRolePerson(caseId, roleId, userId);
+}
+
+export async function submitWorkAction(formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  await submitWork(caseId, formData);
+}
+
+export async function approveWorkAction(formData: FormData) {
+  await reviewWork(formData.get("submissionId") as string, true, (formData.get("comment") as string) || undefined);
+}
+
+export async function requestWorkChangesAction(formData: FormData) {
+  await reviewWork(formData.get("submissionId") as string, false, (formData.get("comment") as string) || undefined);
 }

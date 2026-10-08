@@ -34,6 +34,8 @@ model User {
   casesFirstDesigned Case[]    @relation("FirstDesigner")
   casesAsCeramist    Case[]    @relation("CaseCeramist")
   caseAssignments    CaseAssignment[]
+  workSubmitted      WorkSubmission[] @relation("WorkUploader")
+  workReviewed       WorkSubmission[] @relation("WorkReviewer")
   photogrammetryDone Case[]    @relation("PhotogrammetryDoneBy")
   filesUploaded CaseFile[]
   reviews       CaseReview[]
@@ -178,6 +180,8 @@ model Case {
   assignments   CaseAssignment[]
   // Values for the lab's own fields (see CustomField).
   fieldValues   CaseFieldValue[]
+  // Files uploaded for review by people working on the case (milling, ...).
+  workSubmissions WorkSubmission[]
   invoiceLines  InvoiceLine[]
 
   createdAt DateTime @default(now())
@@ -195,6 +199,7 @@ model CaseUnit {
 
 model CaseFile {
   id          String @id @default(cuid())
+  submission  WorkSubmission?
   caseId      String
   case        Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
   type        String
@@ -355,4 +360,25 @@ model CaseFieldValue {
   value   String
 
   @@unique([caseId, fieldId])
+}
+
+// A file someone working on a case uploads for review (e.g. the milling
+// person's output). Reviewers approve it or request changes; the case status
+// doesn't change. status: PENDING | APPROVED | CHANGES_REQUESTED.
+model WorkSubmission {
+  id            String    @id @default(cuid())
+  caseId        String
+  case          Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  fileId        String    @unique
+  file          CaseFile  @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  uploadedById  String
+  uploadedBy    User      @relation("WorkUploader", fields: [uploadedById], references: [id])
+  roleName      String
+  note          String?
+  status        String    @default("PENDING")
+  reviewComment String?
+  reviewedById  String?
+  reviewedBy    User?     @relation("WorkReviewer", fields: [reviewedById], references: [id])
+  reviewedAt    DateTime?
+  createdAt     DateTime  @default(now())
 }

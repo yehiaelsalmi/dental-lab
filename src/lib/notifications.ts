@@ -171,3 +171,33 @@ export async function notifyStatusWatchers(
     `Case ${patientName} is now in ${label}`
   );
 }
+
+export async function notifyWorkSubmitted(
+  caseId: string,
+  patientName: string,
+  uploaderName: string,
+  roleName: string,
+  actorId: string
+) {
+  await notifyMany(
+    await holders("case.reviewWork", actorId),
+    caseId,
+    `Work to review: ${patientName}`,
+    `${uploaderName} (${roleName}) uploaded work for review on case ${patientName}`
+  );
+}
+
+export async function notifyWorkReviewed(
+  caseId: string,
+  patientName: string,
+  uploaderId: string,
+  approved: boolean,
+  comment: string | null
+) {
+  await notifyMany(
+    await userRecipient(uploaderId),
+    caseId,
+    `${approved ? "Approved" : "Changes requested"}: ${patientName}`,
+    `Your work on case ${patientName} was ${approved ? "approved" : "sent back for changes"}${comment ? `: ${comment}` : ""}`
+  );
+}

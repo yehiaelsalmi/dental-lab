@@ -37,6 +37,13 @@ shows on My earnings, on the case's money section and in Reports ("Other roles")
 where it's taken off profit. The sidebar's **Team** dropdown lists Designers,
 Ceramists and a page per other role (`/team/<roleId>`, permission "Team pages").
 
+**Submitted work:** roles with "Upload work for review" can upload a file (with an
+optional note) on cases they're assigned to (designer, ceramist or an assignable
+role such as Milling). It's saved to the case's Drive folder and listed under
+**Submitted work**; people with "Review uploaded work" are notified and can
+Approve or Request changes with a comment, and the uploader is told. The case
+status doesn't change; a new version can be uploaded any time.
+
 Ceramists are user accounts (a role with "can be assigned as a ceramist"); the
 ceramist picked on a case is notified. Roles with "see their own earnings" get a
 **My earnings** page and a "Your earnings" box on their cases: designer fees,
