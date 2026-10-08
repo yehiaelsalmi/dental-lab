@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, usersWithPermission } from "@/lib/access";
 import { FileDropField } from "@/components/FileDropField";
+import { PendingSubmitButton } from "@/components/PendingSubmitButton";
 import { CaseFields } from "@/components/CaseFields";
 import { activeFields } from "@/lib/customFields";
 import { createCase } from "../actions";
@@ -85,12 +86,9 @@ export default async function NewCasePage({
           <FileDropField name="scanFile" hint="ZIP or PDF, uploaded straight to the case's Drive folder" />
         </div>
 
-        <button
-          type="submit"
-          className="self-start rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-hover"
-        >
-          Create Case
-        </button>
+        <PendingSubmitButton overlay pendingText="Creating the case and uploading the scan..." className="self-start rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-hover">
+              Create Case
+            </PendingSubmitButton>
       </form>
     </div>
   );

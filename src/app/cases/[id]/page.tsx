@@ -23,6 +23,7 @@ import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 import { StatusBadge } from "@/components/StatusBadge";
 import { WorkflowStepper } from "@/components/WorkflowStepper";
 import { FileDropField } from "@/components/FileDropField";
+import { PendingSubmitButton } from "@/components/PendingSubmitButton";
 import {
   advanceProductionAction,
   assignCeramistAction,
@@ -368,12 +369,9 @@ export default async function CaseDetailPage({
           <form action={completeIbarAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
             <FileDropField name="ibarFile" hint="Optional: the ibar file, ZIP or STL" />
-            <button
-              type="submit"
-              className="self-start rounded-lg bg-fuchsia-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-fuchsia-700"
-            >
+            <PendingSubmitButton overlay pendingText="Uploading the ibar file..." className="self-start rounded-lg bg-fuchsia-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-fuchsia-700">
               Ibar done: send to designer
-            </button>
+            </PendingSubmitButton>
           </form>
         </section>
       )}
@@ -407,12 +405,9 @@ export default async function CaseDetailPage({
           <form action={markPhotogrammetryDoneAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
             <FileDropField name="photogrammetryFile" hint="Optional: photogrammetry export or ZIP" />
-            <button
-              type="submit"
-              className="self-start rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-sky-700"
-            >
+            <PendingSubmitButton overlay pendingText="Saving photogrammetry..." className="self-start rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-sky-700">
               Mark photogrammetry done
-            </button>
+            </PendingSubmitButton>
           </form>
         </section>
       )}
@@ -533,12 +528,9 @@ export default async function CaseDetailPage({
           <form action={submitForReviewAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
             <FileDropField name="designFile" required hint="Exocad export, ZIP or STL" />
-            <button
-              type="submit"
-              className="self-start rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-hover"
-            >
+            <PendingSubmitButton overlay pendingText="Uploading your design..." className="self-start rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-hover">
               Submit for Review
-            </button>
+            </PendingSubmitButton>
           </form>
         </section>
       )}
@@ -709,12 +701,9 @@ export default async function CaseDetailPage({
                 placeholder="Note for the reviewer (optional)"
                 className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
               />
-              <button
-                type="submit"
-                className="self-start rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-hover"
-              >
-                Submit for review
-              </button>
+              <PendingSubmitButton overlay pendingText="Uploading your file..." className="self-start rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-hover">
+              Submit for review
+            </PendingSubmitButton>
             </form>
           )}
         </section>
