@@ -3,11 +3,14 @@ import { isBeforeIbar } from "@/lib/caseFlow";
 
 export type EarningItem = { label: string; amount: number | null; done: boolean };
 
-const AFTER_APPROVAL: CaseStatus[] = ["MILLING", "STAIN_AND_GLAZE", "COMPLETED", "DELIVERED"];
+// The design is finished once it's approved for the ceramist's work; a print
+// for a try-in still has a redesign to come.
+const AFTER_APPROVAL: CaseStatus[] = ["PRINTING", "MILLING", "STAIN_AND_GLAZE", "COMPLETED", "DELIVERED"];
 const FINISHED: CaseStatus[] = ["COMPLETED", "DELIVERED"];
 
 type EarningFields = {
   status: string;
+  printForTryIn?: boolean;
   ibarDesignerId: string | null;
   ibarDoneAt: Date | null;
   firstDesignerId: string | null;
@@ -39,7 +42,7 @@ export function earningsOnCase(c: EarningFields, userId: string): EarningItem[] 
     items.push({
       label: c.ibarDesignerId ? "Design after ibar" : "Design",
       amount: c.designerFee,
-      done: !isBeforeIbar(c) && AFTER_APPROVAL.includes(status),
+      done: !isBeforeIbar(c) && AFTER_APPROVAL.includes(status) && !(status === "PRINTING" && c.printForTryIn),
     });
   }
   if (c.ceramistId === userId) {

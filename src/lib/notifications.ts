@@ -137,12 +137,30 @@ export async function notifyDesignerIbarDone(caseId: string, designerId: string,
   );
 }
 
-export async function notifyMatchingReady(caseId: string, patientName: string, matchingBy: string) {
+export async function notifyMatchingReady(caseId: string, patientName: string, matchingBy: string | null) {
   await notifyMany(
     await holders("case.matching"),
     caseId,
     `Ready for matching: ${patientName}`,
-    `Design submitted for case ${patientName}; it's now with ${matchingBy} for matching`
+    `New scans are back from the try-in for case ${patientName}; it's ready for matching${matchingBy ? ` by ${matchingBy}` : ""}`
+  );
+}
+
+export async function notifyTryInReady(caseId: string, patientName: string, actorId: string) {
+  await notifyMany(
+    await holders("case.tryIn", actorId),
+    caseId,
+    `Ready for try-in: ${patientName}`,
+    `The print for case ${patientName} is ready to go to the doctor for the try-in`
+  );
+}
+
+export async function notifyDesignerRedesign(caseId: string, designerId: string, patientName: string) {
+  await notifyMany(
+    await userRecipient(designerId),
+    caseId,
+    `Redesign needed: ${patientName}`,
+    `Matching is done after the try-in for case ${patientName}; it's back with you for the redesign`
   );
 }
 

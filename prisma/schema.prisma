@@ -122,6 +122,13 @@ model Case {
   system         String?
   shade          String?
   status         String    @default("READY_FOR_DESIGN")
+  // Set when a design is approved: "PRINTING" or "MILLING", and whether the
+  // print goes to the doctor for a try-in before the ceramist.
+  productionMethod String?
+  printForTryIn    Boolean   @default(false)
+  // Last time new scans came back from a try-in (the case is then in the
+  // matching -> redesign -> second review round).
+  tryInDoneAt      DateTime?
   entryDate      DateTime  @default(now())
   dueDate        DateTime?
   notes          String?

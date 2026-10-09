@@ -7,10 +7,12 @@ export function FileDropField({
   name,
   required,
   hint,
+  multiple,
 }: {
   name: string;
   required?: boolean;
   hint: string;
+  multiple?: boolean;
 }) {
   const [fileName, setFileName] = useState<string | null>(null);
 
@@ -33,8 +35,14 @@ export function FileDropField({
         type="file"
         name={name}
         required={required}
+        multiple={multiple}
         className="hidden"
-        onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+        onChange={(e) => {
+          const files = e.target.files;
+          setFileName(
+            !files || files.length === 0 ? null : files.length === 1 ? files[0].name : `${files.length} files`
+          );
+        }}
       />
     </label>
   );

@@ -56,9 +56,29 @@ each shown as done or pending.
 
 ## Status flow
 
-(`IBAR_DESIGN`) → `READY_FOR_DESIGN` → `IN_DESIGN` → (`MATCHING`) → `WAITING_FOR_REVIEW` → Lab Leader review →
-`MILLING` → `STAIN_AND_GLAZE` → `COMPLETED` (shown as **Revision**) → `DELIVERED`, or
-`CHANGES_REQUESTED` (designer re-submits, looping back to `WAITING_FOR_REVIEW`).
+(`IBAR_DESIGN`) → `READY_FOR_DESIGN` → `IN_DESIGN` → `WAITING_FOR_REVIEW` → review →
+`PRINTING` or `MILLING` → `STAIN_AND_GLAZE` → `COMPLETED` (shown as **Revision**) → `DELIVERED`.
+Review can instead send it to `CHANGES_REQUESTED` (the designer re-submits, back to
+`WAITING_FOR_REVIEW`).
+
+**Approving picks the route.** The reviewer (Lab Leader, or the Lab Team, who have
+"Approve or request changes on designs") approves with one of three buttons
+(`APPROVAL_ROUTES` in `src/lib/constants.ts`):
+
+- **Printing, then try-in at the doctor:** `PRINTING` → `TRY_IN` → `MATCHING` →
+  `REDESIGN` → `WAITING_FOR_REVIEW` again, and the second review picks again.
+- **Printing, then ceramist:** `PRINTING` → `STAIN_AND_GLAZE`.
+- **Milling, then ceramist:** `MILLING` → `STAIN_AND_GLAZE`.
+
+The try-in loop: whoever has "Mark printing done" sends the print out; the case
+waits in **Try-in at Doctor**, and people with "Upload new scans after the try-in"
+are notified. They upload the new scans (several files at once), which go to the
+Drive folder as `SCAN` files and move the case to **Matching** (the case's
+"Matching after try-in" name is shown). **Matching done** sends it to **Redesign**
+and notifies the designer, who submits the adjusted design for the second review.
+The case records `productionMethod`, `printForTryIn` and `tryInDoneAt`; the
+progress bar shows the loop only on cases that take it. Cases that were already in
+Matching before this flow (no try-in) still go to review when matching is done.
 
 **Ibar cases have two designers.** When an ibar designer (an outside person,
 picked by name) is set, the New Case form's **Designer before ibar** designs first;
@@ -73,18 +93,16 @@ The turn logic is in `src/lib/caseFlow.ts`. Adding an ibar designer on the Edit 
 before design starts makes the case wait for the first designer; adding it later
 only records it.
 
-**Matching** is optional per case: the New Case form has a **Matching** field for the
-name of whoever does it. When the designer submits a case that has a matching name,
-it goes to **Matching** instead of straight to review, and Technicians and Lab Leaders
-are notified. A Technician or Lab Leader clicks **Matching done** to send it to review.
+**Matching** happens only after a try-in. The New Case form has a **Matching after
+try-in** field for the name of whoever does it; people with "Mark matching done" are
+notified when the new scans are uploaded.
 
 **Photogrammetry** runs alongside the flow and doesn't change the status: tick
 **Needs photogrammetry** on the New Case (or Edit) form and the photogrammetry users
 are notified.
 
-Approving a design sends the case to **Milling**. A Technician or Lab Leader
-then moves it on to **Stain & Glaze** (the ceramist's step) and from there to
-**Completed**.
+After printing or milling, the case moves on to **Stain & Glaze** (the ceramist's
+step) and from there to **Revision** (`COMPLETED`).
 
 A Technician or Lab Leader marks a completed case **Delivered** once the doctor
 has approved the work. The **ceramist** is optional when creating a case and can

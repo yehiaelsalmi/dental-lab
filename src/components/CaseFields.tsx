@@ -75,7 +75,7 @@ export function CaseFields({
             defaultId={defaults.ibarDesignerId ?? undefined}
           />
           <Field
-            label="Matching (optional)"
+            label="Matching after try-in (optional)"
             name="matchingBy"
             placeholder="Name of who does the matching"
             defaultValue={defaults.matchingBy ?? undefined}

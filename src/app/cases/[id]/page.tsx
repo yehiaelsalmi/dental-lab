@@ -23,7 +23,13 @@ import { earningsOnCase } from "@/lib/earnings";
 import { findStatus, getStatuses, isBuiltInStatus } from "@/lib/statuses";
 import { formatFieldValue } from "@/lib/customFields";
 import { caseChecklist } from "@/lib/checklists";
-import { DESIGN_PHASE_STATUSES, type CaseStatus } from "@/lib/constants";
+import {
+  APPROVAL_ROUTES,
+  CERAMIST_ASSIGNABLE_STATUSES,
+  DESIGN_PHASE_STATUSES,
+  type ApprovalRoute,
+  type CaseStatus,
+} from "@/lib/constants";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 import { StatusBadge } from "@/components/StatusBadge";
 import { WorkflowStepper } from "@/components/WorkflowStepper";
@@ -36,6 +42,7 @@ import {
   completeIbarAction,
   assignRolePersonAction,
   completeMatchingAction,
+  completeTryInAction,
   markDeliveredAction,
   setCaseStatusAction,
   submitWorkAction,
@@ -44,6 +51,7 @@ import {
   markPhotogrammetryDoneAction,
   requestChangesAction,
   approveAction,
+  approveWithRouteAction,
   startDesignAction,
   submitForReviewAction,
   toggleChecklistItemAction,
@@ -105,7 +113,7 @@ export default async function CaseDetailPage({
   const canAssign = can(access, "case.assign");
   const canAssignCeramist =
     canAssign &&
-    (["MATCHING", "WAITING_FOR_REVIEW", "MILLING", "STAIN_AND_GLAZE", "COMPLETED"] as CaseStatus[]).includes(status);
+    CERAMIST_ASSIGNABLE_STATUSES.includes(status);
 
   const [ceramists, designers, assignableRoles] = await Promise.all([
     canAssignCeramist ? usersWithPermission("work.ceramist") : [],
@@ -135,7 +143,9 @@ export default async function CaseDetailPage({
     caseRecord.needsPhotogrammetry &&
     !caseRecord.photogrammetryDoneAt &&
     can(access, "case.photogrammetry");
-  const productionPermission = status === "MILLING" ? "case.milling" : "case.stainGlaze";
+  const productionPermission =
+    status === "PRINTING" ? "case.printing" : status === "MILLING" ? "case.milling" : "case.stainGlaze";
+  const label = (key: string) => findStatus(allStatuses, key).label;
   // Uploading work for review is only for people working on this case.
   const canSubmitWork =
     can(access, "work.upload") &&
@@ -181,9 +191,8 @@ export default async function CaseDetailPage({
 
       <section className="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
         <WorkflowStepper
-          status={status}
+          caseInfo={caseRecord}
           hasIbar={hasIbar}
-          hasMatching={!!caseRecord.matchingBy}
           beforeIbar={beforeIbar}
           customStep={customStep}
           labels={Object.fromEntries(allStatuses.map((s) => [s.key, s.label]))}
@@ -473,8 +482,9 @@ export default async function CaseDetailPage({
         <section className="mb-6 rounded-xl border border-teal-200 bg-teal-50/50 p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Matching</h2>
           <p className="mb-3 text-sm text-slate-500">
-            The design is with {caseRecord.matchingBy ?? "the matching person"} for matching. When
-            it&apos;s done, send the case to the Lab Leader for review.
+            {caseRecord.tryInDoneAt
+              ? `The new scans from the try-in are with ${caseRecord.matchingBy ?? "the matching person"} for matching. When it's done, the case goes back to ${caseRecord.assignedDesigner?.name ?? "the designer"} for the redesign.`
+              : `The design is with ${caseRecord.matchingBy ?? "the matching person"} for matching. When it's done, send the case for review.`}
           </p>
           <form action={completeMatchingAction}>
             <input type="hidden" name="caseId" value={caseRecord.id} />
@@ -482,7 +492,7 @@ export default async function CaseDetailPage({
               type="submit"
               className="rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700"
             >
-              Matching done: send for review
+              {caseRecord.tryInDoneAt ? `Matching done: send for ${label("REDESIGN").toLowerCase()}` : "Matching done: send for review"}
             </button>
           </form>
         </section>
@@ -505,26 +515,48 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      {(status === "MILLING" || status === "STAIN_AND_GLAZE") && can(access, productionPermission) && (
-        <section className="mb-6 rounded-xl border border-orange-200 bg-orange-50/50 p-5">
-          <h2 className="mb-1 text-sm font-semibold text-slate-900">
-            {status === "MILLING" ? "Milling" : "Stain & glaze"}
-          </h2>
+      {(status === "PRINTING" || status === "MILLING" || status === "STAIN_AND_GLAZE") &&
+        can(access, productionPermission) && (
+          <section className="mb-6 rounded-xl border border-orange-200 bg-orange-50/50 p-5">
+            <h2 className="mb-1 text-sm font-semibold text-slate-900">{label(status)}</h2>
+            <p className="mb-3 text-sm text-slate-500">
+              {status === "STAIN_AND_GLAZE"
+                ? `When the ceramist has finished, move the case to ${label("COMPLETED")}.`
+                : status === "PRINTING" && caseRecord.printForTryIn
+                  ? "This print goes to the doctor for a try-in. When it's printed, send it out."
+                  : `When it's finished, send the case on to the ceramist for ${label("STAIN_AND_GLAZE")}.`}
+            </p>
+            <form action={advanceProductionAction}>
+              <input type="hidden" name="caseId" value={caseRecord.id} />
+              <button
+                type="submit"
+                className="rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-orange-700"
+              >
+                {status === "STAIN_AND_GLAZE"
+                  ? `${label(status)} done: move to ${label("COMPLETED")}`
+                  : status === "PRINTING" && caseRecord.printForTryIn
+                    ? `${label(status)} done: send for ${label("TRY_IN")}`
+                    : `${label(status)} done: send to ${label("STAIN_AND_GLAZE")}`}
+              </button>
+            </form>
+          </section>
+        )}
+
+      {can(access, "case.tryIn") && status === "TRY_IN" && (
+        <section className="mb-6 rounded-xl border border-lime-200 bg-lime-50/50 p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">{label("TRY_IN")}</h2>
           <p className="mb-3 text-sm text-slate-500">
-            {status === "MILLING"
-              ? "When milling is finished, send the case on to the ceramist for stain & glaze."
-              : `When the ceramist has finished stain & glaze, move the case to ${findStatus(allStatuses, "COMPLETED").label}.`}
+            The print is with the doctor for the try-in. When the new scans come back, upload them:
+            the case goes to {label("MATCHING")}
+            {caseRecord.matchingBy ? ` (${caseRecord.matchingBy})` : ""}, then back to the designer
+            for the redesign.
           </p>
-          <form action={advanceProductionAction}>
+          <form action={completeTryInAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
-            <button
-              type="submit"
-              className="rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-orange-700"
-            >
-              {status === "MILLING"
-                ? `${findStatus(allStatuses, "MILLING").label} done: send to ${findStatus(allStatuses, "STAIN_AND_GLAZE").label}`
-                : `${findStatus(allStatuses, "STAIN_AND_GLAZE").label} done: move to ${findStatus(allStatuses, "COMPLETED").label}`}
-            </button>
+            <FileDropField name="scanFiles" required multiple hint="The new scans (you can pick several files)" />
+            <PendingSubmitButton overlay pendingText="Uploading the new scans..." className="self-start rounded-lg bg-lime-700 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-lime-800">
+              New scans uploaded: send to {label("MATCHING")}
+            </PendingSubmitButton>
           </form>
         </section>
       )}
@@ -617,9 +649,17 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      {isAssignedDesigner && (status === "IN_DESIGN" || status === "CHANGES_REQUESTED") && (
+      {isAssignedDesigner && (status === "IN_DESIGN" || status === "CHANGES_REQUESTED" || status === "REDESIGN") && (
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Submit for review</h2>
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">
+            {status === "REDESIGN" ? `Submit the ${label("REDESIGN").toLowerCase()} for review` : "Submit for review"}
+          </h2>
+          {status === "REDESIGN" && (
+            <p className="text-sm text-slate-500">
+              The doctor tried the print in and matching is done. The new scans are under Files.
+            </p>
+          )}
+          <div className="mb-3" />
           <form action={submitForReviewAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
             <FileDropField name="designFile" required hint="Exocad export, ZIP or STL" />
@@ -638,7 +678,7 @@ export default async function CaseDetailPage({
           <p className="mb-3 text-sm text-slate-500">
             {beforeIbar
               ? "Approving sends the case to the ibar designer."
-              : "Approving sends the case to milling."}
+              : "Approve by picking where the case goes next, or request changes from the designer."}
           </p>
           <form action={requestChangesAction} className="flex flex-col gap-3">
             <input type="hidden" name="caseId" value={caseRecord.id} />
@@ -650,14 +690,28 @@ export default async function CaseDetailPage({
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
               />
             </label>
-            <div className="flex gap-3">
-              <button
-                formAction={approveAction}
-                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
-              >
-                <CheckCircle2 size={16} />
-                Approve
-              </button>
+            <div className="flex flex-wrap gap-3">
+              {beforeIbar ? (
+                <button
+                  formAction={approveAction}
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+                >
+                  <CheckCircle2 size={16} />
+                  Approve
+                </button>
+              ) : (
+                (Object.keys(APPROVAL_ROUTES) as ApprovalRoute[]).map((route) => (
+                  <button
+                    key={route}
+                    formAction={approveWithRouteAction.bind(null, route)}
+                    data-route={route}
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+                  >
+                    <CheckCircle2 size={16} />
+                    Approve: {APPROVAL_ROUTES[route]}
+                  </button>
+                ))
+              )}
               <button
                 type="submit"
                 className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-rose-700"

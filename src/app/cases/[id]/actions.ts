@@ -7,6 +7,7 @@ import {
   assignRolePerson,
   completeIbar,
   completeMatching,
+  completeTryIn,
   markDelivered,
   markPhotogrammetryDone,
   setCaseStatus,
@@ -20,6 +21,7 @@ import {
   submitForReview,
   reviewCase,
 } from "../actions";
+import type { ApprovalRoute } from "@/lib/constants";
 
 export async function assignDesignerAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
@@ -42,6 +44,17 @@ export async function approveAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
   const comment = (formData.get("comment") as string) || undefined;
   await reviewCase(caseId, "APPROVED", comment);
+}
+
+// Bound per button: approves and sends the case to printing or milling.
+export async function approveWithRouteAction(route: ApprovalRoute, formData: FormData) {
+  const caseId = formData.get("caseId") as string;
+  const comment = (formData.get("comment") as string) || undefined;
+  await reviewCase(caseId, "APPROVED", comment, route);
+}
+
+export async function completeTryInAction(formData: FormData) {
+  await completeTryIn(formData.get("caseId") as string, formData);
 }
 
 export async function requestChangesAction(formData: FormData) {

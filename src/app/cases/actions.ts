@@ -22,13 +22,22 @@ import {
   notifyLabLeadersReviewReady,
   notifyLabLeadersMatchingDone,
   notifyMatchingReady,
+  notifyDesignerRedesign,
+  notifyTryInReady,
   notifyPhotogrammetryDone,
   notifyPhotogrammetryNeeded,
   notifyStatusWatchers,
   notifyWorkReviewed,
   notifyWorkSubmitted,
 } from "@/lib/notifications";
-import type { CaseFileType, CaseStatus, ReviewDecision } from "@/lib/constants";
+import {
+  APPROVAL_ROUTES,
+  CERAMIST_ASSIGNABLE_STATUSES,
+  type ApprovalRoute,
+  type CaseFileType,
+  type CaseStatus,
+  type ReviewDecision,
+} from "@/lib/constants";
 import { ceramistFeeFor, computeCasePricing, designerFeeFor } from "@/lib/pricing";
 import {
   linesKey,
@@ -57,8 +66,6 @@ const createCaseSchema = z.object({
   assignedDesignerId: z.string().optional(),
   firstDesignerId: z.string().optional(),
 });
-
-const CERAMIST_ASSIGNABLE_STATUSES = ["MATCHING", "WAITING_FOR_REVIEW", "MILLING", "STAIN_AND_GLAZE", "COMPLETED"];
 
 function emptyToUndefined(value: FormDataEntryValue | null) {
   if (typeof value !== "string" || value.trim() === "") return undefined;
@@ -311,7 +318,7 @@ export async function submitForReview(caseId: string, formData: FormData) {
     if (activeDesignerId(caseRecord) !== session.userId) {
       throw new Error("This case isn't assigned to you.");
     }
-    if (!["IN_DESIGN", "CHANGES_REQUESTED"].includes(caseRecord.status)) {
+    if (!["IN_DESIGN", "CHANGES_REQUESTED", "REDESIGN"].includes(caseRecord.status)) {
       throw new Error("This case can't be submitted for review right now.");
     }
     if (!caseRecord.driveFolderId) {
@@ -326,24 +333,16 @@ export async function submitForReview(caseId: string, formData: FormData) {
 
     await attachFile(caseId, caseRecord.driveFolderId, designFile, "DESIGN", session.userId);
 
-    // A case with someone named for matching goes there first; a Technician
-    // or Lab Leader sends it on to review when matching is done. The design
-    // before the ibar always goes straight to review.
+    // Every design goes to review; matching only happens after a try-in.
     const beforeIbar = isBeforeIbar(caseRecord);
-    const matchingBy = beforeIbar ? undefined : caseRecord.matchingBy?.trim();
-    const next: CaseStatus = matchingBy ? "MATCHING" : "WAITING_FOR_REVIEW";
-    await prisma.case.update({ where: { id: caseId }, data: { status: next } });
-    await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
-
-    if (matchingBy) {
-      await notifyMatchingReady(caseId, caseRecord.patientName, matchingBy);
-    } else {
-      await notifyLabLeadersReviewReady(
-        caseId,
-        caseRecord.patientName,
-        beforeIbar ? "design before ibar" : undefined
-      );
-    }
+    const redesign = caseRecord.status === "REDESIGN";
+    await prisma.case.update({ where: { id: caseId }, data: { status: "WAITING_FOR_REVIEW" } });
+    await notifyStatusWatchers(caseId, caseRecord.patientName, "WAITING_FOR_REVIEW", session.userId);
+    await notifyLabLeadersReviewReady(
+      caseId,
+      caseRecord.patientName,
+      beforeIbar ? "design before ibar" : redesign ? "redesign after try-in" : undefined
+    );
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -354,7 +353,8 @@ export async function submitForReview(caseId: string, formData: FormData) {
 export async function reviewCase(
   caseId: string,
   decision: ReviewDecision,
-  comment: string | undefined
+  comment: string | undefined,
+  route?: ApprovalRoute
 ) {
   const session = await requirePermission("case.review");
 
@@ -365,6 +365,13 @@ export async function reviewCase(
     }
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
+    // Approving the design before the ibar sends the case to the ibar designer;
+    // any other approval goes to printing or milling, as the reviewer picks.
+    const beforeIbar = isBeforeIbar(caseRecord);
+    if (decision === "APPROVED" && !beforeIbar && !(route && Object.hasOwn(APPROVAL_ROUTES, route))) {
+      throw new Error("Pick where the case goes next: printing or milling.");
+    }
+
     await prisma.caseReview.create({
       data: {
         caseId,
@@ -374,14 +381,15 @@ export async function reviewCase(
       },
     });
 
-    // Approving the design before the ibar sends the case to the ibar designer.
-    const next: CaseStatus =
-      decision !== "APPROVED"
-        ? "CHANGES_REQUESTED"
-        : isBeforeIbar(caseRecord)
-          ? "IBAR_DESIGN"
-          : "MILLING";
-    await prisma.case.update({ where: { id: caseId }, data: { status: next } });
+    let next: CaseStatus;
+    let production = {};
+    if (decision !== "APPROVED") next = "CHANGES_REQUESTED";
+    else if (beforeIbar) next = "IBAR_DESIGN";
+    else {
+      next = route === "MILL" ? "MILLING" : "PRINTING";
+      production = { productionMethod: next, printForTryIn: route === "PRINT_TRYIN" };
+    }
+    await prisma.case.update({ where: { id: caseId }, data: { status: next, ...production } });
     await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
@@ -395,7 +403,7 @@ export async function assignCeramist(caseId: string, ceramistId: string | undefi
 
   try {
     const caseRecord = await requireVisibleCase(session, caseId);
-    if (!CERAMIST_ASSIGNABLE_STATUSES.includes(caseRecord.status)) {
+    if (!CERAMIST_ASSIGNABLE_STATUSES.includes(caseRecord.status as CaseStatus)) {
       throw new Error("The ceramist can be assigned once the design has been submitted.");
     }
 
@@ -439,27 +447,62 @@ export async function markDelivered(caseId: string) {
   revalidatePath("/cases");
 }
 
-// Milling -> Stain & Glaze -> Completed.
+// Printing / Milling -> Stain & Glaze -> Completed (a print for a try-in goes
+// to the doctor instead; see completeTryIn).
+const PRODUCTION_STEPS: Record<string, { next: CaseStatus; permission: Permission }> = {
+  PRINTING: { next: "STAIN_AND_GLAZE", permission: "case.printing" },
+  MILLING: { next: "STAIN_AND_GLAZE", permission: "case.milling" },
+  STAIN_AND_GLAZE: { next: "COMPLETED", permission: "case.stainGlaze" },
+};
+
 export async function advanceProduction(caseId: string) {
   const session = await requireAccess();
 
   try {
     const caseRecord = await requireVisibleCase(session, caseId);
-    const next: CaseStatus | null =
-      caseRecord.status === "MILLING"
-        ? "STAIN_AND_GLAZE"
-        : caseRecord.status === "STAIN_AND_GLAZE"
-          ? "COMPLETED"
-          : null;
-    if (!next) throw new Error("This case isn't in milling or stain & glaze.");
+    const step = PRODUCTION_STEPS[caseRecord.status];
+    if (!step) throw new Error("This case isn't in printing, milling or stain & glaze.");
     // Each step has its own permission (e.g. a Milling role vs a Ceramist role).
-    if (!can(session, caseRecord.status === "MILLING" ? "case.milling" : "case.stainGlaze")) {
+    if (!can(session, step.permission)) {
       throw new Error("You don't have permission for this step.");
     }
+    const next: CaseStatus =
+      caseRecord.status === "PRINTING" && caseRecord.printForTryIn ? "TRY_IN" : step.next;
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     await prisma.case.update({ where: { id: caseId }, data: { status: next } });
     await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
+    if (next === "TRY_IN") await notifyTryInReady(caseId, caseRecord.patientName, session.userId);
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/cases");
+}
+
+// The doctor tried the print in; the new scans come back and the case goes to
+// matching, then back to the designer for the redesign.
+export async function completeTryIn(caseId: string, formData: FormData) {
+  const session = await requirePermission("case.tryIn");
+
+  try {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    if (caseRecord.status !== "TRY_IN") throw new Error("This case isn't at the doctor for a try-in.");
+    if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
+    const files = formData.getAll("scanFiles").filter((f): f is File => f instanceof File && f.size > 0);
+    if (files.length === 0) throw new Error("Attach the new scans from the try-in.");
+    await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
+
+    for (const file of files) {
+      await attachFile(caseId, caseRecord.driveFolderId, file, "SCAN", session.userId);
+    }
+    await prisma.case.update({
+      where: { id: caseId },
+      data: { status: "MATCHING", tryInDoneAt: new Date(), printForTryIn: false },
+    });
+    await notifyStatusWatchers(caseId, caseRecord.patientName, "MATCHING", session.userId);
+    await notifyMatchingReady(caseId, caseRecord.patientName, caseRecord.matchingBy?.trim() || null);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -703,9 +746,16 @@ export async function completeMatching(caseId: string) {
     if (caseRecord.status !== "MATCHING") throw new Error("This case isn't in matching.");
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
-    await prisma.case.update({ where: { id: caseId }, data: { status: "WAITING_FOR_REVIEW" } });
-    await notifyLabLeadersMatchingDone(caseId, caseRecord.patientName, session.userId);
-    await notifyStatusWatchers(caseId, caseRecord.patientName, "WAITING_FOR_REVIEW", session.userId);
+    if (caseRecord.tryInDoneAt) {
+      await prisma.case.update({ where: { id: caseId }, data: { status: "REDESIGN" } });
+      await notifyStatusWatchers(caseId, caseRecord.patientName, "REDESIGN", session.userId);
+      const designerId = activeDesignerId(caseRecord);
+      if (designerId) await notifyDesignerRedesign(caseId, designerId, caseRecord.patientName);
+    } else {
+      await prisma.case.update({ where: { id: caseId }, data: { status: "WAITING_FOR_REVIEW" } });
+      await notifyLabLeadersMatchingDone(caseId, caseRecord.patientName, session.userId);
+      await notifyStatusWatchers(caseId, caseRecord.patientName, "WAITING_FOR_REVIEW", session.userId);
+    }
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }

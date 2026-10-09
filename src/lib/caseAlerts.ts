@@ -11,6 +11,7 @@ const WAITING_ON_DESIGNER: CaseStatus[] = [
   "READY_FOR_DESIGN",
   "IN_DESIGN",
   "CHANGES_REQUESTED",
+  "REDESIGN",
 ];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
