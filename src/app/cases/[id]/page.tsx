@@ -423,20 +423,14 @@ export default async function CaseDetailPage({
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Case QR code</h2>
           <p className="mt-0.5 text-sm text-slate-500">
-            Scan it to open this case. Print the label and keep it with the physical work.
+            Scan it to open this case. Print the case sheet (it has this QR code) and keep it
+            with the physical work.
           </p>
           <Link
-            href={`/cases/${caseRecord.id}/label`}
+            href={`/cases/${caseRecord.id}/print`}
             className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover"
           >
             <Printer size={15} />
-            Print label
-          </Link>
-          <Link
-            href={`/cases/${caseRecord.id}/print`}
-            className="mt-2 ml-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover"
-          >
-            <FileText size={15} />
             Print case sheet
           </Link>
         </div>

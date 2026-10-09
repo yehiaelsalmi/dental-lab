@@ -92,8 +92,11 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
               )}
             </div>
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qrDataUrl} alt="Case QR code" width={110} height={110} className="shrink-0" />
+          <div className="flex shrink-0 flex-col items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrDataUrl} alt="Case QR code" width={140} height={140} />
+            <span className="mt-1 text-[10px] text-slate-400">Scan to open the case</span>
+          </div>
         </header>
 
         <div className="mt-4">
