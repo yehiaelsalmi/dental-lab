@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
 import { STATUS_COLORS, STATUS_COLOR_KEYS, getStatuses, type StatusInfo } from "@/lib/statuses";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
-import { createStatus, deleteStatus, updateStatus } from "./actions";
+import { createStatus, deleteStatus, renameBuiltInStatus, updateStatus } from "./actions";
 
 const INPUT =
   "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -29,7 +29,7 @@ export default async function StatusesPage({
       <p className="mb-6 text-sm text-slate-500">
         Add your own statuses, such as &quot;Waiting for doctor&quot; or &quot;Polishing&quot;.
         People allowed to &quot;move a case to any status&quot; can put a case into any status from
-        the case page. The built-in statuses keep their normal buttons and can&apos;t be changed.
+        the case page. Built-in statuses can be renamed; their place in the workflow and their buttons stay the same.
       </p>
 
       {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -63,9 +63,22 @@ export default async function StatusesPage({
           return (
             <li key={s.key} className="rounded-xl border border-slate-200 bg-white p-4">
               {s.builtIn || !row ? (
-                <div className="flex items-center justify-between gap-3">
-                  <Badge info={s} />
-                  <span className="flex items-center gap-3 text-xs text-slate-400">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <form action={renameBuiltInStatus} className="flex flex-1 items-center gap-2">
+                    <input type="hidden" name="key" value={s.key} />
+                    <Badge info={s} />
+                    <input
+                      name="label"
+                      required
+                      defaultValue={s.label}
+                      aria-label={`Name for ${s.label}`}
+                      className={`${INPUT} min-w-0 flex-1`}
+                    />
+                    <button type="submit" className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                      Rename
+                    </button>
+                  </form>
+                  <span className="flex items-center gap-2 text-xs text-slate-400" title="Built-in: its place and buttons are fixed">
                     {count} case{count === 1 ? "" : "s"}
                     <Lock size={13} />
                   </span>

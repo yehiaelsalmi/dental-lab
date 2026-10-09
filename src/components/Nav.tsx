@@ -21,6 +21,7 @@ function visibleLinks(access: Access): NavHref[] {
     ["/users", can(access, "page.users")],
     ["/settings/roles", can(access, "page.roles")],
     ["/settings/statuses", can(access, "page.statuses")],
+    ["/settings/checklists", can(access, "page.checklists")],
     ["/settings/fields", can(access, "page.fields")],
     ["/settings/pricing", can(access, "page.pricing")],
     ["/settings/google", can(access, "page.drive")],

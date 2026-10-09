@@ -22,6 +22,7 @@ export const PERMISSIONS = [
   { key: "case.setStatus", group: "Workflow steps", label: "Move a case to any status" },
   { key: "work.upload", group: "Workflow steps", label: "Upload work for review (on cases they're assigned to)" },
   { key: "case.reviewWork", group: "Workflow steps", label: "Review uploaded work (approve or request changes)" },
+  { key: "case.upload", group: "Cases", label: "Upload files to a case at any time" },
 
   { key: "money.viewAll", group: "Money", label: "See all prices, fees and profit" },
   { key: "money.viewOwn", group: "Money", label: "See their own earnings" },
@@ -35,7 +36,8 @@ export const PERMISSIONS = [
   { key: "page.roles", group: "Pages", label: "Roles" },
   { key: "page.pricing", group: "Pages", label: "Pricing" },
   { key: "page.doctors", group: "Pages", label: "Doctors (rename and delete)" },
-  { key: "page.statuses", group: "Pages", label: "Statuses (add custom statuses)" },
+  { key: "page.statuses", group: "Pages", label: "Statuses (add custom statuses, rename statuses)" },
+  { key: "page.checklists", group: "Pages", label: "Checklists (items to tick per status, and extra items on a case)" },
   { key: "page.expenses", group: "Pages", label: "Expenses" },
   { key: "page.fields", group: "Pages", label: "Custom fields (add fields to the case form)" },
   { key: "page.settings", group: "Pages", label: "Lab settings (name, logo, invoice details, alerts)" },

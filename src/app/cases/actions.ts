@@ -38,7 +38,8 @@ import {
   unitTotals,
 } from "@/lib/caseMaterials";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
-import { getStatuses } from "@/lib/statuses";
+import { getStatuses, statusLabel } from "@/lib/statuses";
+import { assertChecklistDone } from "@/lib/checklists";
 import { activeFields, parseFieldValues, saveFieldValues } from "@/lib/customFields";
 
 const createCaseSchema = z.object({
@@ -288,6 +289,7 @@ export async function startDesign(caseId: string) {
     if (caseRecord.status !== "READY_FOR_DESIGN") {
       throw new Error("This case is not ready to start.");
     }
+    await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     await prisma.case.update({
       where: { id: caseId },
@@ -315,6 +317,7 @@ export async function submitForReview(caseId: string, formData: FormData) {
     if (!caseRecord.driveFolderId) {
       throw new Error("This case has no Drive folder to upload into.");
     }
+    await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     const designFile = formData.get("designFile");
     if (!(designFile instanceof File) || designFile.size === 0) {
@@ -360,6 +363,7 @@ export async function reviewCase(
     if (caseRecord.status !== "WAITING_FOR_REVIEW") {
       throw new Error("This case is not waiting for review.");
     }
+    await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     await prisma.caseReview.create({
       data: {
@@ -421,8 +425,10 @@ export async function markDelivered(caseId: string) {
   try {
     const caseRecord = await requireVisibleCase(session, caseId);
     if (caseRecord.status !== "COMPLETED") {
-      throw new Error("Only completed cases can be marked as delivered.");
+      throw new Error(`Only cases in ${await statusLabel("COMPLETED")} can be marked as delivered.`);
     }
+    await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
+
     await prisma.case.update({ where: { id: caseId }, data: { status: "DELIVERED" } });
     await notifyStatusWatchers(caseId, caseRecord.patientName, "DELIVERED", session.userId);
   } catch (error) {
@@ -450,6 +456,7 @@ export async function advanceProduction(caseId: string) {
     if (!can(session, caseRecord.status === "MILLING" ? "case.milling" : "case.stainGlaze")) {
       throw new Error("You don't have permission for this step.");
     }
+    await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     await prisma.case.update({ where: { id: caseId }, data: { status: next } });
     await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
@@ -468,6 +475,7 @@ export async function completeIbar(caseId: string, formData: FormData) {
   try {
     const caseRecord = await requireVisibleCase(session, caseId);
     if (caseRecord.status !== "IBAR_DESIGN") throw new Error("This case isn't in ibar design.");
+    await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     const file = formData.get("ibarFile");
     if (file instanceof File && file.size > 0) {
@@ -589,6 +597,82 @@ export async function reviewWork(submissionId: string, approved: boolean, commen
   revalidatePath(`/cases/${submission.caseId}`);
 }
 
+// Ticks or unticks a checklist item in the case's current status. Anyone who
+// can see the case can do it; who and when is recorded.
+export async function toggleChecklistItem(caseId: string, key: string) {
+  const session = await requireAccess();
+  try {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    const [kind, id] = key.split(":");
+    if (kind === "t") {
+      const template = await prisma.checklistTemplateItem.findUnique({ where: { id } });
+      if (!template || template.status !== caseRecord.status) throw new Error("That item isn't on this case's checklist.");
+      const current = await prisma.caseChecklistItem.findUnique({
+        where: { caseId_templateItemId: { caseId, templateItemId: id } },
+      });
+      const done = !current?.done;
+      await prisma.caseChecklistItem.upsert({
+        where: { caseId_templateItemId: { caseId, templateItemId: id } },
+        create: { caseId, status: template.status, templateItemId: id, done, doneById: session.userId, doneAt: new Date() },
+        update: { done, doneById: done ? session.userId : null, doneAt: done ? new Date() : null },
+      });
+    } else {
+      const item = await prisma.caseChecklistItem.findUnique({ where: { id } });
+      if (!item || item.caseId !== caseId || item.status !== caseRecord.status) {
+        throw new Error("That item isn't on this case's checklist.");
+      }
+      const done = !item.done;
+      await prisma.caseChecklistItem.update({
+        where: { id },
+        data: { done, doneById: done ? session.userId : null, doneAt: done ? new Date() : null },
+      });
+    }
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+}
+
+// An extra checklist item for just this case, in its current status.
+export async function addCaseChecklistItem(caseId: string, text: string) {
+  const session = await requirePermission("page.checklists");
+  try {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    const clean = text.trim();
+    if (!clean) throw new Error("Write the checklist item first.");
+    await prisma.caseChecklistItem.create({ data: { caseId, status: caseRecord.status, text: clean.slice(0, 200) } });
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function removeCaseChecklistItem(caseId: string, itemId: string) {
+  const session = await requirePermission("page.checklists");
+  try {
+    await requireVisibleCase(session, caseId);
+    await prisma.caseChecklistItem.deleteMany({ where: { id: itemId, caseId, templateItemId: null } });
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+}
+
+// Any file, any time (permission "Upload files to a case at any time").
+export async function uploadCaseFile(caseId: string, formData: FormData) {
+  const session = await requirePermission("case.upload");
+  try {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
+    const file = formData.get("caseFile");
+    if (!(file instanceof File) || file.size === 0) throw new Error("Attach the file to upload.");
+    await attachFile(caseId, caseRecord.driveFolderId, file, "OTHER", session.userId);
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+}
+
 // Manual move to any status (built-in or custom). Only the status changes:
 // none of the automatic steps run, but roles watching that status are told.
 export async function setCaseStatus(caseId: string, status: string) {
@@ -599,6 +683,7 @@ export async function setCaseStatus(caseId: string, status: string) {
     const statuses = await getStatuses();
     if (!statuses.some((s) => s.key === status)) throw new Error("Pick a status.");
     if (status === caseRecord.status) return;
+    await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     await prisma.case.update({ where: { id: caseId }, data: { status } });
     await notifyStatusWatchers(caseId, caseRecord.patientName, status, session.userId);
@@ -616,6 +701,7 @@ export async function completeMatching(caseId: string) {
   try {
     const caseRecord = await requireVisibleCase(session, caseId);
     if (caseRecord.status !== "MATCHING") throw new Error("This case isn't in matching.");
+    await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     await prisma.case.update({ where: { id: caseId }, data: { status: "WAITING_FOR_REVIEW" } });
     await notifyLabLeadersMatchingDone(caseId, caseRecord.patientName, session.userId);

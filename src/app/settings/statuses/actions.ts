@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
-import { STATUS_COLOR_KEYS, getStatuses, isBuiltInStatus } from "@/lib/statuses";
+import { BUILT_IN_LABEL_PREFIX, STATUS_COLOR_KEYS, getStatuses, isBuiltInStatus } from "@/lib/statuses";
+import { setSetting } from "@/lib/settings";
 
 function back(params: string): never {
   redirect(`/settings/statuses?${params}`);
@@ -74,4 +75,21 @@ export async function deleteStatus(formData: FormData) {
   await prisma.customStatus.delete({ where: { id } });
   revalidatePath("/settings/statuses");
   back(`deleted=${encodeURIComponent(status.label)}`);
+}
+
+// Built-in statuses keep their place and behaviour; only the name changes.
+export async function renameBuiltInStatus(formData: FormData) {
+  await requirePermission("page.statuses");
+  const key = String(formData.get("key"));
+  const label = String(formData.get("label") ?? "").trim();
+  if (!isBuiltInStatus(key)) back("");
+  if (!label) fail("Give the status a name.");
+  if (label.length > 40) fail("Keep the name under 40 characters.");
+  const statuses = await getStatuses();
+  if (statuses.some((s) => s.key !== key && s.label.toLowerCase() === label.toLowerCase())) {
+    fail(`There is already a status called ${label}.`);
+  }
+  await setSetting(BUILT_IN_LABEL_PREFIX + key, label);
+  revalidatePath("/", "layout");
+  back("saved=1");
 }

@@ -9,6 +9,10 @@ import {
   User,
   Printer,
   Pencil,
+  Square,
+  CheckSquare,
+  Trash2,
+  Upload,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { caseUrl } from "@/lib/email";
@@ -18,6 +22,7 @@ import { can, canViewCase, requireAccess, usersWithPermission } from "@/lib/acce
 import { earningsOnCase } from "@/lib/earnings";
 import { findStatus, getStatuses, isBuiltInStatus } from "@/lib/statuses";
 import { formatFieldValue } from "@/lib/customFields";
+import { caseChecklist } from "@/lib/checklists";
 import { DESIGN_PHASE_STATUSES, type CaseStatus } from "@/lib/constants";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -41,6 +46,10 @@ import {
   approveAction,
   startDesignAction,
   submitForReviewAction,
+  toggleChecklistItemAction,
+  addCaseChecklistItemAction,
+  removeCaseChecklistItemAction,
+  uploadCaseFileAction,
 } from "./actions";
 
 export default async function CaseDetailPage({
@@ -110,6 +119,10 @@ export default async function CaseDetailPage({
       : [],
   ]);
 
+  const checklist = await caseChecklist(caseRecord.id, caseRecord.status);
+  const canEditChecklist = can(access, "page.checklists");
+  const statusName = findStatus(allStatuses, caseRecord.status).label;
+
   const qrDataUrl = await QRCode.toDataURL(caseUrl(caseRecord.id), { margin: 1, width: 220 });
 
   const hasIbar = !!caseRecord.ibarDesignerId;
@@ -173,8 +186,81 @@ export default async function CaseDetailPage({
           hasMatching={!!caseRecord.matchingBy}
           beforeIbar={beforeIbar}
           customStep={customStep}
+          labels={Object.fromEntries(allStatuses.map((s) => [s.key, s.label]))}
         />
       </section>
+
+      {(checklist.length > 0 || canEditChecklist) && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">{statusName} checklist</h2>
+            {checklist.length > 0 && (
+              <span className="text-xs text-slate-500">
+                {checklist.filter((e) => e.done).length} of {checklist.length} done
+                {checklist.some((e) => !e.done) && " · finish it before moving the case on"}
+              </span>
+            )}
+          </div>
+          {checklist.length === 0 ? (
+            <p className="text-sm text-slate-400">No checklist for this status.</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-slate-100">
+              {checklist.map((e) => (
+                <li key={e.key} className="flex items-center gap-3 py-2 text-sm">
+                  <form action={toggleChecklistItemAction} className="flex min-w-0 flex-1">
+                    <input type="hidden" name="caseId" value={caseRecord.id} />
+                    <input type="hidden" name="key" value={e.key} />
+                    <button
+                      type="submit"
+                      className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                      aria-label={e.done ? `Untick ${e.text}` : `Tick ${e.text}`}
+                    >
+                      {e.done ? (
+                        <CheckSquare size={18} className="mt-px shrink-0 text-emerald-600" />
+                      ) : (
+                        <Square size={18} className="mt-px shrink-0 text-slate-400" />
+                      )}
+                      <span className="min-w-0">
+                        <span className={e.done ? "text-slate-500 line-through" : "text-slate-800"}>{e.text}</span>
+                        {e.done && (e.doneBy || e.doneAt) && (
+                          <span className="block text-xs text-slate-400">
+                            {e.doneBy ?? "Someone"}
+                            {e.doneAt && ` · ${new Date(e.doneAt).toLocaleString()}`}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </form>
+                  {e.extraId && canEditChecklist && (
+                    <form action={removeCaseChecklistItemAction}>
+                      <input type="hidden" name="caseId" value={caseRecord.id} />
+                      <input type="hidden" name="itemId" value={e.extraId} />
+                      <button type="submit" className="text-slate-400 hover:text-rose-600" aria-label={`Remove ${e.text}`}>
+                        <Trash2 size={15} />
+                      </button>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {canEditChecklist && (
+            <form action={addCaseChecklistItemAction} className="mt-3 flex gap-2">
+              <input type="hidden" name="caseId" value={caseRecord.id} />
+              <input
+                name="text"
+                required
+                maxLength={200}
+                placeholder="Add an item for this case only"
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+              <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                Add
+              </button>
+            </form>
+          )}
+        </section>
+      )}
 
       <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm">
         <Info label="Units (Upper / Lower)" value={`${caseRecord.unitsUpper ?? "-"} / ${caseRecord.unitsLower ?? "-"}`} />
@@ -337,6 +423,13 @@ export default async function CaseDetailPage({
             <Printer size={15} />
             Print label
           </Link>
+          <Link
+            href={`/cases/${caseRecord.id}/print`}
+            className="mt-2 ml-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover"
+          >
+            <FileText size={15} />
+            Print case sheet
+          </Link>
         </div>
       </section>
 
@@ -420,7 +513,7 @@ export default async function CaseDetailPage({
           <p className="mb-3 text-sm text-slate-500">
             {status === "MILLING"
               ? "When milling is finished, send the case on to the ceramist for stain & glaze."
-              : "When the ceramist has finished stain & glaze, mark the case as completed."}
+              : `When the ceramist has finished stain & glaze, move the case to ${findStatus(allStatuses, "COMPLETED").label}.`}
           </p>
           <form action={advanceProductionAction}>
             <input type="hidden" name="caseId" value={caseRecord.id} />
@@ -428,7 +521,9 @@ export default async function CaseDetailPage({
               type="submit"
               className="rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-orange-700"
             >
-              {status === "MILLING" ? "Milling done: send to Stain & Glaze" : "Stain & glaze done: mark Completed"}
+              {status === "MILLING"
+                ? `${findStatus(allStatuses, "MILLING").label} done: send to ${findStatus(allStatuses, "STAIN_AND_GLAZE").label}`
+                : `${findStatus(allStatuses, "STAIN_AND_GLAZE").label} done: move to ${findStatus(allStatuses, "COMPLETED").label}`}
             </button>
           </form>
         </section>
@@ -769,6 +864,16 @@ export default async function CaseDetailPage({
             <li className="py-4 text-sm text-slate-400">No files yet.</li>
           )}
         </ul>
+        {can(access, "case.upload") && caseRecord.driveFolderId && (
+          <form action={uploadCaseFileAction} className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4">
+            <input type="hidden" name="caseId" value={caseRecord.id} />
+            <FileDropField name="caseFile" required hint="Any file: photos, scans, ZIP, STL..." />
+            <PendingSubmitButton overlay pendingText="Uploading the file..." className="flex items-center gap-1.5 self-start rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
+              <Upload size={15} />
+              Upload to the case folder
+            </PendingSubmitButton>
+          </form>
+        )}
       </section>
 
       {caseRecord.reviews.length > 0 && (

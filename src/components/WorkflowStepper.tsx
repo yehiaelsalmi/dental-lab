@@ -41,14 +41,20 @@ export function WorkflowStepper({
   hasMatching,
   beforeIbar,
   customStep,
+  labels = {},
 }: {
+  labels?: Record<string, string>;
   status: CaseStatus;
   hasIbar: boolean;
   hasMatching: boolean;
   beforeIbar: boolean;
   customStep?: { key: string; label: string; afterBuiltIn: string };
 }) {
-  const steps = stepsFor(hasIbar, hasMatching, status);
+  // Renamed built-in statuses (e.g. Completed -> Revision) keep their place.
+  const steps = stepsFor(hasIbar, hasMatching, status).map((s) => ({
+    ...s,
+    label: labels[s.key] ?? s.label,
+  }));
   if (customStep) {
     const anchor = steps.findIndex((s) => s.key === customStep.afterBuiltIn);
     steps.splice(anchor === -1 ? steps.length : anchor + 1, 0, {

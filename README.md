@@ -44,6 +44,10 @@ role such as Milling). It's saved to the case's Drive folder and listed under
 Approve or Request changes with a comment, and the uploader is told. The case
 status doesn't change; a new version can be uploaded any time.
 
+**Uploading any file:** roles with "Upload files to a case at any time" (the Lab
+Leader by default) get an upload box under **Files** on the case page. The file goes
+to the case's Drive folder as type `OTHER`, whatever the case's status.
+
 Ceramists are user accounts (a role with "can be assigned as a ceramist"); the
 ceramist picked on a case is notified. Roles with "see their own earnings" get a
 **My earnings** page and a "Your earnings" box on their cases: designer fees,
@@ -53,7 +57,7 @@ each shown as done or pending.
 ## Status flow
 
 (`IBAR_DESIGN`) → `READY_FOR_DESIGN` → `IN_DESIGN` → (`MATCHING`) → `WAITING_FOR_REVIEW` → Lab Leader review →
-`MILLING` → `STAIN_AND_GLAZE` → `COMPLETED` → `DELIVERED`, or
+`MILLING` → `STAIN_AND_GLAZE` → `COMPLETED` (shown as **Revision**) → `DELIVERED`, or
 `CHANGES_REQUESTED` (designer re-submits, looping back to `WAITING_FOR_REVIEW`).
 
 **Ibar cases have two designers.** When an ibar designer (an outside person,
@@ -107,7 +111,9 @@ Amounts are shown everywhere (screens, PDFs, Excel) as whole Egyptian pounds,
 for example `30,000 EGP`; the formatter is `formatEGP` in `src/lib/money.ts`.
 
 Every case has a **QR code** on its page that opens the case when scanned, with
-a printable label (`/cases/<id>/label`). The code encodes `APP_URL` (falling
+a printable label (`/cases/<id>/label`) and a printable **case sheet**
+(`/cases/<id>/print`: patient, doctor, dates, status, team, materials, unit codes,
+custom fields, notes and the QR code, without prices). The code encodes `APP_URL` (falling
 back to `NEXTAUTH_URL`), so it only works from a phone once the app is served
 from a real address rather than `localhost`.
 
@@ -135,6 +141,22 @@ to any status" get a **Move to status** box on the case page that puts a case in
 any built-in or custom status. A manual move only changes the status: no automatic
 steps run, but roles set to be notified for that status are told. Statuses with
 cases in them can't be deleted. Technicians have both permissions by default.
+
+Built-in statuses can be **renamed** on the same page; their place in the flow and
+their buttons stay the same. The name is stored in AppSetting as
+`status.label.<KEY>` (the status key in the database never changes), and every
+screen reads names through `getStatuses()` in `src/lib/statuses.ts`. `COMPLETED`
+is named **Revision** by default.
+
+## Checklists
+
+On **Checklists** (`/settings/checklists`, permission "Checklists") the lab sets a
+list of items for any status (add, edit, reorder, remove). On the case page the
+current status's checklist shows under the progress bar; anyone who can see the case
+ticks items, and who ticked each one and when is shown. People with the Checklists
+permission can also add extra items to a single case. **A case can't leave a status
+until its checklist is done**: every action that moves a case on (including Move to
+status) refuses with the items left. The logic is in `src/lib/checklists.ts`.
 
 ## Expenses and salaries
 

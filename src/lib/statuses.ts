@@ -47,13 +47,22 @@ export function isBuiltInStatus(key: string): key is CaseStatus {
   return (CASE_STATUSES as readonly string[]).includes(key);
 }
 
+// AppSetting key prefix for renamed built-in statuses.
+export const BUILT_IN_LABEL_PREFIX = "status.label.";
+
 // Every status in display order: the built-in workflow with each custom status
 // placed right after the status it was attached to. Cached per request.
 export const getStatuses = cache(async (): Promise<StatusInfo[]> => {
-  const custom = await prisma.customStatus.findMany({ orderBy: { createdAt: "asc" } });
+  const [custom, renamed] = await Promise.all([
+    prisma.customStatus.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.appSetting.findMany({ where: { key: { startsWith: BUILT_IN_LABEL_PREFIX } } }),
+  ]);
+  // The lab can rename built-in statuses (e.g. Completed -> Revision).
+  const nameOf = (key: CaseStatus) =>
+    renamed.find((r) => r.key === BUILT_IN_LABEL_PREFIX + key)?.value || CASE_STATUS_LABELS[key];
   const list: StatusInfo[] = CASE_STATUSES.map((key) => ({
     key,
-    label: CASE_STATUS_LABELS[key],
+    label: nameOf(key),
     color: BUILT_IN_COLORS[key],
     builtIn: true,
   }));
@@ -86,4 +95,9 @@ export function findStatus(list: StatusInfo[], key: string): StatusInfo {
 
 export async function statusLabel(key: string): Promise<string> {
   return findStatus(await getStatuses(), key).label;
+}
+
+// Status key -> display name, for components that only need the names.
+export async function statusLabels(): Promise<Record<string, string>> {
+  return Object.fromEntries((await getStatuses()).map((s) => [s.key, s.label]));
 }

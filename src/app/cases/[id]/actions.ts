@@ -10,6 +10,10 @@ import {
   markDelivered,
   markPhotogrammetryDone,
   setCaseStatus,
+  toggleChecklistItem,
+  addCaseChecklistItem,
+  removeCaseChecklistItem,
+  uploadCaseFile,
   submitWork,
   reviewWork,
   startDesign,
@@ -101,4 +105,20 @@ export async function approveWorkAction(formData: FormData) {
 
 export async function requestWorkChangesAction(formData: FormData) {
   await reviewWork(formData.get("submissionId") as string, false, (formData.get("comment") as string) || undefined);
+}
+
+export async function toggleChecklistItemAction(formData: FormData) {
+  await toggleChecklistItem(formData.get("caseId") as string, formData.get("key") as string);
+}
+
+export async function addCaseChecklistItemAction(formData: FormData) {
+  await addCaseChecklistItem(formData.get("caseId") as string, String(formData.get("text") ?? ""));
+}
+
+export async function removeCaseChecklistItemAction(formData: FormData) {
+  await removeCaseChecklistItem(formData.get("caseId") as string, formData.get("itemId") as string);
+}
+
+export async function uploadCaseFileAction(formData: FormData) {
+  await uploadCaseFile(formData.get("caseId") as string, formData);
 }

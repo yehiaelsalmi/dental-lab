@@ -36,6 +36,7 @@ model User {
   caseAssignments    CaseAssignment[]
   workSubmitted      WorkSubmission[] @relation("WorkUploader")
   workReviewed       WorkSubmission[] @relation("WorkReviewer")
+  checklistTicks     CaseChecklistItem[]
   photogrammetryDone Case[]    @relation("PhotogrammetryDoneBy")
   filesUploaded CaseFile[]
   reviews       CaseReview[]
@@ -182,6 +183,7 @@ model Case {
   fieldValues   CaseFieldValue[]
   // Files uploaded for review by people working on the case (milling, ...).
   workSubmissions WorkSubmission[]
+  checklistItems  CaseChecklistItem[]
   invoiceLines  InvoiceLine[]
 
   createdAt DateTime @default(now())
@@ -381,4 +383,35 @@ model WorkSubmission {
   reviewedBy    User?     @relation("WorkReviewer", fields: [reviewedById], references: [id])
   reviewedAt    DateTime?
   createdAt     DateTime  @default(now())
+}
+
+// Checklist items the lab sets once per status (e.g. Milling: "Check margins").
+// A case can't leave a status until every item for that status is ticked.
+model ChecklistTemplateItem {
+  id        String   @id @default(cuid())
+  status    String
+  text      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  caseItems CaseChecklistItem[]
+}
+
+// A checklist item on one case: either a ticked template item (templateItemId)
+// or an extra item added to just this case (text, no template).
+model CaseChecklistItem {
+  id             String    @id @default(cuid())
+  caseId         String
+  case           Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  status         String
+  templateItemId String?
+  templateItem   ChecklistTemplateItem? @relation(fields: [templateItemId], references: [id], onDelete: Cascade)
+  text           String?
+  done           Boolean   @default(false)
+  doneById       String?
+  doneBy         User?     @relation(fields: [doneById], references: [id])
+  doneAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([caseId, templateItemId])
 }

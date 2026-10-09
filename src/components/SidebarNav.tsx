@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Settings2,
   TextCursorInput,
+  ClipboardCheck,
 } from "lucide-react";
 
 // `show` and `team` are decided on the server from the user's permissions.
@@ -33,6 +34,7 @@ const LINKS = [
   { href: "/users", label: "Users", icon: Users },
   { href: "/settings/roles", label: "Roles", icon: ShieldCheck },
   { href: "/settings/statuses", label: "Statuses", icon: ListChecks },
+  { href: "/settings/checklists", label: "Checklists", icon: ClipboardCheck },
   { href: "/settings/fields", label: "Custom fields", icon: TextCursorInput },
   { href: "/settings/pricing", label: "Pricing", icon: Tag },
   { href: "/settings/google", label: "Drive Settings", icon: Cloud },
