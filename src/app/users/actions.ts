@@ -93,7 +93,7 @@ export async function deleteUserAction(formData: FormData) {
   if (!user || user.deletedAt) fail("That user no longer exists.");
   await assertLeaderRemains(userId);
 
-  const [cases, files, reviews, invoices] = await Promise.all([
+  const [cases, files, reviews, invoices, staffPayments, doctorPayments] = await Promise.all([
     prisma.case.count({
       where: {
         OR: [
@@ -109,9 +109,12 @@ export async function deleteUserAction(formData: FormData) {
     prisma.caseFile.count({ where: { uploadedById: userId } }),
     prisma.caseReview.count({ where: { reviewedById: userId } }),
     prisma.invoice.count({ where: { generatedById: userId } }),
+    // Payments to or recorded by them keep the account (soft delete).
+    prisma.staffPayment.count({ where: { OR: [{ userId }, { createdById: userId }] } }),
+    prisma.doctorPayment.count({ where: { createdById: userId } }),
   ]);
 
-  if (cases + files + reviews + invoices === 0) {
+  if (cases + files + reviews + invoices + staffPayments + doctorPayments === 0) {
     await prisma.notification.deleteMany({ where: { userId } });
     await prisma.user.delete({ where: { id: userId } });
   } else {

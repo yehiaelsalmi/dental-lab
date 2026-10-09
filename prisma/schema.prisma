@@ -42,6 +42,9 @@ model User {
   reviews       CaseReview[]
   notifications Notification[]
   invoices      Invoice[]
+  doctorPaymentsRecorded DoctorPayment[] @relation("DoctorPaymentsRecorded")
+  staffPayments          StaffPayment[]  @relation("StaffPaymentsReceived")
+  staffPaymentsRecorded  StaffPayment[]  @relation("StaffPaymentsRecorded")
 }
 
 model Doctor {
@@ -51,6 +54,7 @@ model Doctor {
 
   cases    Case[]
   invoices Invoice[]
+  payments DoctorPayment[]
 }
 
 // Managed by the Lab Leader on the Roles page. `key` marks the built-in roles;
@@ -421,4 +425,38 @@ model CaseChecklistItem {
   createdAt      DateTime  @default(now())
 
   @@unique([caseId, templateItemId])
+}
+
+// Money received from a doctor, entered by hand (advances included). The
+// balance is the price of all their cases minus these.
+model DoctorPayment {
+  id          String   @id @default(cuid())
+  doctorId    String
+  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+  amount      Float
+  paidAt      DateTime
+  note        String?
+  createdById String
+  createdBy   User     @relation("DoctorPaymentsRecorded", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([doctorId])
+}
+
+// Money paid to a team member, entered by hand. "FEES" payments (advances
+// included) count against what they earned on cases; "SALARY" ones (salary,
+// bonus, anything else) are only recorded.
+model StaffPayment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("StaffPaymentsReceived", fields: [userId], references: [id])
+  kind        String   @default("FEES")
+  amount      Float
+  paidAt      DateTime
+  note        String?
+  createdById String
+  createdBy   User     @relation("StaffPaymentsRecorded", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }

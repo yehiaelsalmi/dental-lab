@@ -30,11 +30,11 @@ export async function deleteDoctor(formData: FormData) {
 
   const doctor = await prisma.doctor.findUnique({
     where: { id },
-    include: { _count: { select: { cases: true, invoices: true } } },
+    include: { _count: { select: { cases: true, invoices: true, payments: true } } },
   });
   if (!doctor) back("");
-  if (doctor._count.cases + doctor._count.invoices > 0) {
-    back(`error=${encodeURIComponent(`${doctor.name} has cases or invoices, so it can't be deleted.`)}`);
+  if (doctor._count.cases + doctor._count.invoices + doctor._count.payments > 0) {
+    back(`error=${encodeURIComponent(`${doctor.name} has cases, invoices or payments, so it can't be deleted.`)}`);
   }
 
   await prisma.doctor.delete({ where: { id } });

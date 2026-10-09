@@ -28,6 +28,7 @@ export const PERMISSIONS = [
 
   { key: "money.viewAll", group: "Money", label: "See all prices, fees and profit" },
   { key: "money.viewOwn", group: "Money", label: "See their own earnings" },
+  { key: "money.payments", group: "Money", label: "Payments: record money from doctors and to the team, and see balances" },
 
   { key: "page.designers", group: "Pages", label: "Designers page" },
   { key: "page.ceramists", group: "Pages", label: "Ceramists page" },

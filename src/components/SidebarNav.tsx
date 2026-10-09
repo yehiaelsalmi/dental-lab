@@ -20,6 +20,7 @@ import {
   Settings2,
   TextCursorInput,
   ClipboardCheck,
+  HandCoins,
 } from "lucide-react";
 
 // `show` and `team` are decided on the server from the user's permissions.
@@ -30,6 +31,7 @@ const LINKS = [
   { href: "/reports", label: "Reports", icon: FileSpreadsheet },
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/expenses", label: "Expenses", icon: Banknote },
+  { href: "/payments", label: "Payments", icon: HandCoins },
   { href: "/doctors", label: "Doctors", icon: Stethoscope },
   { href: "/users", label: "Users", icon: Users },
   { href: "/settings/roles", label: "Roles", icon: ShieldCheck },

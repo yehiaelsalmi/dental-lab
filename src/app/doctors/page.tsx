@@ -14,7 +14,7 @@ export default async function DoctorsPage({
 
   const doctors = await prisma.doctor.findMany({
     orderBy: { name: "asc" },
-    include: { _count: { select: { cases: true, invoices: true } } },
+    include: { _count: { select: { cases: true, invoices: true, payments: true } } },
   });
 
   return (
@@ -37,7 +37,7 @@ export default async function DoctorsPage({
 
       <ul className="flex flex-col gap-3">
         {doctors.map((d) => {
-          const used = d._count.cases + d._count.invoices > 0;
+          const used = d._count.cases + d._count.invoices + d._count.payments > 0;
           return (
             <li
               key={d.id}

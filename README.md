@@ -186,6 +186,23 @@ time (or "All time"): case profit minus that month's expenses and salaries gives
 who can see their own earnings also see their salary on My earnings. Salaries use
 each person's current salary for every month.
 
+## Payments
+
+**Payments** (`/payments`, permission "Payments") records money that changes hands,
+entered by hand, with a date and an optional note:
+
+- **Doctors:** what each doctor paid (advances included). Owed is the price of all
+  their cases; the balance shows "Owes" or "Credit". Cases without a price are
+  flagged. A doctor with payments can't be deleted.
+- **Team:** what was paid to each person, either *toward case fees* (advances too)
+  or *salary / other*. Earned is their locked fees on cases where their part is done
+  (`earningsOnCase`), pending is the rest; the balance compares earned with fee
+  payments, and salary / other payments are only listed. A user with payments is
+  removed with a soft delete.
+
+Payments don't appear on Expenses or in Reports, because case fees are already
+subtracted from case profit. The logic is in `src/lib/payments.ts`.
+
 ## Pricing
 
 A case's materials are entered as **material lines**: each line is an arch (Upper
