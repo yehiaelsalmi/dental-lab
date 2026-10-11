@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { Readable } from "node:stream";
 import { getSetting, setSetting } from "@/lib/settings";
 import { LAB_NAME } from "@/lib/constants";
+import { CASE_SUBFOLDERS, type CaseSubfolder } from "@/lib/caseFolders";
 
 // drive.file only reaches files and folders this app created. Google treats it
 // as non-sensitive, so the OAuth app can be published without a paid security
@@ -204,7 +205,8 @@ export async function ensureRootFolder(): Promise<void> {
   }
 }
 
-// Main folder -> doctor folder -> patient folder, reusing folders the app already made.
+// Main folder -> doctor folder -> patient folder (with its subfolders),
+// reusing folders the app already made.
 export async function createCaseFolder(
   doctorName: string,
   patientName: string
@@ -213,20 +215,62 @@ export async function createCaseFolder(
     const drive = await getDriveClient();
     const rootId = await getOrCreateRootFolder(drive);
     const doctorFolder = await getOrCreateChildFolder(drive, rootId, doctorName);
-    return await getOrCreateChildFolder(drive, doctorFolder.id, patientName);
+    const caseFolder = await getOrCreateChildFolder(drive, doctorFolder.id, patientName);
+    await createSubfolders(drive, caseFolder.id);
+    return caseFolder;
   } catch (error) {
     throw expiredConnectionError(error) ?? error;
   }
 }
 
+async function createSubfolders(drive: DriveClient, caseFolderId: string) {
+  const ids = {} as Record<CaseSubfolder, string>;
+  for (const key of Object.keys(CASE_SUBFOLDERS) as CaseSubfolder[]) {
+    ids[key] = (await getOrCreateChildFolder(drive, caseFolderId, CASE_SUBFOLDERS[key])).id;
+  }
+  return ids;
+}
+
+// Makes sure a case folder has all its subfolders; returns their ids.
+export async function ensureCaseSubfolders(caseFolderId: string): Promise<Record<CaseSubfolder, string>> {
+  try {
+    return await createSubfolders(await getDriveClient(), caseFolderId);
+  } catch (error) {
+    throw expiredConnectionError(error) ?? error;
+  }
+}
+
+// Moves a file the app uploaded into another folder. Its id and links stay.
+export async function moveFileToFolder(fileId: string, folderId: string): Promise<boolean> {
+  try {
+    const drive = await getDriveClient();
+    const file = await drive.files.get({ fileId, fields: "parents" });
+    const parents = file.data.parents ?? [];
+    if (parents.length === 1 && parents[0] === folderId) return false;
+    await drive.files.update({
+      fileId,
+      addParents: folderId,
+      removeParents: parents.filter((p) => p !== folderId).join(","),
+      fields: "id",
+    });
+    return true;
+  } catch (error) {
+    throw expiredConnectionError(error) ?? error;
+  }
+}
+
+// Uploads into the case folder, or into one of its subfolders (created if
+// it's missing, e.g. on cases from before subfolders existed).
 export async function uploadFileToDrive(
   folderId: string,
   fileName: string,
   mimeType: string,
-  buffer: Buffer
+  buffer: Buffer,
+  subfolder?: CaseSubfolder
 ): Promise<{ id: string; url: string }> {
   try {
     const drive = await getDriveClient();
+    if (subfolder) folderId = (await getOrCreateChildFolder(drive, folderId, CASE_SUBFOLDERS[subfolder])).id;
 
     const file = await drive.files.create({
       requestBody: {

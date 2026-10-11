@@ -369,6 +369,22 @@ creates its own main folder ("Alexandria All on four Lab Cases") with the first
 case, or from **Create main folder** on Drive Settings. Doctor and patient
 folders it already made are matched by name (case-insensitive) and reused.
 
+Every patient folder has five subfolders (`CASE_SUBFOLDERS` in
+`src/lib/caseFolders.ts`):
+
+| Subfolder | What goes in it |
+|---|---|
+| scans (for design) | Scans uploaded with the new case |
+| project (designer) | Designs submitted before any try-in |
+| new scans (for matching) | Scans uploaded after the try-in |
+| project after matching (2nd design) | Designs submitted after the try-in |
+| milling | Work uploaded by Milling or Printing roles, and anything uploaded while the case is in Printing or Milling |
+
+Everything else (ibar, photogrammetry, other work, upload-any-time files) stays in
+the patient folder itself. A missing subfolder is created on the next upload.
+`scripts/organize-drive-folders.ts` sorts existing case folders the same way
+(dry run by default, `--apply` to move files).
+
 The app uses the `drive.file` permission, which only reaches files and folders
 the app itself created. That's what keeps the Drive connection free and
 permanent (see step 3 above), with two consequences:

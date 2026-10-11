@@ -13,6 +13,7 @@ import {
 } from "@/lib/access";
 import type { Permission } from "@/lib/permissions";
 import { createCaseFolder, uploadFileToDrive } from "@/lib/googleDrive";
+import { designSubfolder, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
 import {
   notifyCeramistAssigned,
   notifyRoleAssigned,
@@ -97,14 +98,16 @@ async function attachFile(
   folderId: string,
   file: File,
   type: CaseFileType,
-  uploadedById: string
+  uploadedById: string,
+  subfolder?: CaseSubfolder
 ) {
   const buffer = Buffer.from(await file.arrayBuffer());
   const uploaded = await uploadFileToDrive(
     folderId,
     file.name,
     file.type || "application/octet-stream",
-    buffer
+    buffer,
+    subfolder
   );
 
   return prisma.caseFile.create({
@@ -214,7 +217,7 @@ export async function createCase(formData: FormData) {
     await saveFieldValues(created.id, fieldValues);
 
     if (scanFile instanceof File && scanFile.size > 0) {
-      await attachFile(created.id, folder.id, scanFile, "SCAN", session.userId);
+      await attachFile(created.id, folder.id, scanFile, "SCAN", session.userId, "SCANS");
     }
 
     if (data.needsPhotogrammetry) {
@@ -331,7 +334,7 @@ export async function submitForReview(caseId: string, formData: FormData) {
       throw new Error("Attach the design file before submitting for review.");
     }
 
-    await attachFile(caseId, caseRecord.driveFolderId, designFile, "DESIGN", session.userId);
+    await attachFile(caseId, caseRecord.driveFolderId, designFile, "DESIGN", session.userId, designSubfolder(caseRecord));
 
     // Every design goes to review; matching only happens after a try-in.
     const beforeIbar = isBeforeIbar(caseRecord);
@@ -495,7 +498,7 @@ export async function completeTryIn(caseId: string, formData: FormData) {
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     for (const file of files) {
-      await attachFile(caseId, caseRecord.driveFolderId, file, "SCAN", session.userId);
+      await attachFile(caseId, caseRecord.driveFolderId, file, "SCAN", session.userId, "TRYIN_SCANS");
     }
     await prisma.case.update({
       where: { id: caseId },
@@ -603,7 +606,14 @@ export async function submitWork(caseId: string, formData: FormData) {
     if (!(file instanceof File) || file.size === 0) throw new Error("Attach the file to submit.");
     const note = String(formData.get("note") ?? "").trim() || null;
 
-    const saved = await attachFile(caseId, caseRecord.driveFolderId, file, "WORK", session.userId);
+    const saved = await attachFile(
+      caseId,
+      caseRecord.driveFolderId,
+      file,
+      "WORK",
+      session.userId,
+      uploadSubfolder(caseRecord.status, session.role.name)
+    );
     await prisma.workSubmission.create({
       data: { caseId, fileId: saved.id, uploadedById: session.userId, roleName: session.role.name, note },
     });
@@ -709,7 +719,7 @@ export async function uploadCaseFile(caseId: string, formData: FormData) {
     if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
     const file = formData.get("caseFile");
     if (!(file instanceof File) || file.size === 0) throw new Error("Attach the file to upload.");
-    await attachFile(caseId, caseRecord.driveFolderId, file, "OTHER", session.userId);
+    await attachFile(caseId, caseRecord.driveFolderId, file, "OTHER", session.userId, uploadSubfolder(caseRecord.status));
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
