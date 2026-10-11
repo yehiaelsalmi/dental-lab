@@ -24,7 +24,7 @@ export const PERMISSIONS = [
   { key: "case.setStatus", group: "Workflow steps", label: "Move a case to any status" },
   { key: "work.upload", group: "Workflow steps", label: "Upload work for review (on cases they're assigned to)" },
   { key: "case.reviewWork", group: "Workflow steps", label: "Review uploaded work (approve or request changes)" },
-  { key: "case.upload", group: "Cases", label: "Upload files to a case at any time" },
+  { key: "case.upload", group: "Cases", label: "Upload files to a case at any time, choosing the Drive subfolder" },
 
   { key: "money.viewAll", group: "Money", label: "See all prices, fees and profit" },
   { key: "money.viewOwn", group: "Money", label: "See their own earnings" },

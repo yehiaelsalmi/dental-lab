@@ -44,9 +44,10 @@ role such as Milling). It's saved to the case's Drive folder and listed under
 Approve or Request changes with a comment, and the uploader is told. The case
 status doesn't change; a new version can be uploaded any time.
 
-**Uploading any file:** roles with "Upload files to a case at any time" (the Lab
-Leader by default) get an upload box under **Files** on the case page. The file goes
-to the case's Drive folder as type `OTHER`, whatever the case's status.
+**Uploading any file:** roles with "Upload files to a case at any time, choosing
+the Drive subfolder" (the Lab Leader by default) get an upload box under **Files** on
+the case page with a folder picker. The file is saved as type `OTHER`, whatever the
+case's status.
 
 Ceramists are user accounts (a role with "can be assigned as a ceramist"); the
 ceramist picked on a case is notified. Roles with "see their own earnings" get a
@@ -369,19 +370,24 @@ creates its own main folder ("Alexandria All on four Lab Cases") with the first
 case, or from **Create main folder** on Drive Settings. Doctor and patient
 folders it already made are matched by name (case-insensitive) and reused.
 
-Every patient folder has five subfolders (`CASE_SUBFOLDERS` in
+Every patient folder has seven subfolders (`CASE_SUBFOLDERS` in
 `src/lib/caseFolders.ts`):
 
 | Subfolder | What goes in it |
 |---|---|
 | scans (for design) | Scans uploaded with the new case |
 | project (designer) | Designs submitted before any try-in |
+| ibar | The ibar file attached with **Ibar done** |
 | new scans (for matching) | Scans uploaded after the try-in |
 | project after matching (2nd design) | Designs submitted after the try-in |
-| milling | Work uploaded by Milling or Printing roles, and anything uploaded while the case is in Printing or Milling |
+| milling | Work uploaded by Milling or Printing roles |
+| models | Only by choice in the upload box |
 
-Everything else (ibar, photogrammetry, other work, upload-any-time files) stays in
-the patient folder itself. A missing subfolder is created on the next upload.
+Everything else (photogrammetry, other work) stays in the patient folder itself.
+The **upload box** under Files on the case page (permission "Upload files to a case
+at any time, choosing the Drive subfolder") has a folder picker: any subfolder or
+the patient folder itself, preset to milling while the case is in Printing or
+Milling. A missing subfolder is created on the next upload.
 `scripts/organize-drive-folders.ts` sorts existing case folders the same way
 (dry run by default, `--apply` to move files).
 

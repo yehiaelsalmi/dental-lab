@@ -23,6 +23,7 @@ import { earningsOnCase } from "@/lib/earnings";
 import { findStatus, getStatuses, isBuiltInStatus } from "@/lib/statuses";
 import { formatFieldValue } from "@/lib/customFields";
 import { caseChecklist } from "@/lib/checklists";
+import { CASE_SUBFOLDERS, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
 import {
   APPROVAL_ROUTES,
   CERAMIST_ASSIGNABLE_STATUSES,
@@ -916,9 +917,24 @@ export default async function CaseDetailPage({
           <form action={uploadCaseFileAction} className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
             <FileDropField name="caseFile" required hint="Any file: photos, scans, ZIP, STL..." />
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+              Folder in Drive
+              <select
+                name="subfolder"
+                defaultValue={uploadSubfolder(caseRecord.status) ?? ""}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 sm:max-w-sm"
+              >
+                <option value="">Patient folder (no subfolder)</option>
+                {(Object.keys(CASE_SUBFOLDERS) as CaseSubfolder[]).map((key) => (
+                  <option key={key} value={key}>
+                    {CASE_SUBFOLDERS[key]}
+                  </option>
+                ))}
+              </select>
+            </label>
             <PendingSubmitButton overlay pendingText="Uploading the file..." className="flex items-center gap-1.5 self-start rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
               <Upload size={15} />
-              Upload to the case folder
+              Upload
             </PendingSubmitButton>
           </form>
         )}

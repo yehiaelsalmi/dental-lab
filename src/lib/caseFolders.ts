@@ -1,14 +1,20 @@
 // Every patient folder in Drive has these subfolders. Files that fit none of
-// them (ibar, photogrammetry, other work, upload-any-time) stay in the patient
-// folder itself.
+// them (photogrammetry, other work) stay in the patient folder itself; the
+// upload box on the case page lets the uploader pick any of them.
 export const CASE_SUBFOLDERS = {
   SCANS: "scans (for design)",
   DESIGN: "project (designer)",
+  IBAR: "ibar",
   TRYIN_SCANS: "new scans (for matching)",
   REDESIGN: "project after matching (2nd design)",
   MILLING: "milling",
+  MODELS: "models",
 } as const;
 export type CaseSubfolder = keyof typeof CASE_SUBFOLDERS;
+
+export function isCaseSubfolder(value: unknown): value is CaseSubfolder {
+  return typeof value === "string" && Object.hasOwn(CASE_SUBFOLDERS, value);
+}
 
 const PRODUCTION_STATUSES = ["PRINTING", "MILLING"];
 
@@ -40,6 +46,8 @@ export function subfolderForExistingFile(
       return afterTryIn ? "TRYIN_SCANS" : "SCANS";
     case "DESIGN":
       return afterTryIn ? "REDESIGN" : "DESIGN";
+    case "IBAR":
+      return "IBAR";
     case "WORK":
       return isProductionRole(workRoleName) ? "MILLING" : undefined;
     default:

@@ -13,7 +13,7 @@ import {
 } from "@/lib/access";
 import type { Permission } from "@/lib/permissions";
 import { createCaseFolder, uploadFileToDrive } from "@/lib/googleDrive";
-import { designSubfolder, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
+import { designSubfolder, isCaseSubfolder, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
 import {
   notifyCeramistAssigned,
   notifyRoleAssigned,
@@ -526,7 +526,7 @@ export async function completeIbar(caseId: string, formData: FormData) {
     const file = formData.get("ibarFile");
     if (file instanceof File && file.size > 0) {
       if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
-      await attachFile(caseId, caseRecord.driveFolderId, file, "IBAR", session.userId);
+      await attachFile(caseId, caseRecord.driveFolderId, file, "IBAR", session.userId, "IBAR");
     }
 
     await prisma.case.update({
@@ -711,7 +711,8 @@ export async function removeCaseChecklistItem(caseId: string, itemId: string) {
   revalidatePath(`/cases/${caseId}`);
 }
 
-// Any file, any time (permission "Upload files to a case at any time").
+// Any file, any time, into the subfolder the uploader picks ("" = the patient
+// folder itself). Permission "Upload files to a case at any time".
 export async function uploadCaseFile(caseId: string, formData: FormData) {
   const session = await requirePermission("case.upload");
   try {
@@ -719,7 +720,9 @@ export async function uploadCaseFile(caseId: string, formData: FormData) {
     if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
     const file = formData.get("caseFile");
     if (!(file instanceof File) || file.size === 0) throw new Error("Attach the file to upload.");
-    await attachFile(caseId, caseRecord.driveFolderId, file, "OTHER", session.userId, uploadSubfolder(caseRecord.status));
+    const folder = formData.get("subfolder") || undefined;
+    if (folder !== undefined && !isCaseSubfolder(folder)) throw new Error("Pick a folder to upload into.");
+    await attachFile(caseId, caseRecord.driveFolderId, file, "OTHER", session.userId, folder);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
