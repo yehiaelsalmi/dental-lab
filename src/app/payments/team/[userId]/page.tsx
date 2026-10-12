@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
+import { getLabSettings } from "@/lib/labSettings";
 import { formatEGP } from "@/lib/money";
 import {
   STAFF_PAYMENT_KINDS,
@@ -29,7 +30,7 @@ export default async function StaffPaymentsPage({
   const [summary] = await staffBalances(userId);
   if (!summary) notFound();
 
-  const [person, payments, earnings] = await Promise.all([
+  const [person, payments, earnings, lab] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { baseSalary: true } }),
     prisma.staffPayment.findMany({
       where: { userId },
@@ -37,6 +38,7 @@ export default async function StaffPaymentsPage({
       include: { createdBy: { select: { name: true } } },
     }),
     staffCaseEarnings(userId),
+    getLabSettings(),
   ]);
 
   return (
@@ -65,7 +67,7 @@ export default async function StaffPaymentsPage({
 
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Add a payment</h2>
-        <form action={addStaffPayment} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[130px_150px_200px_1fr_auto] lg:items-end">
+        <form action={addStaffPayment} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[120px_140px_150px_190px_1fr_auto] lg:items-end">
           <input type="hidden" name="userId" value={userId} />
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
             Amount (EGP)
@@ -81,6 +83,19 @@ export default async function StaffPaymentsPage({
               {(Object.keys(STAFF_PAYMENT_KINDS) as StaffPaymentKind[]).map((k) => (
                 <option key={k} value={k}>
                   {STAFF_PAYMENT_KINDS[k]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+            Method
+            <select name="method" required defaultValue="" className={INPUT}>
+              <option value="" disabled>
+                Choose...
+              </option>
+              {lab.paymentMethods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
                 </option>
               ))}
             </select>
@@ -111,7 +126,8 @@ export default async function StaffPaymentsPage({
                     </span>
                   </p>
                   <p className="text-xs text-slate-500">
-                    {p.note ? `${p.note} · ` : ""}entered by {p.createdBy.name}
+                    {[p.method, p.note].filter(Boolean).join(" · ")}
+                    {p.method || p.note ? " · " : ""}entered by {p.createdBy.name}
                   </p>
                 </div>
                 <form action={deleteStaffPayment}>

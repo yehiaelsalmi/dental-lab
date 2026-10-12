@@ -1,6 +1,12 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { CASE_STATUSES, CASE_STATUS_LABELS, type CaseStatus } from "@/lib/constants";
+import {
+  APPROVAL_ROUTES,
+  CASE_STATUSES,
+  CASE_STATUS_LABELS,
+  type ApprovalRoute,
+  type CaseStatus,
+} from "@/lib/constants";
 
 // Colours a custom status can use. Full class names are spelled out so
 // Tailwind keeps them.
@@ -44,6 +50,8 @@ export type StatusInfo = {
   color: StatusColor;
   builtIn: boolean;
   afterStatus?: string;
+  // Built-in statuses the lab hid; the workflow skips them.
+  hidden?: boolean;
 };
 
 export function isBuiltInStatus(key: string): key is CaseStatus {
@@ -52,14 +60,58 @@ export function isBuiltInStatus(key: string): key is CaseStatus {
 
 // AppSetting key prefix for renamed built-in statuses.
 export const BUILT_IN_LABEL_PREFIX = "status.label.";
+// AppSetting keys (JSON arrays of status keys): the display order the lab set,
+// and the built-in statuses it hid.
+export const STATUS_ORDER_KEY = "status.order";
+export const STATUS_HIDDEN_KEY = "status.hidden";
 
-// Every status in display order: the built-in workflow with each custom status
-// placed right after the status it was attached to. Cached per request.
-export const getStatuses = cache(async (): Promise<StatusInfo[]> => {
-  const [custom, renamed] = await Promise.all([
+// These carry the workflow and can't be hidden.
+export const UNHIDEABLE_STATUSES: CaseStatus[] = ["IBAR_DESIGN", "WAITING_FOR_REVIEW", "DELIVERED"];
+
+// Where the workflow goes instead of a hidden status. Printing, milling and
+// try-in have no stand-in: hiding them removes the approval choices that use
+// them (see availableRoutes).
+const SKIP_TO: Partial<Record<CaseStatus, CaseStatus>> = {
+  READY_FOR_DESIGN: "IN_DESIGN",
+  IN_DESIGN: "READY_FOR_DESIGN",
+  CHANGES_REQUESTED: "IN_DESIGN",
+  MATCHING: "REDESIGN",
+  REDESIGN: "IN_DESIGN",
+  STAIN_AND_GLAZE: "COMPLETED",
+  COMPLETED: "DELIVERED",
+};
+
+function parseKeys(value: string | undefined): string[] {
+  try {
+    const parsed = JSON.parse(value ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+// The lab's saved order; statuses it doesn't mention yet (e.g. a new custom
+// status) go right after the status before them in the default order.
+function applyOrder(list: StatusInfo[], order: string[]): StatusInfo[] {
+  if (order.length === 0) return list;
+  const result = order.flatMap((k) => list.filter((s) => s.key === k));
+  list.forEach((s, i) => {
+    if (result.includes(s)) return;
+    const prev = list.slice(0, i).reverse().find((p) => result.includes(p));
+    result.splice(prev ? result.indexOf(prev) + 1 : 0, 0, s);
+  });
+  return result;
+}
+
+// Every status (hidden ones included) in display order. Cached per request.
+export const getAllStatuses = cache(async (): Promise<StatusInfo[]> => {
+  const [custom, settings] = await Promise.all([
     prisma.customStatus.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.appSetting.findMany({ where: { key: { startsWith: BUILT_IN_LABEL_PREFIX } } }),
+    prisma.appSetting.findMany({ where: { key: { startsWith: "status." } } }),
   ]);
+  const renamed = settings.filter((r) => r.key.startsWith(BUILT_IN_LABEL_PREFIX));
+  const hidden = parseKeys(settings.find((r) => r.key === STATUS_HIDDEN_KEY)?.value);
+  const order = parseKeys(settings.find((r) => r.key === STATUS_ORDER_KEY)?.value);
   // The lab can rename built-in statuses (e.g. Completed -> Revision).
   const nameOf = (key: CaseStatus) =>
     renamed.find((r) => r.key === BUILT_IN_LABEL_PREFIX + key)?.value || CASE_STATUS_LABELS[key];
@@ -68,6 +120,7 @@ export const getStatuses = cache(async (): Promise<StatusInfo[]> => {
     label: nameOf(key),
     color: BUILT_IN_COLORS[key],
     builtIn: true,
+    hidden: hidden.includes(key) && !UNHIDEABLE_STATUSES.includes(key),
   }));
 
   const pending = custom.map((c) => ({
@@ -87,9 +140,51 @@ export const getStatuses = cache(async (): Promise<StatusInfo[]> => {
     while (at < list.length && !list[at].builtIn && list[at].afterStatus === next.afterStatus) at++;
     list.splice(at, 0, next);
   }
-  return list;
+  return applyOrder(list, order);
 });
 
+// The statuses people work with: everything except hidden built-ins.
+export const getStatuses = cache(async (): Promise<StatusInfo[]> =>
+  (await getAllStatuses()).filter((s) => !s.hidden)
+);
+
+export const hiddenStatuses = cache(async (): Promise<Set<string>> =>
+  new Set((await getAllStatuses()).filter((s) => s.hidden).map((s) => s.key))
+);
+
+// The status a workflow step should move to, skipping hidden ones.
+export function resolveStatus(target: CaseStatus, hidden: Set<string>): CaseStatus {
+  let status = target;
+  for (let i = 0; i < 5 && hidden.has(status) && SKIP_TO[status]; i++) status = SKIP_TO[status]!;
+  return status;
+}
+
+export async function nextStatus(target: CaseStatus): Promise<CaseStatus> {
+  return resolveStatus(target, await hiddenStatuses());
+}
+
+// Approval choices whose statuses are all visible.
+export function availableRoutes(hidden: Set<string>): ApprovalRoute[] {
+  const needs: Record<ApprovalRoute, CaseStatus[]> = {
+    PRINT_TRYIN: ["PRINTING", "TRY_IN"],
+    PRINT: ["PRINTING"],
+    MILL: ["MILLING"],
+  };
+  return (Object.keys(APPROVAL_ROUTES) as ApprovalRoute[]).filter((r) => needs[r].every((k) => !hidden.has(k)));
+}
+
+// Why a built-in status can't be hidden right now, or null if it can.
+export function cannotHide(key: CaseStatus, hidden: Set<string>): string | null {
+  if (UNHIDEABLE_STATUSES.includes(key)) return "This status carries the workflow and can't be hidden.";
+  const after = new Set([...hidden, key]);
+  if (after.has("READY_FOR_DESIGN") && after.has("IN_DESIGN")) {
+    return "Ready for Design and In Design can't both be hidden.";
+  }
+  if (availableRoutes(after).length === 0) return "At least one of Printing or Milling has to stay.";
+  return null;
+}
+
+// Looks a status up in `list` (hidden ones too when given getAllStatuses()).
 export function findStatus(list: StatusInfo[], key: string): StatusInfo {
   return (
     list.find((s) => s.key === key) ?? { key, label: key, color: "slate", builtIn: false }
@@ -97,7 +192,7 @@ export function findStatus(list: StatusInfo[], key: string): StatusInfo {
 }
 
 export async function statusLabel(key: string): Promise<string> {
-  return findStatus(await getStatuses(), key).label;
+  return findStatus(await getAllStatuses(), key).label;
 }
 
 // Status key -> display name, for components that only need the names.

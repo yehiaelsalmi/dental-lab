@@ -131,8 +131,9 @@ for example `30,000 EGP`; the formatter is `formatEGP` in `src/lib/money.ts`.
 
 Every case has a **QR code** on its page that opens the case when scanned, with
 a printable **case sheet**
-(`/cases/<id>/print`: patient, doctor, dates, status, team, materials, unit codes,
-custom fields, notes and the QR code, without prices). The code encodes `APP_URL` (falling
+(`/cases/<id>/print`, an A6 card: patient, doctor, dates, status, team, materials,
+unit codes, custom fields, notes and the QR code, without prices; empty details are
+left out so it fits one page). The code encodes `APP_URL` (falling
 back to `NEXTAUTH_URL`), so it only works from a phone once the app is served
 from a real address rather than `localhost`.
 
@@ -160,6 +161,17 @@ to any status" get a **Move to status** box on the case page that puts a case in
 any built-in or custom status. A manual move only changes the status: no automatic
 steps run, but roles set to be notified for that status are told. Statuses with
 cases in them can't be deleted. Technicians have both permissions by default.
+
+Every status can be **moved up or down** on the same page: that sets the order of
+lists, counters and filters (AppSetting `status.order`), not the workflow.
+Custom statuses can be **deleted** and built-in ones **hidden**
+(`status.hidden`); if cases are in it, the leader picks the status they move to.
+The workflow skips a hidden status (`resolveStatus` in `src/lib/statuses.ts`):
+Ready for Design ↔ In Design, Changes Requested → In Design, Matching → Redesign,
+Redesign → In Design, Stain & Glaze → Revision, Revision → Delivered. Hiding
+Printing, Milling or Try-in removes the approval choices that use them. Ibar
+Design, Waiting for Review and Delivered can't be hidden, nor both Ready for Design
+and In Design, nor both Printing and Milling.
 
 Built-in statuses can be **renamed** on the same page; their place in the flow and
 their buttons stay the same. The name is stored in AppSetting as
@@ -191,6 +203,9 @@ each person's current salary for every month.
 
 **Payments** (`/payments`, permission "Payments") records money that changes hands,
 entered by hand, with a date and an optional note:
+
+Each payment has a **method** (Cash, InstaPay, Vodafone Cash, Bank transfer,
+Cheque; the list is edited on Lab settings) and an optional note.
 
 - **Doctors:** what each doctor paid (advances included). Owed is the price of all
   their cases; the balance shows "Owes" or "Credit". Cases without a price are

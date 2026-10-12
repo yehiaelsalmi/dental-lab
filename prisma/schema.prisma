@@ -435,6 +435,7 @@ model DoctorPayment {
   doctor      Doctor   @relation(fields: [doctorId], references: [id])
   amount      Float
   paidAt      DateTime
+  method      String?
   note        String?
   createdById String
   createdBy   User     @relation("DoctorPaymentsRecorded", fields: [createdById], references: [id])
@@ -453,6 +454,7 @@ model StaffPayment {
   kind        String   @default("FEES")
   amount      Float
   paidAt      DateTime
+  method      String?
   note        String?
   createdById String
   createdBy   User     @relation("StaffPaymentsRecorded", fields: [createdById], references: [id])

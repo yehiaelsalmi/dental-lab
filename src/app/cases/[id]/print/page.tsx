@@ -66,9 +66,18 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
     ["Created by", caseRecord.createdBy.name],
   ];
 
+  // Empty details are left out to keep the sheet on one A6 page.
+  const shown = details.filter(([, value]) => value && value !== "-" && value !== "- / -");
+  const lines = caseRecord.materials.map(
+    (l) =>
+      `${l.arch === "UPPER" ? "Upper" : "Lower"}: ${l.material.name}${l.metalType ? ` (${l.metalType.name})` : ""} × ${l.units}`
+  );
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-10 print:max-w-none print:p-0">
-      <div className="mb-6 flex items-center justify-between print:hidden">
+    <div className="px-4 py-6 sm:px-8 sm:py-10 print:p-0">
+      {/* A6 portrait, no browser margins: the card below is the whole page. */}
+      <style>{`@page { size: 105mm 148mm; margin: 0; } @media print { html, body { background: #fff; } }`}</style>
+      <div className="mx-auto mb-4 flex items-center justify-between print:hidden" style={{ width: "105mm" }}>
         <Link
           href={`/cases/${caseRecord.id}`}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900"
@@ -79,104 +88,99 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
         <PrintButton />
       </div>
 
-      <div className="rounded-xl border border-slate-300 bg-white p-6 text-sm text-slate-800 print:rounded-none print:border-0 print:p-0">
-        <header className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
-          <div className="flex items-center gap-3">
-            <LabMark lab={lab} size={48} />
-            <div>
-              <p className="text-base font-semibold text-slate-900">{lab.name}</p>
-              {(lab.invoicePhone || lab.invoiceAddress) && (
-                <p className="text-xs text-slate-500">
-                  {[lab.invoicePhone, lab.invoiceAddress].filter(Boolean).join(" · ")}
-                </p>
-              )}
+      <div
+        className="mx-auto flex flex-col overflow-hidden bg-white text-slate-800 shadow-md ring-1 ring-slate-300 print:shadow-none print:ring-0"
+        style={{ width: "105mm", minHeight: "148mm", padding: "5mm", fontSize: "8pt", lineHeight: 1.3 }}
+      >
+        <header className="flex items-start justify-between gap-2 border-b border-slate-300 pb-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <LabMark lab={lab} size={22} />
+              <p className="truncate font-semibold text-slate-900" style={{ fontSize: "8.5pt" }}>
+                {lab.name}
+              </p>
             </div>
+            <p className="mt-2 uppercase tracking-wide text-slate-400" style={{ fontSize: "6.5pt" }}>
+              Case sheet
+            </p>
+            <h1 className="break-words font-bold text-slate-900" style={{ fontSize: "13pt", lineHeight: 1.15 }}>
+              {caseRecord.patientName}
+            </h1>
+            <p className="text-slate-600">{caseRecord.doctor.name}</p>
           </div>
           <div className="flex shrink-0 flex-col items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrDataUrl} alt="Case QR code" width={140} height={140} />
-            <span className="mt-1 text-[10px] text-slate-400">Scan to open the case</span>
+            <img src={qrDataUrl} alt="Case QR code" style={{ width: "27mm", height: "27mm" }} />
+            <span className="text-slate-400" style={{ fontSize: "6pt" }}>
+              Scan to open the case
+            </span>
           </div>
         </header>
 
-        <div className="mt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Case sheet</p>
-          <h1 className="text-2xl font-semibold text-slate-900">{caseRecord.patientName}</h1>
-        </div>
-
-        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 print:grid-cols-3">
-          {details.map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</dt>
-              <dd className="mt-0.5">{value}</dd>
-            </div>
-          ))}
+        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+          {shown
+            .filter(([label]) => label !== "Doctor")
+            .map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="uppercase tracking-wide text-slate-400" style={{ fontSize: "6pt" }}>
+                  {label}
+                </dt>
+                <dd className="break-words">{value}</dd>
+              </div>
+            ))}
         </dl>
 
-        <h2 className="mt-6 mb-2 text-sm font-semibold text-slate-900">Materials</h2>
-        {caseRecord.materials.length === 0 ? (
-          <p className="text-slate-400">No materials recorded.</p>
-        ) : (
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
-                <th className="py-1.5 font-medium">Arch</th>
-                <th className="py-1.5 font-medium">Material</th>
-                <th className="py-1.5 font-medium">Metal</th>
-                <th className="py-1.5 text-right font-medium">Units</th>
-              </tr>
-            </thead>
-            <tbody>
-              {caseRecord.materials.map((l) => (
-                <tr key={l.id} className="border-b border-slate-100">
-                  <td className="py-1.5">{l.arch === "UPPER" ? "Upper" : "Lower"}</td>
-                  <td className="py-1.5">{l.material.name}</td>
-                  <td className="py-1.5">{l.metalType?.name ?? "-"}</td>
-                  <td className="py-1.5 text-right">{l.units}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {lines.length > 0 && (
+          <Block title="Materials">
+            {lines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </Block>
         )}
 
         {caseRecord.units.length > 0 && (
-          <>
-            <h2 className="mt-6 mb-2 text-sm font-semibold text-slate-900">Unit codes</h2>
-            <p className="flex flex-wrap gap-2">
+          <Block title="Unit codes">
+            <p className="flex flex-wrap gap-1">
               {caseRecord.units.map((u) => (
-                <span key={u.id} className="rounded border border-slate-300 px-2 py-0.5">
+                <span key={u.id} className="rounded border border-slate-300 px-1">
                   {u.code}
                 </span>
               ))}
             </p>
-          </>
+          </Block>
         )}
 
         {caseRecord.fieldValues.length > 0 && (
-          <>
-            <h2 className="mt-6 mb-2 text-sm font-semibold text-slate-900">More details</h2>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 print:grid-cols-3">
-              {caseRecord.fieldValues.map((v) => (
-                <div key={v.id} className={v.field.type === "LONGTEXT" ? "col-span-full" : undefined}>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{v.field.label}</dt>
-                  <dd className="mt-0.5 whitespace-pre-wrap">{formatFieldValue(v.field.type, v.value)}</dd>
-                </div>
-              ))}
-            </dl>
-          </>
+          <Block title="More details">
+            {caseRecord.fieldValues.map((v) => (
+              <p key={v.id} className="whitespace-pre-wrap break-words">
+                <span className="text-slate-500">{v.field.label}:</span> {formatFieldValue(v.field.type, v.value)}
+              </p>
+            ))}
+          </Block>
         )}
 
         {caseRecord.notes && (
-          <>
-            <h2 className="mt-6 mb-2 text-sm font-semibold text-slate-900">Notes</h2>
-            <p className="whitespace-pre-wrap">{caseRecord.notes}</p>
-          </>
+          <Block title="Notes">
+            <p className="whitespace-pre-wrap break-words">{caseRecord.notes}</p>
+          </Block>
         )}
 
-        <p className="mt-8 border-t border-slate-200 pt-3 text-xs text-slate-400">
-          Printed {new Date().toLocaleString()} · scan the QR code to open the case
+        <p className="mt-auto border-t border-slate-200 pt-1 text-slate-400" style={{ fontSize: "6pt" }}>
+          Printed {new Date().toLocaleString("en-GB", { timeZone: "Africa/Cairo" })}
         </p>
       </div>
     </div>
+  );
+}
+
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-2 border-t border-slate-200 pt-1.5">
+      <h2 className="mb-0.5 font-semibold text-slate-900" style={{ fontSize: "7.5pt" }}>
+        {title}
+      </h2>
+      {children}
+    </section>
   );
 }

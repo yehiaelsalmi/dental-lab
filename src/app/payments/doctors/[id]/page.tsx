@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
+import { getLabSettings } from "@/lib/labSettings";
 import { formatEGP } from "@/lib/money";
 import { doctorBalances, formatPaidAt, todayKey } from "@/lib/payments";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -22,13 +23,14 @@ export default async function DoctorPaymentsPage({
   const [summary] = await doctorBalances(id);
   if (!summary) notFound();
 
-  const [payments, cases] = await Promise.all([
+  const [payments, cases, lab] = await Promise.all([
     prisma.doctorPayment.findMany({
       where: { doctorId: id },
       orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
       include: { createdBy: { select: { name: true } } },
     }),
     prisma.case.findMany({ where: { doctorId: id }, orderBy: { entryDate: "desc" } }),
+    getLabSettings(),
   ]);
 
   return (
@@ -55,7 +57,7 @@ export default async function DoctorPaymentsPage({
 
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Add a payment</h2>
-        <form action={addDoctorPayment} className="grid grid-cols-1 gap-3 sm:grid-cols-[140px_160px_1fr_auto] sm:items-end">
+        <form action={addDoctorPayment} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[130px_150px_160px_1fr_auto] lg:items-end">
           <input type="hidden" name="doctorId" value={id} />
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
             Amount (EGP)
@@ -66,8 +68,21 @@ export default async function DoctorPaymentsPage({
             <input name="paidAt" type="date" required defaultValue={todayKey()} className={INPUT} />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+            Method
+            <select name="method" required defaultValue="" className={INPUT}>
+              <option value="" disabled>
+                Choose...
+              </option>
+              {lab.paymentMethods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
             Note (optional)
-            <input name="note" maxLength={200} placeholder="e.g. Advance, cash, bank transfer" className={INPUT} />
+            <input name="note" maxLength={200} placeholder="e.g. Advance, receipt no." className={INPUT} />
           </label>
           <button type="submit" className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-hover">
             Add
@@ -88,7 +103,8 @@ export default async function DoctorPaymentsPage({
                     {formatEGP(p.amount)} <span className="font-normal text-slate-500">· {formatPaidAt(p.paidAt)}</span>
                   </p>
                   <p className="text-xs text-slate-500">
-                    {p.note ? `${p.note} · ` : ""}entered by {p.createdBy.name}
+                    {[p.method, p.note].filter(Boolean).join(" · ")}
+                    {p.method || p.note ? " · " : ""}entered by {p.createdBy.name}
                   </p>
                 </div>
                 <form action={deleteDoctorPayment}>

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
 import { setSetting } from "@/lib/settings";
-import { LAB_SETTING_KEYS } from "@/lib/labSettings";
+import { LAB_SETTING_KEYS, parsePaymentMethods } from "@/lib/labSettings";
 
 const MAX_LOGO_BYTES = 1024 * 1024;
 
@@ -26,6 +26,9 @@ export async function saveLabSettings(formData: FormData) {
   if (!Number.isInteger(staleDays) || staleDays < 1) fail("'Forgotten after' must be at least 1 day.");
   if (!Number.isInteger(dueSoonDays) || dueSoonDays < 0) fail("'Due soon' must be 0 days or more.");
 
+  const paymentMethods = parsePaymentMethods(String(formData.get("paymentMethods") ?? ""));
+  if (paymentMethods.length === 0) fail("Add at least one payment method.");
+
   // PNG or JPEG only, so it can go into the PDFs too.
   const logo = formData.get("logo");
   let logoDataUrl: string | null = null;
@@ -43,6 +46,7 @@ export async function saveLabSettings(formData: FormData) {
     setSetting(LAB_SETTING_KEYS.invoiceFooter, text("invoiceFooter")),
     setSetting(LAB_SETTING_KEYS.staleDays, String(staleDays)),
     setSetting(LAB_SETTING_KEYS.dueSoonDays, String(dueSoonDays)),
+    setSetting(LAB_SETTING_KEYS.paymentMethods, paymentMethods.join("\n")),
   ]);
   if (logoDataUrl) await setSetting(LAB_SETTING_KEYS.logo, logoDataUrl);
   else if (formData.get("removeLogo") === "on") {

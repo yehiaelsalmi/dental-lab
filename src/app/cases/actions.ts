@@ -48,7 +48,7 @@ import {
   unitTotals,
 } from "@/lib/caseMaterials";
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
-import { getStatuses, statusLabel } from "@/lib/statuses";
+import { availableRoutes, getStatuses, hiddenStatuses, nextStatus, statusLabel } from "@/lib/statuses";
 import { assertChecklistDone } from "@/lib/checklists";
 import { activeFields, parseFieldValues, saveFieldValues } from "@/lib/customFields";
 
@@ -190,9 +190,11 @@ export async function createCase(formData: FormData) {
     });
 
     const folder = await createCaseFolder(doctor.name, data.patientName);
+    const startStatus = await nextStatus("READY_FOR_DESIGN");
 
     const created = await prisma.case.create({
       data: {
+        status: startStatus,
         doctorId: doctor.id,
         ibarDesignerId: ibarDesigner?.id ?? null,
         ...pricing,
@@ -231,7 +233,7 @@ export async function createCase(formData: FormData) {
       await notifyDesignerAssigned(created.id, startsWith, data.patientName);
       await notifyLabLeadersAssigned(created.id, data.patientName, startsWith, session.userId);
     }
-    await notifyStatusWatchers(created.id, data.patientName, "READY_FOR_DESIGN", session.userId);
+    await notifyStatusWatchers(created.id, data.patientName, startStatus, session.userId);
 
     createdId = created.id;
   } catch (error) {
@@ -321,7 +323,9 @@ export async function submitForReview(caseId: string, formData: FormData) {
     if (activeDesignerId(caseRecord) !== session.userId) {
       throw new Error("This case isn't assigned to you.");
     }
-    if (!["IN_DESIGN", "CHANGES_REQUESTED", "REDESIGN"].includes(caseRecord.status)) {
+    const submittable = ["IN_DESIGN", "CHANGES_REQUESTED", "REDESIGN"];
+    if ((await hiddenStatuses()).has("IN_DESIGN")) submittable.push("READY_FOR_DESIGN");
+    if (!submittable.includes(caseRecord.status)) {
       throw new Error("This case can't be submitted for review right now.");
     }
     if (!caseRecord.driveFolderId) {
@@ -371,7 +375,11 @@ export async function reviewCase(
     // Approving the design before the ibar sends the case to the ibar designer;
     // any other approval goes to printing or milling, as the reviewer picks.
     const beforeIbar = isBeforeIbar(caseRecord);
-    if (decision === "APPROVED" && !beforeIbar && !(route && Object.hasOwn(APPROVAL_ROUTES, route))) {
+    if (
+      decision === "APPROVED" &&
+      !beforeIbar &&
+      !(route && Object.hasOwn(APPROVAL_ROUTES, route) && availableRoutes(await hiddenStatuses()).includes(route))
+    ) {
       throw new Error("Pick where the case goes next: printing or milling.");
     }
 
@@ -386,7 +394,7 @@ export async function reviewCase(
 
     let next: CaseStatus;
     let production = {};
-    if (decision !== "APPROVED") next = "CHANGES_REQUESTED";
+    if (decision !== "APPROVED") next = await nextStatus("CHANGES_REQUESTED");
     else if (beforeIbar) next = "IBAR_DESIGN";
     else {
       next = route === "MILL" ? "MILLING" : "PRINTING";
@@ -470,7 +478,7 @@ export async function advanceProduction(caseId: string) {
       throw new Error("You don't have permission for this step.");
     }
     const next: CaseStatus =
-      caseRecord.status === "PRINTING" && caseRecord.printForTryIn ? "TRY_IN" : step.next;
+      caseRecord.status === "PRINTING" && caseRecord.printForTryIn ? "TRY_IN" : await nextStatus(step.next);
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     await prisma.case.update({ where: { id: caseId }, data: { status: next } });
@@ -500,12 +508,18 @@ export async function completeTryIn(caseId: string, formData: FormData) {
     for (const file of files) {
       await attachFile(caseId, caseRecord.driveFolderId, file, "SCAN", session.userId, "TRYIN_SCANS");
     }
+    const next = await nextStatus("MATCHING");
     await prisma.case.update({
       where: { id: caseId },
-      data: { status: "MATCHING", tryInDoneAt: new Date(), printForTryIn: false },
+      data: { status: next, tryInDoneAt: new Date(), printForTryIn: false },
     });
-    await notifyStatusWatchers(caseId, caseRecord.patientName, "MATCHING", session.userId);
-    await notifyMatchingReady(caseId, caseRecord.patientName, caseRecord.matchingBy?.trim() || null);
+    await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
+    if (next === "MATCHING") {
+      await notifyMatchingReady(caseId, caseRecord.patientName, caseRecord.matchingBy?.trim() || null);
+    } else {
+      const designerId = activeDesignerId(caseRecord);
+      if (designerId) await notifyDesignerRedesign(caseId, designerId, caseRecord.patientName);
+    }
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -529,12 +543,13 @@ export async function completeIbar(caseId: string, formData: FormData) {
       await attachFile(caseId, caseRecord.driveFolderId, file, "IBAR", session.userId, "IBAR");
     }
 
+    const next = await nextStatus("READY_FOR_DESIGN");
     await prisma.case.update({
       where: { id: caseId },
-      data: { status: "READY_FOR_DESIGN", ibarDoneAt: new Date() },
+      data: { status: next, ibarDoneAt: new Date() },
     });
     await handOffAfterIbar(caseRecord, session.userId);
-    await notifyStatusWatchers(caseId, caseRecord.patientName, "READY_FOR_DESIGN", session.userId);
+    await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -760,8 +775,9 @@ export async function completeMatching(caseId: string) {
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
     if (caseRecord.tryInDoneAt) {
-      await prisma.case.update({ where: { id: caseId }, data: { status: "REDESIGN" } });
-      await notifyStatusWatchers(caseId, caseRecord.patientName, "REDESIGN", session.userId);
+      const next = await nextStatus("REDESIGN");
+      await prisma.case.update({ where: { id: caseId }, data: { status: next } });
+      await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
       const designerId = activeDesignerId(caseRecord);
       if (designerId) await notifyDesignerRedesign(caseId, designerId, caseRecord.patientName);
     } else {
@@ -882,7 +898,7 @@ export async function updateCase(formData: FormData) {
           ? null
           : new Date();
     const status =
-      !hasIbar && previous.status === "IBAR_DESIGN" ? "READY_FOR_DESIGN" : previous.status;
+      !hasIbar && previous.status === "IBAR_DESIGN" ? await nextStatus("READY_FOR_DESIGN") : previous.status;
 
     const pricing = pricingChanged
       ? computeCasePricing({
@@ -923,7 +939,7 @@ export async function updateCase(formData: FormData) {
     if (data.needsPhotogrammetry && !previous.needsPhotogrammetry) {
       await notifyPhotogrammetryNeeded(caseId, data.patientName);
     }
-    if (previous.status === "IBAR_DESIGN" && status === "READY_FOR_DESIGN") {
+    if (previous.status === "IBAR_DESIGN" && status !== "IBAR_DESIGN") {
       await handOffAfterIbar(
         { id: caseId, patientName: data.patientName, assignedDesignerId: previous.assignedDesignerId },
         session.userId

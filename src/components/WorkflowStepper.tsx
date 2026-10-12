@@ -24,11 +24,16 @@ function onTryInRoute(c: StepperCase): boolean {
 
 // Ibar cases go through design + review twice: once before the ibar, once
 // after.
-function stepsFor(hasIbar: boolean, c: StepperCase, labels: Record<string, string>): Step[] {
+function stepsFor(hasIbar: boolean, c: StepperCase, labels: Record<string, string>, hidden: string[]): Step[] {
   const name = (key: string, fallback: string) => labels[key] ?? fallback;
   // Printing or Milling once the reviewer has picked; both until then.
   const production = (method: string | null) =>
-    method ? name(method, PRODUCTION_LABEL[method]) : `${name("PRINTING", "Printing")} / ${name("MILLING", "Milling")}`;
+    method
+      ? name(method, PRODUCTION_LABEL[method])
+      : ["PRINTING", "MILLING"]
+          .filter((k) => !hidden.includes(k))
+          .map((k) => name(k, PRODUCTION_LABEL[k]))
+          .join(" / ");
   const tryIn = onTryInRoute(c);
   // In the second round the earlier choice (printing for the try-in) doesn't
   // count until the second review has picked again.
@@ -92,7 +97,10 @@ export function WorkflowStepper({
   beforeIbar,
   customStep,
   labels = {},
+  hidden = [],
 }: {
+  // Built-in statuses the lab hid; their steps are left out.
+  hidden?: string[];
   // Renamed built-in statuses (e.g. Completed -> Revision) keep their place.
   labels?: Record<string, string>;
   caseInfo: StepperCase;
@@ -101,7 +109,7 @@ export function WorkflowStepper({
   customStep?: { key: string; label: string; afterBuiltIn: string };
 }) {
   const status = caseInfo.status;
-  const steps = stepsFor(hasIbar, caseInfo, labels);
+  const steps = stepsFor(hasIbar, caseInfo, labels, hidden).filter((s) => !hidden.includes(s.key));
   if (customStep) {
     // Steps that merge several statuses: production (printing or milling,
     // the later round if there is one) and the design step (changes requested).

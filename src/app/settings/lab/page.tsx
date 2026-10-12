@@ -108,6 +108,23 @@ export default async function LabSettingsPage({
           </label>
         </section>
 
+        <section className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-900">Payment methods</h2>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+            One per line
+            <textarea
+              name="paymentMethods"
+              rows={5}
+              defaultValue={lab.paymentMethods.join("\n")}
+              className={INPUT}
+            />
+            <span className="text-xs font-normal text-slate-500">
+              The choices for &quot;Method&quot; when adding a payment on the Payments page. Removing
+              one doesn&apos;t change payments already saved with it.
+            </span>
+          </label>
+        </section>
+
         <button
           type="submit"
           className="self-start rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-brand-hover"

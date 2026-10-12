@@ -12,7 +12,10 @@ export const LAB_SETTING_KEYS = {
   invoiceFooter: "invoice.footer",
   staleDays: "alerts.staleDays",
   dueSoonDays: "alerts.dueSoonDays",
+  paymentMethods: "payments.methods", // one per line
 } as const;
+
+export const DEFAULT_PAYMENT_METHODS = ["Cash", "InstaPay", "Vodafone Cash", "Bank transfer", "Cheque"];
 
 export type LabSettings = {
   name: string;
@@ -26,7 +29,17 @@ export type LabSettings = {
   staleDays: number;
   // Cases due within this many days (1 = tomorrow) are flagged.
   dueSoonDays: number;
+  // Choices for "Method" on payments.
+  paymentMethods: string[];
 };
+
+export function parsePaymentMethods(text: string): string[] {
+  const seen = new Set<string>();
+  return text
+    .split(/\r?\n/)
+    .map((m) => m.trim().slice(0, 40))
+    .filter((m) => m && !seen.has(m.toLowerCase()) && seen.add(m.toLowerCase()));
+}
 
 export function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -56,6 +69,11 @@ export const getLabSettings = cache(async (): Promise<LabSettings> => {
     invoiceFooter: get(LAB_SETTING_KEYS.invoiceFooter) ?? "",
     staleDays: wholeNumber(get(LAB_SETTING_KEYS.staleDays), 2, 1),
     dueSoonDays: wholeNumber(get(LAB_SETTING_KEYS.dueSoonDays), 1, 0),
+    paymentMethods: (() => {
+      const saved = get(LAB_SETTING_KEYS.paymentMethods);
+      const list = saved == null ? [] : parsePaymentMethods(saved);
+      return list.length > 0 ? list : DEFAULT_PAYMENT_METHODS;
+    })(),
   };
 });
 

@@ -5,15 +5,18 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
 import { STAFF_PAYMENT_KINDS, parsePaidAt } from "@/lib/payments";
+import { getLabSettings } from "@/lib/labSettings";
 
-function readPayment(formData: FormData, back: string) {
+async function readPayment(formData: FormData, back: string) {
   const fail = (message: string): never => redirect(`${back}?error=${encodeURIComponent(message)}`);
   const amount = Number(formData.get("amount"));
   if (!Number.isFinite(amount) || amount <= 0) fail("Enter an amount above zero.");
   const paidAt = parsePaidAt(formData.get("paidAt"));
   if (!paidAt) fail("Pick the payment date.");
+  const method = String(formData.get("method") ?? "");
+  if (!(await getLabSettings()).paymentMethods.includes(method)) fail("Pick the payment method.");
   const note = String(formData.get("note") ?? "").trim().slice(0, 200) || null;
-  return { amount, paidAt: paidAt as Date, note };
+  return { amount, paidAt: paidAt as Date, method, note };
 }
 
 export async function addDoctorPayment(formData: FormData) {
@@ -23,7 +26,7 @@ export async function addDoctorPayment(formData: FormData) {
   const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } });
   if (!doctor) redirect("/payments");
   await prisma.doctorPayment.create({
-    data: { doctorId, ...readPayment(formData, back), createdById: access.userId },
+    data: { doctorId, ...(await readPayment(formData, back)), createdById: access.userId },
   });
   revalidatePath("/payments", "layout");
   redirect(`${back}?saved=1`);
@@ -47,7 +50,7 @@ export async function addStaffPayment(formData: FormData) {
   const kind = String(formData.get("kind"));
   if (!Object.hasOwn(STAFF_PAYMENT_KINDS, kind)) redirect(`${back}?error=${encodeURIComponent("Pick what the payment is for.")}`);
   await prisma.staffPayment.create({
-    data: { userId, kind, ...readPayment(formData, back), createdById: access.userId },
+    data: { userId, kind, ...(await readPayment(formData, back)), createdById: access.userId },
   });
   revalidatePath("/payments", "layout");
   redirect(`${back}?saved=1`);

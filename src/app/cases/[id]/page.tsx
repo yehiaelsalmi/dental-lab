@@ -20,7 +20,14 @@ import { formatEGP } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { can, canViewCase, requireAccess, usersWithPermission } from "@/lib/access";
 import { earningsOnCase } from "@/lib/earnings";
-import { findStatus, getStatuses, isBuiltInStatus } from "@/lib/statuses";
+import {
+  availableRoutes,
+  findStatus,
+  getAllStatuses,
+  hiddenStatuses,
+  isBuiltInStatus,
+  resolveStatus,
+} from "@/lib/statuses";
 import { formatFieldValue } from "@/lib/customFields";
 import { caseChecklist } from "@/lib/checklists";
 import { CASE_SUBFOLDERS, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
@@ -99,7 +106,8 @@ export default async function CaseDetailPage({
   if (!caseRecord || !canViewCase(access, caseRecord)) notFound();
 
   const status = caseRecord.status as CaseStatus;
-  const allStatuses = await getStatuses();
+  const allStatuses = await getAllStatuses();
+  const hidden = await hiddenStatuses();
   // A case in a custom status shows it in the progress bar right after the
   // built-in status it hangs off.
   let customStep: { key: string; label: string; afterBuiltIn: string } | undefined;
@@ -147,6 +155,8 @@ export default async function CaseDetailPage({
   const productionPermission =
     status === "PRINTING" ? "case.printing" : status === "MILLING" ? "case.milling" : "case.stainGlaze";
   const label = (key: string) => findStatus(allStatuses, key).label;
+  // The status a step actually moves to (hidden statuses are skipped).
+  const nextLabel = (key: CaseStatus) => label(resolveStatus(key, hidden));
   // Uploading work for review is only for people working on this case.
   const canSubmitWork =
     can(access, "work.upload") &&
@@ -197,6 +207,7 @@ export default async function CaseDetailPage({
           beforeIbar={beforeIbar}
           customStep={customStep}
           labels={Object.fromEntries(allStatuses.map((s) => [s.key, s.label]))}
+          hidden={[...hidden]}
         />
       </section>
 
@@ -487,7 +498,7 @@ export default async function CaseDetailPage({
               type="submit"
               className="rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700"
             >
-              {caseRecord.tryInDoneAt ? `Matching done: send for ${label("REDESIGN").toLowerCase()}` : "Matching done: send for review"}
+              {caseRecord.tryInDoneAt ? `Matching done: send for ${nextLabel("REDESIGN").toLowerCase()}` : "Matching done: send for review"}
             </button>
           </form>
         </section>
@@ -516,10 +527,10 @@ export default async function CaseDetailPage({
             <h2 className="mb-1 text-sm font-semibold text-slate-900">{label(status)}</h2>
             <p className="mb-3 text-sm text-slate-500">
               {status === "STAIN_AND_GLAZE"
-                ? `When the ceramist has finished, move the case to ${label("COMPLETED")}.`
+                ? `When the ceramist has finished, move the case to ${nextLabel("COMPLETED")}.`
                 : status === "PRINTING" && caseRecord.printForTryIn
                   ? "This print goes to the doctor for a try-in. When it's printed, send it out."
-                  : `When it's finished, send the case on to the ceramist for ${label("STAIN_AND_GLAZE")}.`}
+                  : `When it's finished, send the case on to ${nextLabel("STAIN_AND_GLAZE")}.`}
             </p>
             <form action={advanceProductionAction}>
               <input type="hidden" name="caseId" value={caseRecord.id} />
@@ -528,10 +539,10 @@ export default async function CaseDetailPage({
                 className="rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-orange-700"
               >
                 {status === "STAIN_AND_GLAZE"
-                  ? `${label(status)} done: move to ${label("COMPLETED")}`
+                  ? `${label(status)} done: move to ${nextLabel("COMPLETED")}`
                   : status === "PRINTING" && caseRecord.printForTryIn
                     ? `${label(status)} done: send for ${label("TRY_IN")}`
-                    : `${label(status)} done: send to ${label("STAIN_AND_GLAZE")}`}
+                    : `${label(status)} done: send to ${nextLabel("STAIN_AND_GLAZE")}`}
               </button>
             </form>
           </section>
@@ -630,7 +641,7 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      {isAssignedDesigner && status === "READY_FOR_DESIGN" && (
+      {isAssignedDesigner && status === "READY_FOR_DESIGN" && !hidden.has("IN_DESIGN") && (
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
           <form action={startDesignAction}>
             <input type="hidden" name="caseId" value={caseRecord.id} />
@@ -644,7 +655,11 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      {isAssignedDesigner && (status === "IN_DESIGN" || status === "CHANGES_REQUESTED" || status === "REDESIGN") && (
+      {isAssignedDesigner &&
+        (status === "IN_DESIGN" ||
+          status === "CHANGES_REQUESTED" ||
+          status === "REDESIGN" ||
+          (status === "READY_FOR_DESIGN" && hidden.has("IN_DESIGN"))) && (
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">
             {status === "REDESIGN" ? `Submit the ${label("REDESIGN").toLowerCase()} for review` : "Submit for review"}
@@ -695,7 +710,7 @@ export default async function CaseDetailPage({
                   Approve
                 </button>
               ) : (
-                (Object.keys(APPROVAL_ROUTES) as ApprovalRoute[]).map((route) => (
+                availableRoutes(hidden).map((route) => (
                   <button
                     key={route}
                     formAction={approveWithRouteAction.bind(null, route)}
@@ -869,7 +884,7 @@ export default async function CaseDetailPage({
                   Pick a status
                 </option>
                 {allStatuses
-                  .filter((s) => s.key !== caseRecord.status)
+                  .filter((s) => s.key !== caseRecord.status && !s.hidden)
                   .map((s) => (
                     <option key={s.key} value={s.key}>
                       {s.label}

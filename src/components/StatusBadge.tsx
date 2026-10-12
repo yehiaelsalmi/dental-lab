@@ -1,9 +1,9 @@
-import { STATUS_COLORS, findStatus, getStatuses } from "@/lib/statuses";
+import { STATUS_COLORS, findStatus, getAllStatuses } from "@/lib/statuses";
 
 // Works for built-in and custom statuses (custom ones carry their own label
 // and colour).
 export async function StatusBadge({ status }: { status: string }) {
-  const info = findStatus(await getStatuses(), status);
+  const info = findStatus(await getAllStatuses(), status);
   const color = STATUS_COLORS[info.color];
   return (
     <span
