@@ -10,6 +10,7 @@ import { formatFieldValue } from "@/lib/customFields";
 import { statusLabel } from "@/lib/statuses";
 import { LabMark } from "@/components/LabMark";
 import { PrintButton } from "@/components/PrintButton";
+import { FitToPage } from "@/components/FitToPage";
 
 // A one-page sheet with the case details (no prices) to keep with the work.
 export default async function CasePrintPage({ params }: { params: Promise<{ id: string }> }) {
@@ -66,12 +67,26 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
     ["Created by", caseRecord.createdBy.name],
   ];
 
-  // Empty details are left out to keep the sheet on one A6 page.
-  const shown = details.filter(([, value]) => value && value !== "-" && value !== "- / -");
+  // Empty details are left out; the doctor and patient are in the header.
+  const shown = details.filter(
+    ([label, value]) => label !== "Doctor" && value && value !== "-" && value !== "- / -"
+  );
   const lines = caseRecord.materials.map(
     (l) =>
       `${l.arch === "UPPER" ? "Upper" : "Lower"}: ${l.material.name}${l.metalType ? ` (${l.metalType.name})` : ""} × ${l.units}`
   );
+  // Text as large as the page allows: smaller only when there's a lot on it.
+  const load =
+    Math.ceil(shown.length / 2) +
+    lines.length +
+    caseRecord.fieldValues.length +
+    (caseRecord.units.length > 0 ? 2 : 0) +
+    Math.ceil((caseRecord.notes?.length ?? 0) / 45) +
+    // Long names wrap onto extra lines in the header.
+    Math.floor((caseRecord.doctor.name.length + caseRecord.patientName.length) / 30);
+  const base = load <= 10 ? 11 : load <= 12 ? 10 : load <= 17 ? 9 : 8;
+  // Sizes follow --fit, which FitToPage lowers if the page still overflows.
+  const pt = (n: number) => `calc(${n}pt * var(--fit, 1))`;
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-10 print:p-0">
@@ -88,61 +103,61 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
         <PrintButton />
       </div>
 
-      <div
-        className="mx-auto flex flex-col overflow-hidden bg-white text-slate-800 shadow-md ring-1 ring-slate-300 print:shadow-none print:ring-0"
-        style={{ width: "105mm", minHeight: "148mm", padding: "5mm", fontSize: "8pt", lineHeight: 1.3 }}
+      <FitToPage
+        className="mx-auto flex flex-col overflow-hidden bg-white text-slate-900 shadow-md ring-1 ring-slate-300 print:shadow-none print:ring-0"
+        style={{ width: "105mm", height: "148mm", padding: "5mm", fontSize: pt(base), lineHeight: 1.3 }}
       >
-        <header className="flex items-start justify-between gap-2 border-b border-slate-300 pb-2">
+        <header className="flex items-start justify-between gap-2 border-b-2 border-slate-800 pb-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <LabMark lab={lab} size={22} />
-              <p className="truncate font-semibold text-slate-900" style={{ fontSize: "8.5pt" }}>
+              <LabMark lab={lab} size={20} />
+              <p className="truncate font-semibold text-slate-700" style={{ fontSize: pt(8.5) }}>
                 {lab.name}
               </p>
             </div>
-            <p className="mt-2 uppercase tracking-wide text-slate-400" style={{ fontSize: "6.5pt" }}>
-              Case sheet
-            </p>
-            <h1 className="break-words font-bold text-slate-900" style={{ fontSize: "13pt", lineHeight: 1.15 }}>
-              {caseRecord.patientName}
+            <h1 className="mt-2 break-words font-extrabold" style={{ fontSize: pt(19), lineHeight: 1.1 }}>
+              {caseRecord.doctor.name}
             </h1>
-            <p className="text-slate-600">{caseRecord.doctor.name}</p>
+            <p className="mt-1 break-words font-semibold text-slate-700" style={{ fontSize: pt(14), lineHeight: 1.15 }}>
+              {caseRecord.patientName}
+            </p>
           </div>
           <div className="flex shrink-0 flex-col items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrDataUrl} alt="Case QR code" style={{ width: "27mm", height: "27mm" }} />
-            <span className="text-slate-400" style={{ fontSize: "6pt" }}>
+            <img src={qrDataUrl} alt="Case QR code" style={{ width: "30mm", height: "30mm" }} />
+            <span className="text-slate-500" style={{ fontSize: pt(6.5) }}>
               Scan to open the case
             </span>
           </div>
         </header>
 
-        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
-          {shown
-            .filter(([label]) => label !== "Doctor")
-            .map(([label, value]) => (
-              <div key={label} className="min-w-0">
-                <dt className="uppercase tracking-wide text-slate-400" style={{ fontSize: "6pt" }}>
-                  {label}
-                </dt>
-                <dd className="break-words">{value}</dd>
-              </div>
-            ))}
+        {/* The details stretch to fill the page; the rest follows below. */}
+        <dl className="mt-3 grid flex-1 grid-cols-2 content-evenly gap-x-3 gap-y-2.5">
+          {shown.map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <dt className="uppercase tracking-wide text-slate-500" style={{ fontSize: pt(base - 3.5) }}>
+                {label}
+              </dt>
+              <dd className="break-words font-semibold">{value}</dd>
+            </div>
+          ))}
         </dl>
 
         {lines.length > 0 && (
-          <Block title="Materials">
+          <Block title="Materials" size={base}>
             {lines.map((line) => (
-              <p key={line}>{line}</p>
+              <p key={line} className="font-semibold">
+                {line}
+              </p>
             ))}
           </Block>
         )}
 
         {caseRecord.units.length > 0 && (
-          <Block title="Unit codes">
+          <Block title="Unit codes" size={base}>
             <p className="flex flex-wrap gap-1">
               {caseRecord.units.map((u) => (
-                <span key={u.id} className="rounded border border-slate-300 px-1">
+                <span key={u.id} className="rounded border border-slate-400 px-1">
                   {u.code}
                 </span>
               ))}
@@ -151,7 +166,7 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
         )}
 
         {caseRecord.fieldValues.length > 0 && (
-          <Block title="More details">
+          <Block title="More details" size={base}>
             {caseRecord.fieldValues.map((v) => (
               <p key={v.id} className="whitespace-pre-wrap break-words">
                 <span className="text-slate-500">{v.field.label}:</span> {formatFieldValue(v.field.type, v.value)}
@@ -161,23 +176,23 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
         )}
 
         {caseRecord.notes && (
-          <Block title="Notes">
+          <Block title="Notes" size={base}>
             <p className="whitespace-pre-wrap break-words">{caseRecord.notes}</p>
           </Block>
         )}
 
-        <p className="mt-auto border-t border-slate-200 pt-1 text-slate-400" style={{ fontSize: "6pt" }}>
+        <p className="mt-3 border-t border-slate-300 pt-1 text-slate-500" style={{ fontSize: pt(6.5) }}>
           Printed {new Date().toLocaleString("en-GB", { timeZone: "Africa/Cairo" })}
         </p>
-      </div>
+      </FitToPage>
     </div>
   );
 }
 
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
+function Block({ title, size, children }: { title: string; size: number; children: React.ReactNode }) {
   return (
-    <section className="mt-2 border-t border-slate-200 pt-1.5">
-      <h2 className="mb-0.5 font-semibold text-slate-900" style={{ fontSize: "7.5pt" }}>
+    <section className="mt-3 border-t border-slate-300 pt-1.5">
+      <h2 className="mb-0.5 uppercase tracking-wide text-slate-500" style={{ fontSize: `calc(${size - 3.5}pt * var(--fit, 1))` }}>
         {title}
       </h2>
       {children}

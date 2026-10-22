@@ -620,9 +620,16 @@ export default async function CaseDetailPage({
           </section>
       )}
 
-      {canAssign && DESIGN_PHASE_STATUSES.includes(status) && (
+      {/* The designer can be changed at any stage; the new designer's fee is
+          locked when they're saved. */}
+      {canAssign && (
         <section className="mb-6 flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5">
-          {hasIbar && beforeIbar && (
+          {!DESIGN_PHASE_STATUSES.includes(status) && (
+            <p className="text-xs text-slate-500">
+              Changing the designer now moves the designer fee to the new designer.
+            </p>
+          )}
+          {hasIbar && (
             <DesignerForm
               caseId={caseRecord.id}
               slot="first"
@@ -634,7 +641,7 @@ export default async function CaseDetailPage({
           <DesignerForm
             caseId={caseRecord.id}
             slot="second"
-            label={hasIbar ? "Designer after ibar" : "Assign designer"}
+            label={hasIbar ? "Designer after ibar" : "Designer"}
             defaultId={caseRecord.assignedDesignerId}
             designers={designers}
           />
