@@ -385,7 +385,7 @@ creates its own main folder ("Alexandria All on four Lab Cases") with the first
 case, or from **Create main folder** on Drive Settings. Doctor and patient
 folders it already made are matched by name (case-insensitive) and reused.
 
-Every patient folder has seven subfolders (`CASE_SUBFOLDERS` in
+Every patient folder has eight subfolders (`CASE_SUBFOLDERS` in
 `src/lib/caseFolders.ts`):
 
 | Subfolder | What goes in it |
@@ -394,6 +394,7 @@ Every patient folder has seven subfolders (`CASE_SUBFOLDERS` in
 | project (designer) | Designs submitted before any try-in |
 | ibar | The ibar file attached with **Ibar done** |
 | new scans (for matching) | Scans uploaded after the try-in |
+| data after matching | Files attached with **Matching done** |
 | project after matching (2nd design) | Designs submitted after the try-in |
 | milling | Work uploaded by Milling or Printing roles |
 | models | Only by choice in the upload box |

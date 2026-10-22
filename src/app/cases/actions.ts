@@ -766,13 +766,22 @@ export async function setCaseStatus(caseId: string, status: string) {
   revalidatePath("/cases");
 }
 
-export async function completeMatching(caseId: string) {
+// Optional files from the matching go to "data after matching".
+export async function completeMatching(caseId: string, formData?: FormData) {
   const session = await requirePermission("case.matching");
 
   try {
     const caseRecord = await requireVisibleCase(session, caseId);
     if (caseRecord.status !== "MATCHING") throw new Error("This case isn't in matching.");
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
+
+    const files = (formData?.getAll("matchingFiles") ?? []).filter(
+      (f): f is File => f instanceof File && f.size > 0
+    );
+    if (files.length > 0 && !caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
+    for (const file of files) {
+      await attachFile(caseId, caseRecord.driveFolderId!, file, "MATCHING", session.userId, "MATCHING_DATA");
+    }
 
     if (caseRecord.tryInDoneAt) {
       const next = await nextStatus("REDESIGN");

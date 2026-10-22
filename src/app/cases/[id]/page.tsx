@@ -492,14 +492,18 @@ export default async function CaseDetailPage({
               ? `The new scans from the try-in are with ${caseRecord.matchingBy ?? "the matching person"} for matching. When it's done, the case goes back to ${caseRecord.assignedDesigner?.name ?? "the designer"} for the redesign.`
               : `The design is with ${caseRecord.matchingBy ?? "the matching person"} for matching. When it's done, send the case for review.`}
           </p>
-          <form action={completeMatchingAction}>
+          <form action={completeMatchingAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
-            <button
-              type="submit"
-              className="rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700"
-            >
+            {caseRecord.driveFolderId && (
+              <FileDropField
+                name="matchingFiles"
+                multiple
+                hint={`Optional: the matching data (saved to "${CASE_SUBFOLDERS.MATCHING_DATA}")`}
+              />
+            )}
+            <PendingSubmitButton overlay pendingText="Saving the matching data..." className="self-start rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700">
               {caseRecord.tryInDoneAt ? `Matching done: send for ${nextLabel("REDESIGN").toLowerCase()}` : "Matching done: send for review"}
-            </button>
+            </PendingSubmitButton>
           </form>
         </section>
       )}

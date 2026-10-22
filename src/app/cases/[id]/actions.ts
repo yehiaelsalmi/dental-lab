@@ -81,7 +81,7 @@ export async function advanceProductionAction(formData: FormData) {
 
 export async function completeMatchingAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
-  await completeMatching(caseId);
+  await completeMatching(caseId, formData);
 }
 
 export async function markPhotogrammetryDoneAction(formData: FormData) {

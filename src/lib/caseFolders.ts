@@ -6,6 +6,7 @@ export const CASE_SUBFOLDERS = {
   DESIGN: "project (designer)",
   IBAR: "ibar",
   TRYIN_SCANS: "new scans (for matching)",
+  MATCHING_DATA: "data after matching",
   REDESIGN: "project after matching (2nd design)",
   MILLING: "milling",
   MODELS: "models",
@@ -48,6 +49,8 @@ export function subfolderForExistingFile(
       return afterTryIn ? "REDESIGN" : "DESIGN";
     case "IBAR":
       return "IBAR";
+    case "MATCHING":
+      return "MATCHING_DATA";
     case "WORK":
       return isProductionRole(workRoleName) ? "MILLING" : undefined;
     default:
