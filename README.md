@@ -45,7 +45,8 @@ Approve or Request changes with a comment, and the uploader is told. The case
 status doesn't change; a new version can be uploaded any time.
 
 **Files list:** every file shows its upload date and time, who uploaded it and its
-Drive subfolder. Roles with "Delete files from a case" (Lab Leader, Lab Team) can
+Drive subfolder. General uploads are labelled with the stage the case was in when
+they were added (`CaseFile.stage`). Roles with "Delete files from a case" (Lab Leader, Lab Team) can
 delete a file: it disappears from the case and moves to Drive's trash (restorable
 there for 30 days). Deleted files are kept as records (`CaseFile.deletedAt`) so the
 Drive sync doesn't bring them back.
@@ -218,7 +219,9 @@ They can be added on the New Case form or any time on the case page by roles wit
 "Add extra fees and deductions" (permission `money.adjust`). `Case.extraFee` and
 `Case.deduction` hold the totals and the case price is the materials price plus
 fees minus deductions (`syncCaseTotals` in `src/lib/adjustments.ts`). Invoices store
-each case's extras, deductions and reasons, and the PDF lists them; Reports show
+each case's extras, deductions and reasons, and a **unit price breakdown** (each
+material line's units and price per unit, saved on `CaseMaterial.pricePerUnit` when
+the case is priced); the PDF lists them; Reports show
 the totals. Materials no longer carry extra fees or deductions.
 
 ## Payments

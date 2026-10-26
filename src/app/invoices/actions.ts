@@ -44,7 +44,10 @@ export async function generateInvoice(formData: FormData) {
         entryDate: { gte: periodStart, lt: periodEnd },
         totalPrice: { not: null },
       },
-      include: { adjustments: { orderBy: { createdAt: "asc" } } },
+      include: {
+        adjustments: { orderBy: { createdAt: "asc" } },
+        materials: { orderBy: { createdAt: "asc" }, include: { material: true } },
+      },
       orderBy: { entryDate: "asc" },
     });
 
@@ -69,6 +72,14 @@ export async function generateInvoice(formData: FormData) {
             extraFee: c.extraFee,
             deduction: c.deduction,
             adjustments: describeAdjustments(c.adjustments),
+            breakdown: JSON.stringify(
+              c.materials.map((m) => ({
+                material: m.material.name,
+                arch: m.arch,
+                units: m.units,
+                pricePerUnit: m.pricePerUnit ?? m.material.pricePerUnit,
+              }))
+            ),
             caseId: c.id,
           })),
         },

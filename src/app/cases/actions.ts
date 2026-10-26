@@ -109,6 +109,7 @@ async function attachFile(
   subfolder?: CaseSubfolder
 ) {
   const buffer = Buffer.from(await file.arrayBuffer());
+  const stage = (await prisma.case.findUnique({ where: { id: caseId }, select: { status: true } }))?.status ?? null;
   const uploaded = await uploadFileToDrive(
     folderId,
     file.name,
@@ -126,6 +127,7 @@ async function attachFile(
       driveLink: uploaded.url,
       uploadedById,
       folder: subfolder ? CASE_SUBFOLDERS[subfolder] : null,
+      stage,
     },
   });
 }
@@ -210,7 +212,7 @@ export async function createCase(formData: FormData) {
         ibarDesignerId: ibarDesigner?.id ?? null,
         ...pricing,
         units: { create: units },
-        materials: { create: lineInputs },
+        materials: { create: lineInputs.map((l, i) => ({ ...l, pricePerUnit: pricedLines[i].material.pricePerUnit })) },
         ...unitTotals(lineInputs),
         patientName: data.patientName,
         system: data.system,
@@ -947,7 +949,19 @@ export async function updateCase(formData: FormData) {
         doctorId: doctor.id,
         patientName: data.patientName,
         ...unitTotals(lineInputs),
-        materials: { deleteMany: {}, create: lineInputs },
+        materials: {
+          deleteMany: {},
+          // Re-priced lines take today's price; unchanged lines keep theirs.
+          create: lineInputs.map((l, i) => {
+            const kept = previousLines.find(
+              (p) => p.arch === l.arch && p.materialId === l.materialId && p.units === l.units && p.metalTypeId === l.metalTypeId
+            );
+            return {
+              ...l,
+              pricePerUnit: !pricingChanged && kept ? kept.pricePerUnit : pricedLines[i].material.pricePerUnit,
+            };
+          }),
+        },
         ibarDesignerId: ibarDesigner?.id ?? null,
         status,
         ibarDoneAt,

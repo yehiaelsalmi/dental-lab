@@ -26,6 +26,38 @@ const COLUMNS: PdfColumn[] = [
   { header: "Amount", width: 63, align: "right" },
 ];
 
+const BREAKDOWN_COLUMNS: PdfColumn[] = [
+  { header: "Patient", width: 120 },
+  { header: "Material", width: 165 },
+  { header: "Arch", width: 44 },
+  { header: "Units", width: 36, align: "right" },
+  { header: "Price / unit", width: 66, align: "right" },
+  { header: "Subtotal", width: 68, align: "right" },
+];
+
+type BreakdownRow = { material: string; arch: string; units: number; pricePerUnit: number | null };
+
+// The unit prices as invoiced; invoices made before they were stored use the
+// case's saved lines.
+function breakdownOf(line: {
+  breakdown: string | null;
+  case: { materials: { arch: string; units: number; pricePerUnit: number | null; material: { name: string; pricePerUnit: number } }[] } | null;
+}): BreakdownRow[] {
+  if (line.breakdown) {
+    try {
+      return JSON.parse(line.breakdown) as BreakdownRow[];
+    } catch {
+      // fall through
+    }
+  }
+  return (line.case?.materials ?? []).map((m) => ({
+    material: m.material.name,
+    arch: m.arch,
+    units: m.units,
+    pricePerUnit: m.pricePerUnit ?? m.material.pricePerUnit,
+  }));
+}
+
 function monthLabel(date: Date) {
   return date.toLocaleDateString("en-GB", { year: "numeric", month: "long", timeZone: "UTC" });
 }
@@ -110,6 +142,29 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       ],
     }
   );
+
+  // Unit prices behind each case's amount.
+  const breakdownRows = lines.flatMap((l) =>
+    breakdownOf(l).map((b, i) => [
+      i === 0 ? l.patientName : "",
+      b.material,
+      b.arch === "UPPER" ? "Upper" : "Lower",
+      String(b.units),
+      b.pricePerUnit == null ? "-" : formatMoney(b.pricePerUnit),
+      b.pricePerUnit == null ? "-" : formatMoney(b.pricePerUnit * b.units),
+    ])
+  );
+  if (breakdownRows.length > 0) {
+    if (doc.y + 80 > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      doc.y = doc.page.margins.top;
+    }
+    doc.moveDown(0.8);
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(PDF_COLORS.text);
+    doc.text("UNIT PRICES", left, doc.y);
+    doc.y += 4;
+    drawTable(doc, BREAKDOWN_COLUMNS, breakdownRows, { fontSize: 8.5 });
+  }
 
   // What each extra fee and deduction was for.
   const explained = lines.filter((l) => l.adjustments);

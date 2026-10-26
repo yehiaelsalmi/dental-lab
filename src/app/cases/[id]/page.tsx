@@ -1023,7 +1023,7 @@ export default async function CaseDetailPage({
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-                    {FILE_TYPE_LABELS[f.type] ?? f.type}
+                    {fileBadge(f, label)}
                   </span>
                   {can(access, "case.deleteFiles") && (
                     <form action={deleteCaseFileAction}>
@@ -1176,6 +1176,29 @@ function Money({
       </p>
     </div>
   );
+}
+
+// General uploads show the stage the case was in when the file was added;
+// older ones (from before stages were recorded) fall back to their subfolder.
+const FOLDER_LABELS: Record<string, string> = {
+  "scans (for design)": "Scan",
+  "project (designer)": "Design",
+  ibar: "Ibar",
+  "new scans (for matching)": "Try-in scans",
+  "data after matching": "Matching",
+  "project after matching (2nd design)": "Redesign",
+  milling: "Milling",
+  models: "Models",
+};
+
+function fileBadge(
+  f: { type: string; stage: string | null; folder: string | null },
+  statusLabel: (key: string) => string
+): string {
+  if (!["OTHER", "WORK", "DRIVE"].includes(f.type)) return FILE_TYPE_LABELS[f.type] ?? f.type;
+  if (f.stage) return statusLabel(f.stage);
+  if (f.folder) return FOLDER_LABELS[f.folder] ?? f.folder;
+  return FILE_TYPE_LABELS[f.type] ?? f.type;
 }
 
 const FILE_TYPE_LABELS: Record<string, string> = {

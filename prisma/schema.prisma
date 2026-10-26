@@ -228,6 +228,8 @@ model CaseFile {
   // The case subfolder it's in (e.g. "scans (for design)"); null = the
   // patient folder itself.
   folder       String?
+  // The case's status when the file was added (e.g. IN_DESIGN).
+  stage        String?
   // Deleted from the case (and moved to Drive's trash). Kept so the Drive
   // sync doesn't add it back.
   deletedAt    DateTime?
@@ -314,6 +316,8 @@ model InvoiceLine {
   extraFee    Float?
   deduction   Float?
   adjustments String?
+  // JSON: [{ material, arch, units, pricePerUnit }] as invoiced.
+  breakdown   String?
 
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -332,6 +336,8 @@ model CaseMaterial {
   materialId String
   material   Material @relation(fields: [materialId], references: [id])
   units      Int
+  // The material's price per unit when the case was priced (for invoices).
+  pricePerUnit Float?
   metalTypeId String?
   metalType   MetalType? @relation(fields: [metalTypeId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())

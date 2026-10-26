@@ -60,7 +60,7 @@ export async function addSyncedFiles(files: SyncedFile[]): Promise<number> {
     prisma.caseFile.findMany({ where: { driveFileId: { in: files.map((f) => f.id) } }, select: { driveFileId: true } }),
     prisma.case.findMany({
       where: { driveFolderId: { in: [...new Set(files.map((f) => f.caseFolderId))] } },
-      select: { id: true, driveFolderId: true },
+      select: { id: true, driveFolderId: true, status: true },
     }),
   ]);
   const seen = new Set(known.map((k) => k.driveFileId));
@@ -78,6 +78,7 @@ export async function addSyncedFiles(files: SyncedFile[]): Promise<number> {
         driveFileId: f.id,
         driveLink: f.url,
         folder: f.folder ? String(f.folder).slice(0, 120) : null,
+        stage: c.status,
         createdAt: Number.isNaN(created.getTime()) ? new Date() : created,
       },
     });
