@@ -304,3 +304,17 @@ export async function downloadFileStream(fileId: string): Promise<Readable> {
     throw expiredConnectionError(error) ?? error;
   }
 }
+
+// Moves a file to Drive's trash (restorable there for 30 days). Files the app
+// can't reach (added in Drive by hand, or already gone) are left alone.
+export async function trashDriveFile(fileId: string): Promise<boolean> {
+  try {
+    const drive = await getDriveClient();
+    await drive.files.update({ fileId, requestBody: { trashed: true }, fields: "id" });
+    return true;
+  } catch (error) {
+    const code = (error as { code?: number })?.code;
+    if (code === 404 || code === 403 || isNotFound(error)) return false;
+    throw expiredConnectionError(error) ?? error;
+  }
+}

@@ -16,12 +16,14 @@ import {
 } from "@/lib/pdfTable";
 
 const COLUMNS: PdfColumn[] = [
-  { header: "#", width: 28 },
-  { header: "Date", width: 72 },
-  { header: "Patient", width: 137 },
-  { header: "Material", width: 140 },
-  { header: "Units", width: 42, align: "right" },
-  { header: "Amount", width: 80, align: "right" },
+  { header: "#", width: 22 },
+  { header: "Date", width: 60 },
+  { header: "Patient", width: 104 },
+  { header: "Material", width: 104 },
+  { header: "Units", width: 34, align: "right" },
+  { header: "Extras", width: 56, align: "right" },
+  { header: "Deduct.", width: 56, align: "right" },
+  { header: "Amount", width: 63, align: "right" },
 ];
 
 function monthLabel(date: Date) {
@@ -48,6 +50,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const period = invoice.periodStart.toISOString().slice(0, 7);
   const invoiceNumber = `INV-${period.replace("-", "")}-${invoice.id.slice(-5).toUpperCase()}`;
   const totalUnits = lines.reduce((sum, l) => sum + l.units, 0);
+  const totalExtras = lines.reduce((sum, l) => sum + (l.extraFee ?? 0), 0);
+  const totalDeductions = lines.reduce((sum, l) => sum + (l.deduction ?? 0), 0);
 
   const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true });
   const left = doc.page.margins.left;
@@ -88,10 +92,36 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       line.patientName,
       line.case ? materialSummary(line.case.materials) || "-" : "-",
       String(line.units),
+      line.extraFee ? formatMoney(line.extraFee) : "-",
+      line.deduction ? `-${formatMoney(line.deduction)}` : "-",
       formatMoney(line.amount),
     ]),
-    { fontSize: 9, footer: ["", "", "Total", "", String(totalUnits), formatMoney(invoice.totalAmount)] }
+    {
+      fontSize: 8.5,
+      footer: [
+        "",
+        "",
+        "Total",
+        "",
+        String(totalUnits),
+        totalExtras ? formatMoney(totalExtras) : "",
+        totalDeductions ? `-${formatMoney(totalDeductions)}` : "",
+        formatMoney(invoice.totalAmount),
+      ],
+    }
   );
+
+  // What each extra fee and deduction was for.
+  const explained = lines.filter((l) => l.adjustments);
+  if (explained.length > 0) {
+    doc.moveDown(0.8);
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(PDF_COLORS.text);
+    doc.text("EXTRA FEES AND DEDUCTIONS", left, doc.y);
+    doc.font("Helvetica").fontSize(8.5).fillColor(PDF_COLORS.muted);
+    for (const l of explained) {
+      doc.text(`${l.patientName}: ${l.adjustments}`, left, doc.y + 3, { width: pageWidth });
+    }
+  }
 
   // Amount-due box, right-aligned under the table.
   const boxWidth = 220;

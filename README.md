@@ -44,6 +44,17 @@ role such as Milling). It's saved to the case's Drive folder and listed under
 Approve or Request changes with a comment, and the uploader is told. The case
 status doesn't change; a new version can be uploaded any time.
 
+**Files list:** every file shows its upload date and time, who uploaded it and its
+Drive subfolder. Roles with "Delete files from a case" (Lab Leader, Lab Team) can
+delete a file: it disappears from the case and moves to Drive's trash (restorable
+there for 30 days). Deleted files are kept as records (`CaseFile.deletedAt`) so the
+Drive sync doesn't bring them back.
+
+**Files added directly in Drive:** a Google Apps Script in the lab's Google account
+(Drive Settings shows it, with steps) checks the case folders every 5 minutes and
+posts new files to `/api/drive-sync` with a shared secret. They appear on the case
+as "Added in Drive" (opened in Drive) with their subfolder (`src/lib/driveSync.ts`).
+
 **Uploading any file:** roles with "Upload files to a case at any time, choosing
 the Drive subfolder" (the Lab Leader by default) get an upload box under **Files** on
 the case page with a folder picker. The file is saved as type `OTHER`, whatever the
@@ -198,6 +209,17 @@ time (or "All time"): case profit minus that month's expenses and salaries gives
 **net profit**, and the Excel/PDF exports include a net profit sheet/page. People
 who can see their own earnings also see their salary on My earnings. Salaries use
 each person's current salary for every month.
+
+## Extra fees and deductions
+
+Each case has a list of **extra fees** and **deductions** (e.g. "Rush order +500",
+"Remake discount −300"), each with an amount and a reason (`CaseAdjustment`).
+They can be added on the New Case form or any time on the case page by roles with
+"Add extra fees and deductions" (permission `money.adjust`). `Case.extraFee` and
+`Case.deduction` hold the totals and the case price is the materials price plus
+fees minus deductions (`syncCaseTotals` in `src/lib/adjustments.ts`). Invoices store
+each case's extras, deductions and reasons, and the PDF lists them; Reports show
+the totals. Materials no longer carry extra fees or deductions.
 
 ## Payments
 

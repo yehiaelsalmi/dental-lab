@@ -8,6 +8,9 @@ import {
   completeIbar,
   completeMatching,
   completeTryIn,
+  addCaseAdjustment,
+  removeCaseAdjustment,
+  deleteCaseFile,
   markDelivered,
   markPhotogrammetryDone,
   setCaseStatus,
@@ -134,4 +137,16 @@ export async function removeCaseChecklistItemAction(formData: FormData) {
 
 export async function uploadCaseFileAction(formData: FormData) {
   await uploadCaseFile(formData.get("caseId") as string, formData);
+}
+
+export async function addCaseAdjustmentAction(formData: FormData) {
+  await addCaseAdjustment(formData.get("caseId") as string, formData);
+}
+
+export async function removeCaseAdjustmentAction(formData: FormData) {
+  await removeCaseAdjustment(formData.get("caseId") as string, formData.get("adjustmentId") as string);
+}
+
+export async function deleteCaseFileAction(formData: FormData) {
+  await deleteCaseFile(formData.get("caseId") as string, formData.get("fileId") as string);
 }

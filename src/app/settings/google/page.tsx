@@ -1,15 +1,20 @@
 import { Cloud, CloudOff, FolderOpen, TriangleAlert } from "lucide-react";
 import { requirePermission } from "@/lib/access";
 import { getRootFolderInfo, hasDriveAccess, isGoogleDriveConnected } from "@/lib/googleDrive";
-import { createRootFolderAction } from "./actions";
+import { appsScript, getSyncSecret, lastSync, syncEndpoint } from "@/lib/driveSync";
+import { CopyButton } from "@/components/CopyButton";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { createRootFolderAction, regenerateSyncSecretAction } from "./actions";
 
 export default async function GoogleSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; secret?: string }>;
 }) {
   await requirePermission("page.drive");
-  const { error, saved } = await searchParams;
+  const { error, saved, secret: secretReset } = await searchParams;
+  const [syncSecret, syncedAt] = await Promise.all([getSyncSecret(), lastSync()]);
+  const script = appsScript(syncEndpoint(), syncSecret);
 
   const connected = await isGoogleDriveConnected();
   const fullAccess = connected && (await hasDriveAccess());
@@ -97,8 +102,8 @@ export default async function GoogleSettingsPage({
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Main folder</h2>
           <p className="mb-4 text-xs text-slate-500">
             The app&apos;s own folder in Drive, holding one subfolder per doctor. It&apos;s created
-            automatically with the first case, or you can create it now. Don&apos;t move files into
-            it by hand from Drive: the app only sees files uploaded through the app.
+            automatically with the first case, or you can create it now. Files added to case
+            folders straight from Drive show up through the Google script below.
           </p>
 
           {rootFolder ? (
@@ -123,6 +128,64 @@ export default async function GoogleSettingsPage({
           )}
         </div>
       )}
+
+      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-1 text-sm font-semibold text-slate-900">Files added directly in Drive</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          A small Google script in the lab&apos;s Google account checks the case folders every 5
+          minutes and adds files put there straight from Drive to their case (shown as &quot;Added
+          in Drive&quot;). Set it up once:
+        </p>
+        <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+          <li>
+            Sign in to Google with the account connected above, and open{" "}
+            <a href="https://script.google.com/home/projects/create" target="_blank" rel="noreferrer" className="font-medium text-brand hover:text-brand-hover">
+              script.google.com → New project
+            </a>
+            .
+          </li>
+          <li>Delete what&apos;s in the editor, paste the script below, and press Save.</li>
+          <li>
+            Pick <strong>setup</strong> in the function list at the top, press <strong>Run</strong>,
+            and allow access when Google asks (choose the lab account; if it warns the app isn&apos;t
+            verified, click Advanced → Go to the project).
+          </li>
+        </ol>
+        <p className="mb-3 text-sm text-slate-700">
+          Last check:{" "}
+          <span className="font-medium">
+            {syncedAt
+              ? syncedAt.toLocaleString("en-GB", { timeZone: "Africa/Cairo", dateStyle: "medium", timeStyle: "short" })
+              : "never (not set up yet)"}
+          </span>
+        </p>
+        {secretReset && (
+          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            New secret made. Paste the updated script into the Google project to keep it working.
+          </p>
+        )}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <CopyButton text={script} label="Copy script" />
+          <form action={regenerateSyncSecretAction}>
+            <ConfirmSubmitButton
+              message="Make a new secret? The current script stops working until you paste the updated one."
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              New secret
+            </ConfirmSubmitButton>
+          </form>
+        </div>
+        <textarea
+          readOnly
+          value={script}
+          rows={10}
+          aria-label="Google Apps Script"
+          className="w-full rounded-lg border border-slate-300 bg-slate-50 p-3 font-mono text-xs text-slate-700"
+        />
+        <p className="mt-2 text-xs text-slate-500">
+          The script contains a secret key: don&apos;t share it outside the lab.
+        </p>
+      </div>
     </div>
   );
 }

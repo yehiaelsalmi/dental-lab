@@ -12,7 +12,7 @@ const apply = process.argv.includes("--apply");
 async function main() {
   const cases = await prisma.case.findMany({
     where: { driveFolderId: { not: null } },
-    include: { files: { orderBy: { createdAt: "asc" } }, workSubmissions: true },
+    include: { files: { where: { deletedAt: null }, orderBy: { createdAt: "asc" } }, workSubmissions: true },
     orderBy: { createdAt: "asc" },
   });
   console.log(`${apply ? "APPLYING" : "DRY RUN"}: ${cases.length} case folders`);
@@ -33,6 +33,7 @@ async function main() {
       if (!folders) continue;
       try {
         if (await moveFileToFolder(f.driveFileId, folders[target])) moved++;
+        await prisma.caseFile.update({ where: { id: f.id }, data: { folder: CASE_SUBFOLDERS[target] } });
       } catch (error) {
         failed++;
         console.log(`     FAILED: ${error instanceof Error ? error.message : error}`);

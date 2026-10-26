@@ -13,6 +13,7 @@ import {
   CheckSquare,
   Trash2,
   Upload,
+  Plus,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { caseUrl } from "@/lib/email";
@@ -30,6 +31,7 @@ import {
 } from "@/lib/statuses";
 import { formatFieldValue } from "@/lib/customFields";
 import { caseChecklist } from "@/lib/checklists";
+import { ADJUSTMENT_KINDS, type AdjustmentKind } from "@/lib/adjustments";
 import { CASE_SUBFOLDERS, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
 import {
   APPROVAL_ROUTES,
@@ -43,6 +45,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { WorkflowStepper } from "@/components/WorkflowStepper";
 import { FileDropField } from "@/components/FileDropField";
 import { PendingSubmitButton } from "@/components/PendingSubmitButton";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import {
   advanceProductionAction,
   assignCeramistAction,
@@ -66,6 +69,9 @@ import {
   addCaseChecklistItemAction,
   removeCaseChecklistItemAction,
   uploadCaseFileAction,
+  addCaseAdjustmentAction,
+  removeCaseAdjustmentAction,
+  deleteCaseFileAction,
 } from "./actions";
 
 export default async function CaseDetailPage({
@@ -98,7 +104,12 @@ export default async function CaseDetailPage({
       },
       materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } },
       units: { orderBy: { createdAt: "asc" } },
-      files: { orderBy: { createdAt: "asc" } },
+      files: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "asc" },
+        include: { uploadedBy: { select: { name: true } } },
+      },
+      adjustments: { orderBy: { createdAt: "asc" }, include: { createdBy: { select: { name: true } } } },
       reviews: { orderBy: { createdAt: "desc" }, include: { reviewedBy: true } },
     },
   });
@@ -389,11 +400,74 @@ export default async function CaseDetailPage({
         </section>
       )}
 
+      {(can(access, "money.adjust") || can(access, "money.viewAll")) && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">Extra fees &amp; deductions</h2>
+          <p className="mb-3 text-xs text-slate-500">
+            Added to or taken off the price to the doctor and shown on the invoice, e.g. a rush order
+            or a discount for a remake.
+          </p>
+          {caseRecord.adjustments.length === 0 ? (
+            <p className="mb-3 text-sm text-slate-400">None.</p>
+          ) : (
+            <ul className="mb-3 flex flex-col divide-y divide-slate-100 text-sm">
+              {caseRecord.adjustments.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-slate-800">
+                      <span className={a.kind === "DEDUCTION" ? "font-semibold text-rose-700" : "font-semibold text-emerald-700"}>
+                        {a.kind === "DEDUCTION" ? "−" : "+"}
+                        {formatEGP(a.amount)}
+                      </span>{" "}
+                      {a.reason}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {ADJUSTMENT_KINDS[a.kind as AdjustmentKind] ?? a.kind}
+                      {a.createdBy ? ` · added by ${a.createdBy.name}` : ""} · {new Date(a.createdAt).toLocaleString("en-GB", { timeZone: "Africa/Cairo", dateStyle: "medium", timeStyle: "short" })}
+                    </p>
+                  </div>
+                  {can(access, "money.adjust") && (
+                    <form action={removeCaseAdjustmentAction}>
+                      <input type="hidden" name="caseId" value={caseRecord.id} />
+                      <input type="hidden" name="adjustmentId" value={a.id} />
+                      <ConfirmSubmitButton
+                        message={`Remove "${a.reason}" (${formatEGP(a.amount)}) from this case?`}
+                        className="p-1.5 text-slate-400 hover:text-rose-600"
+                      >
+                        <Trash2 size={15} />
+                      </ConfirmSubmitButton>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {can(access, "money.adjust") && (
+            <form action={addCaseAdjustmentAction} className="grid grid-cols-1 gap-2 sm:grid-cols-[130px_120px_1fr_auto]">
+              <input type="hidden" name="caseId" value={caseRecord.id} />
+              <select name="kind" defaultValue="FEE" aria-label="Type" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
+                <option value="FEE">Extra fee</option>
+                <option value="DEDUCTION">Deduction</option>
+              </select>
+              <input name="amount" type="number" min={1} step="0.01" required placeholder="EGP" aria-label="Amount" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+              <input name="reason" required maxLength={120} placeholder="Reason, e.g. Remake discount" aria-label="Reason" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+              <button type="submit" className="flex items-center justify-center gap-1 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                <Plus size={14} />
+                Add
+              </button>
+            </form>
+          )}
+          <p className="mt-3 text-sm text-slate-700">
+            Price to the doctor: <span className="font-semibold text-slate-900">{formatEGP(caseRecord.totalPrice)}</span>
+          </p>
+        </section>
+      )}
+
       {can(access, "money.viewAll") && (
         <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm sm:grid-cols-3">
           <Money label="Price to doctor" value={caseRecord.totalPrice} />
           <Money label="Extra fees (included)" value={caseRecord.extraFee} />
-          <Money label="Deduction (included)" value={caseRecord.deduction} />
+          <Money label="Deductions (included)" value={caseRecord.deduction} />
           <Money label="Ceramist fee" value={caseRecord.ceramistFee} />
           {hasIbar && (
             <Money label="Designer fee (before ibar)" value={caseRecord.firstDesignerFee} />
@@ -803,14 +877,21 @@ export default async function CaseDetailPage({
               {caseRecord.workSubmissions.map((w) => (
                 <li key={w.id} className="flex flex-col gap-2 p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <a
-                      href={viaApp ? `/api/files/${w.file.id}` : w.file.driveLink}
-                      {...(viaApp ? {} : { target: "_blank", rel: "noreferrer" })}
-                      className="flex items-center gap-2 font-medium text-slate-800 hover:text-brand"
-                    >
-                      <FileText size={15} className="shrink-0 text-slate-400" />
-                      {w.file.fileName}
-                    </a>
+                    {w.file.deletedAt ? (
+                      <span className="flex items-center gap-2 text-slate-400 line-through">
+                        <FileText size={15} className="shrink-0" />
+                        {w.file.fileName}
+                      </span>
+                    ) : (
+                      <a
+                        href={viaApp ? `/api/files/${w.file.id}` : w.file.driveLink}
+                        {...(viaApp ? {} : { target: "_blank", rel: "noreferrer" })}
+                        className="flex items-center gap-2 font-medium text-slate-800 hover:text-brand"
+                      >
+                        <FileText size={15} className="shrink-0 text-slate-400" />
+                        {w.file.fileName}
+                      </a>
+                    )}
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         w.status === "APPROVED"
@@ -920,21 +1001,46 @@ export default async function CaseDetailPage({
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Files</h2>
         <ul className="flex flex-col divide-y divide-slate-100">
-          {caseRecord.files.map((f) => (
-            <li key={f.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-              <a
-                href={viaApp ? `/api/files/${f.id}` : f.driveLink}
-                {...(viaApp ? {} : { target: "_blank", rel: "noreferrer" })}
-                className="flex items-center gap-2 text-slate-700 hover:text-brand"
-              >
-                <FileText size={15} className="shrink-0 text-slate-400" />
-                {f.fileName}
-              </a>
-              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-                {f.type}
-              </span>
-            </li>
-          ))}
+          {caseRecord.files.map((f) => {
+            // Files added in Drive by hand can only be opened in Drive.
+            const inApp = viaApp && f.type !== "DRIVE";
+            return (
+              <li key={f.id} className="flex items-start justify-between gap-3 py-2.5 text-sm">
+                <div className="min-w-0">
+                  <a
+                    href={inApp ? `/api/files/${f.id}` : f.driveLink}
+                    {...(inApp ? {} : { target: "_blank", rel: "noreferrer" })}
+                    className="flex items-center gap-2 break-all text-slate-700 hover:text-brand"
+                  >
+                    <FileText size={15} className="shrink-0 text-slate-400" />
+                    {f.fileName}
+                  </a>
+                  <p className="mt-0.5 pl-6 text-xs text-slate-400">
+                    {new Date(f.createdAt).toLocaleString("en-GB", { timeZone: "Africa/Cairo", dateStyle: "medium", timeStyle: "short" })}
+                    {f.uploadedBy ? ` · ${f.uploadedBy.name}` : f.type === "DRIVE" ? " · added in Drive" : ""}
+                    {f.folder ? ` · ${f.folder}` : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                    {FILE_TYPE_LABELS[f.type] ?? f.type}
+                  </span>
+                  {can(access, "case.deleteFiles") && (
+                    <form action={deleteCaseFileAction}>
+                      <input type="hidden" name="caseId" value={caseRecord.id} />
+                      <input type="hidden" name="fileId" value={f.id} />
+                      <ConfirmSubmitButton
+                        message={`Delete "${f.fileName}" from this case? It also moves to the Drive trash (restorable there for 30 days).`}
+                        className="p-1 text-slate-400 hover:text-rose-600"
+                      >
+                        <Trash2 size={14} />
+                      </ConfirmSubmitButton>
+                    </form>
+                  )}
+                </div>
+              </li>
+            );
+          })}
           {caseRecord.files.length === 0 && (
             <li className="py-4 text-sm text-slate-400">No files yet.</li>
           )}
@@ -1071,3 +1177,14 @@ function Money({
     </div>
   );
 }
+
+const FILE_TYPE_LABELS: Record<string, string> = {
+  SCAN: "Scan",
+  IBAR: "Ibar",
+  DESIGN: "Design",
+  PHOTOGRAMMETRY: "Photogrammetry",
+  WORK: "Work",
+  MATCHING: "Matching",
+  OTHER: "Upload",
+  DRIVE: "Added in Drive",
+};

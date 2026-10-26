@@ -27,17 +27,6 @@ function sumRate(lines: PricedLine[], rate: (line: PricedLine) => number | null)
   return total;
 }
 
-// Each material's flat amounts apply once per case, however many lines use it.
-function sumFlat(lines: PricedLine[], value: (m: MaterialRates) => number | null): number | null {
-  const seen = new Map(lines.map((l) => [l.material.id, l.material]));
-  let total: number | null = null;
-  for (const material of seen.values()) {
-    const v = value(material);
-    if (v != null) total = (total ?? 0) + v;
-  }
-  return total;
-}
-
 export function designerFeeFor(lines: PricedLine[]): number {
   return sumRate(lines, (l) => l.material.designerFeePerUnit) ?? 0;
 }
@@ -57,13 +46,10 @@ export function computeCasePricing(input: {
   needsPhotogrammetry: boolean;
 }) {
   const { lines } = input;
-  const extraFee = sumFlat(lines, (m) => m.extraFee);
-  const deduction = sumFlat(lines, (m) => m.deduction);
+  // The price for the materials only; extra fees and deductions are entered
+  // per case (see lib/adjustments.ts) and added on top.
   return {
-    totalPrice:
-      (sumRate(lines, (l) => l.material.pricePerUnit) ?? 0) + (extraFee ?? 0) - (deduction ?? 0),
-    extraFee,
-    deduction,
+    totalPrice: sumRate(lines, (l) => l.material.pricePerUnit) ?? 0,
     designerFee: input.hasDesigner ? designerFeeFor(lines) : null,
     // Both designers on an ibar case earn the full designer fee.
     firstDesignerFee: input.hasFirstDesigner ? designerFeeFor(lines) : null,

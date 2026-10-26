@@ -107,7 +107,7 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
         className="mx-auto flex flex-col overflow-hidden bg-white text-slate-900 shadow-md ring-1 ring-slate-300 print:shadow-none print:ring-0"
         style={{ width: "105mm", height: "148mm", padding: "5mm", fontSize: pt(base), lineHeight: 1.3 }}
       >
-        <header className="flex items-start justify-between gap-2 border-b-2 border-slate-800 pb-2">
+        <header className="border-b-2 border-slate-800 pb-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <LabMark lab={lab} size={20} />
@@ -121,13 +121,6 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
             <p className="mt-1 break-words font-semibold text-slate-700" style={{ fontSize: pt(14), lineHeight: 1.15 }}>
               {caseRecord.patientName}
             </p>
-          </div>
-          <div className="flex shrink-0 flex-col items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrDataUrl} alt="Case QR code" style={{ width: "30mm", height: "30mm" }} />
-            <span className="text-slate-500" style={{ fontSize: pt(6.5) }}>
-              Scan to open the case
-            </span>
           </div>
         </header>
 
@@ -181,9 +174,14 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
           </Block>
         )}
 
-        <p className="mt-3 border-t border-slate-300 pt-1 text-slate-500" style={{ fontSize: pt(6.5) }}>
-          Printed {new Date().toLocaleString("en-GB", { timeZone: "Africa/Cairo" })}
-        </p>
+        {/* QR code at the bottom centre of the page. */}
+        <div className="mt-3 flex shrink-0 flex-col items-center border-t border-slate-300 pt-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrDataUrl} alt="Case QR code" style={{ width: "28mm", height: "28mm" }} />
+          <span className="text-slate-500" style={{ fontSize: pt(6.5) }}>
+            Scan to open the case · Printed {new Date().toLocaleString("en-GB", { timeZone: "Africa/Cairo" })}
+          </span>
+        </div>
       </FitToPage>
     </div>
   );

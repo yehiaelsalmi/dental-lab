@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requirePermission } from "@/lib/access";
+import { regenerateSyncSecret } from "@/lib/driveSync";
 import { ensureRootFolder } from "@/lib/googleDrive";
 
 function errorMessage(error: unknown): string {
@@ -18,4 +19,11 @@ export async function createRootFolderAction() {
   }
 
   redirect("/settings/google?saved=1");
+}
+
+// A new secret: the old script stops working until the new one is pasted.
+export async function regenerateSyncSecretAction() {
+  await requirePermission("page.drive");
+  await regenerateSyncSecret();
+  redirect("/settings/google?secret=1");
 }

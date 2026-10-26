@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requirePermission, usersWithPermission } from "@/lib/access";
+import { can, requirePermission, usersWithPermission } from "@/lib/access";
 import { FileDropField } from "@/components/FileDropField";
 import { PendingSubmitButton } from "@/components/PendingSubmitButton";
 import { CaseFields } from "@/components/CaseFields";
+import { AdjustmentsField } from "@/components/AdjustmentsField";
 import { activeFields } from "@/lib/customFields";
 import { createCase } from "../actions";
 
@@ -13,7 +14,7 @@ export default async function NewCasePage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requirePermission("case.create");
+  const access = await requirePermission("case.create");
   const { error } = await searchParams;
 
   const customFields = await activeFields();
@@ -80,6 +81,17 @@ export default async function NewCasePage({
             </label>
           </div>
         </div>
+
+        {can(access, "money.adjust") && (
+          <div>
+            <h2 className="mb-1 text-sm font-semibold text-slate-900">Extra fees &amp; deductions</h2>
+            <p className="mb-3 text-xs text-slate-500">
+              Added to or taken off the case price, and shown on the doctor&apos;s invoice. You can
+              also add them later from the case page.
+            </p>
+            <AdjustmentsField />
+          </div>
+        )}
 
         <div>
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Scan from doctor</h2>

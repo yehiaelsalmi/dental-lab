@@ -39,8 +39,6 @@ export default async function PricingSettingsPage({
               <th className="px-5 py-3 text-right font-medium">Ceramist fee / unit</th>
               <th className="px-5 py-3 text-right font-medium">Designer fee / unit</th>
               <th className="px-5 py-3 text-right font-medium">Ibar fee / unit</th>
-              <th className="px-5 py-3 text-right font-medium">Extra fees / case</th>
-              <th className="px-5 py-3 text-right font-medium">Deduction / case</th>
               <th className="px-5 py-3 text-right font-medium">Milling cost / unit</th>
               <th className="px-5 py-3 text-right font-medium">Photogrammetry cost / unit</th>
               <th className="px-5 py-3" />
@@ -55,12 +53,6 @@ export default async function PricingSettingsPage({
                 <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.designerFeePerUnit)}</td>
                 <td className="px-5 py-3 text-right text-slate-700">
                   {formatEGP(m.ibarFeePerUnit)}
-                </td>
-                <td className="px-5 py-3 text-right text-slate-700">
-                  {formatEGP(m.extraFee)}
-                </td>
-                <td className="px-5 py-3 text-right text-slate-700">
-                  {formatEGP(m.deduction)}
                 </td>
                 <td className="px-5 py-3 text-right text-slate-700">
                   {formatEGP(m.millingCostPerUnit)}
@@ -89,8 +81,6 @@ export default async function PricingSettingsPage({
             <RateInput name="ceramistFeePerUnit" label="Ceramist fee / unit" required />
             <RateInput name="designerFeePerUnit" label="Designer fee / unit" required />
             <RateInput name="ibarFeePerUnit" label="Ibar fee / unit (optional)" />
-            <RateInput name="extraFee" label="Extra fees / case (optional)" />
-            <RateInput name="deduction" label="Deduction / case (optional)" />
             <RateInput name="millingCostPerUnit" label="Milling cost / unit (optional)" />
             <RateInput
               name="photogrammetryCostPerUnit"
@@ -106,7 +96,8 @@ export default async function PricingSettingsPage({
             </div>
           </div>
           <p className="mt-3 text-xs text-slate-500">
-            Case price = price per unit x units + extra fees - deduction. Milling and
+            Case price = price per unit x units. Extra fees and deductions (e.g. a rush order or
+            a remake discount) are added on each case. Milling and
             photogrammetry costs are what the lab pays: they&apos;re taken off profit, not billed
             to the doctor (photogrammetry only on cases that need it).
           </p>

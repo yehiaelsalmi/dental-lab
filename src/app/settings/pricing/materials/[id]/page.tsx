@@ -69,8 +69,6 @@ export default async function EditMaterialPage({
             label="Ibar fee / unit (optional)"
             defaultValue={material.ibarFeePerUnit}
           />
-          <RateInput name="extraFee" label="Extra fees / case (optional)" defaultValue={material.extraFee} />
-          <RateInput name="deduction" label="Deduction / case (optional)" defaultValue={material.deduction} />
           <RateInput
             name="millingCostPerUnit"
             label="Milling cost / unit (optional)"

@@ -24,8 +24,6 @@ const materialSchema = z.object({
   ceramistFeePerUnit: z.coerce.number().nonnegative(),
   designerFeePerUnit: z.coerce.number().nonnegative(),
   ibarFeePerUnit: z.coerce.number().nonnegative().optional(),
-  extraFee: z.coerce.number().nonnegative().optional(),
-  deduction: z.coerce.number().nonnegative().optional(),
   millingCostPerUnit: z.coerce.number().nonnegative().optional(),
   photogrammetryCostPerUnit: z.coerce.number().nonnegative().optional(),
 });
@@ -37,8 +35,6 @@ function parseMaterial(formData: FormData) {
     ceramistFeePerUnit: formData.get("ceramistFeePerUnit"),
     designerFeePerUnit: formData.get("designerFeePerUnit"),
     ibarFeePerUnit: emptyToUndefined(formData.get("ibarFeePerUnit")),
-    extraFee: emptyToUndefined(formData.get("extraFee")),
-    deduction: emptyToUndefined(formData.get("deduction")),
     millingCostPerUnit: emptyToUndefined(formData.get("millingCostPerUnit")),
     photogrammetryCostPerUnit: emptyToUndefined(formData.get("photogrammetryCostPerUnit")),
   });
@@ -78,8 +74,6 @@ export async function updateMaterial(formData: FormData) {
       data: {
         ...parsed.data,
         ibarFeePerUnit: parsed.data.ibarFeePerUnit ?? null,
-        extraFee: parsed.data.extraFee ?? null,
-        deduction: parsed.data.deduction ?? null,
         millingCostPerUnit: parsed.data.millingCostPerUnit ?? null,
         photogrammetryCostPerUnit: parsed.data.photogrammetryCostPerUnit ?? null,
       },

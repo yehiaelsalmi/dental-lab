@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
 import { caseUnits } from "@/lib/reporting";
+import { describeAdjustments } from "@/lib/adjustments";
 
 function errorMessage(error: unknown): string {
   if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
@@ -43,6 +44,7 @@ export async function generateInvoice(formData: FormData) {
         entryDate: { gte: periodStart, lt: periodEnd },
         totalPrice: { not: null },
       },
+      include: { adjustments: { orderBy: { createdAt: "asc" } } },
       orderBy: { entryDate: "asc" },
     });
 
@@ -64,6 +66,9 @@ export async function generateInvoice(formData: FormData) {
             patientName: c.patientName,
             units: caseUnits(c),
             amount: c.totalPrice ?? 0,
+            extraFee: c.extraFee,
+            deduction: c.deduction,
+            adjustments: describeAdjustments(c.adjustments),
             caseId: c.id,
           })),
         },

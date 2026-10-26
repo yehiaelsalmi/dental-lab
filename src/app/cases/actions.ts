@@ -12,8 +12,15 @@ import {
   toRoleAccess,
 } from "@/lib/access";
 import type { Permission } from "@/lib/permissions";
-import { createCaseFolder, uploadFileToDrive } from "@/lib/googleDrive";
-import { designSubfolder, isCaseSubfolder, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
+import { createCaseFolder, trashDriveFile, uploadFileToDrive } from "@/lib/googleDrive";
+import {
+  CASE_SUBFOLDERS,
+  designSubfolder,
+  isCaseSubfolder,
+  uploadSubfolder,
+  type CaseSubfolder,
+} from "@/lib/caseFolders";
+import { readAdjustment, readAdjustmentRows, syncCaseTotals } from "@/lib/adjustments";
 import {
   notifyCeramistAssigned,
   notifyRoleAssigned,
@@ -118,6 +125,7 @@ async function attachFile(
       driveFileId: uploaded.id,
       driveLink: uploaded.url,
       uploadedById,
+      folder: subfolder ? CASE_SUBFOLDERS[subfolder] : null,
     },
   });
 }
@@ -189,6 +197,9 @@ export async function createCase(formData: FormData) {
       needsPhotogrammetry: data.needsPhotogrammetry,
     });
 
+    // Extra fees / deductions typed on the form (only for people allowed to).
+    const adjustments = can(session, "money.adjust") ? readAdjustmentRows(formData) : [];
+
     const folder = await createCaseFolder(doctor.name, data.patientName);
     const startStatus = await nextStatus("READY_FOR_DESIGN");
 
@@ -217,6 +228,12 @@ export async function createCase(formData: FormData) {
     });
 
     await saveFieldValues(created.id, fieldValues);
+    if (adjustments.length > 0) {
+      await prisma.caseAdjustment.createMany({
+        data: adjustments.map((a) => ({ ...a, caseId: created.id, createdById: session.userId })),
+      });
+      await syncCaseTotals(created.id);
+    }
 
     if (scanFile instanceof File && scanFile.size > 0) {
       await attachFile(created.id, folder.id, scanFile, "SCAN", session.userId, "SCANS");
@@ -909,7 +926,7 @@ export async function updateCase(formData: FormData) {
     const status =
       !hasIbar && previous.status === "IBAR_DESIGN" ? await nextStatus("READY_FOR_DESIGN") : previous.status;
 
-    const pricing = pricingChanged
+    const repriced = pricingChanged
       ? computeCasePricing({
           lines: pricedLines,
           hasDesigner: !!previous.assignedDesignerId,
@@ -918,6 +935,10 @@ export async function updateCase(formData: FormData) {
           hasIbarDesigner: !!ibarDesigner,
           needsPhotogrammetry: data.needsPhotogrammetry,
         })
+      : null;
+    // The case's own extra fees and deductions stay on top of the new price.
+    const pricing = repriced
+      ? { ...repriced, totalPrice: repriced.totalPrice + (previous.extraFee ?? 0) - (previous.deduction ?? 0) }
       : {};
 
     await prisma.case.update({
@@ -979,4 +1000,46 @@ export async function deleteCase(formData: FormData) {
 
   revalidatePath("/cases");
   redirect("/cases");
+}
+
+// An extra fee or deduction on a case, at any stage.
+export async function addCaseAdjustment(caseId: string, formData: FormData) {
+  const session = await requirePermission("money.adjust");
+  try {
+    await requireVisibleCase(session, caseId);
+    const input = readAdjustment(formData.get("kind"), formData.get("amount"), formData.get("reason"));
+    await prisma.caseAdjustment.create({ data: { ...input, caseId, createdById: session.userId } });
+    await syncCaseTotals(caseId);
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function removeCaseAdjustment(caseId: string, adjustmentId: string) {
+  const session = await requirePermission("money.adjust");
+  try {
+    await requireVisibleCase(session, caseId);
+    await prisma.caseAdjustment.deleteMany({ where: { id: adjustmentId, caseId } });
+    await syncCaseTotals(caseId);
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+}
+
+// Removes a file from the case and moves it to Drive's trash. The record is
+// kept (marked deleted) so the Drive sync doesn't bring it back.
+export async function deleteCaseFile(caseId: string, fileId: string) {
+  const session = await requirePermission("case.deleteFiles");
+  try {
+    await requireVisibleCase(session, caseId);
+    const file = await prisma.caseFile.findFirst({ where: { id: fileId, caseId, deletedAt: null } });
+    if (!file) throw new Error("That file was already deleted.");
+    await trashDriveFile(file.driveFileId);
+    await prisma.caseFile.update({ where: { id: file.id }, data: { deletedAt: new Date() } });
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
 }

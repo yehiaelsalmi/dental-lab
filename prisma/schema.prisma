@@ -45,6 +45,7 @@ model User {
   doctorPaymentsRecorded DoctorPayment[] @relation("DoctorPaymentsRecorded")
   staffPayments          StaffPayment[]  @relation("StaffPaymentsReceived")
   staffPaymentsRecorded  StaffPayment[]  @relation("StaffPaymentsRecorded")
+  adjustmentsAdded       CaseAdjustment[] @relation("CaseAdjustmentsAdded")
 }
 
 model Doctor {
@@ -199,6 +200,7 @@ model Case {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  adjustments    CaseAdjustment[]
 }
 
 model CaseUnit {
@@ -220,10 +222,33 @@ model CaseFile {
   driveFileId String
   driveLink   String
 
-  uploadedById String
-  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+  // Null for files found in Drive (added there directly, not through the app).
+  uploadedById String?
+  uploadedBy   User?  @relation(fields: [uploadedById], references: [id])
+  // The case subfolder it's in (e.g. "scans (for design)"); null = the
+  // patient folder itself.
+  folder       String?
+  // Deleted from the case (and moved to Drive's trash). Kept so the Drive
+  // sync doesn't add it back.
+  deletedAt    DateTime?
 
   createdAt DateTime @default(now())
+}
+
+// An extra fee or a deduction on a case, entered by hand (e.g. "Rush order",
+// "Remake discount"). Case.extraFee / Case.deduction hold their totals.
+model CaseAdjustment {
+  id          String   @id @default(cuid())
+  caseId      String
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  kind        String   // "FEE" or "DEDUCTION"
+  amount      Float
+  reason      String
+  createdById String?
+  createdBy   User?    @relation("CaseAdjustmentsAdded", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([caseId])
 }
 
 // Runtime settings edited from the admin UI (e.g. Google Drive connection),
@@ -284,6 +309,11 @@ model InvoiceLine {
   patientName String
   units       Int
   amount      Float
+
+  // Extra fees / deductions included in `amount`, and their reasons.
+  extraFee    Float?
+  deduction   Float?
+  adjustments String?
 
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)

@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     where: { id },
     include: { case: { include: VISIBILITY_INCLUDE } },
   });
-  if (!file) return new Response("Not found", { status: 404 });
+  if (!file || file.deletedAt) return new Response("Not found", { status: 404 });
 
   if (!canViewCase(access, file.case)) return new Response("Forbidden", { status: 403 });
 
