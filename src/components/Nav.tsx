@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { can, getAccess, toRoleAccess, type Access } from "@/lib/access";
+import { can, getAccess, type Access } from "@/lib/access";
 import { LAB_LEADER_KEY } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getLabSettings } from "@/lib/labSettings";
@@ -35,14 +35,18 @@ function visibleLinks(access: Access): NavHref[] {
 // Lab Leader, and not roles already covered by the designer/ceramist pages).
 async function teamLinks(access: Access): Promise<TeamLink[]> {
   const links: TeamLink[] = [];
-  if (can(access, "page.designers")) links.push({ href: "/designers", label: "Designers" });
-  if (can(access, "page.ceramists")) links.push({ href: "/ceramists", label: "Ceramists" });
+  const showDesigners = can(access, "page.designers");
+  const showCeramists = can(access, "page.ceramists");
+  if (showDesigners) links.push({ href: "/designers", label: "Designers" });
+  if (showCeramists) links.push({ href: "/ceramists", label: "Ceramists" });
   if (can(access, "page.team")) {
     const roles = await prisma.role.findMany({ orderBy: { name: "asc" } });
     for (const role of roles) {
       if (role.key === LAB_LEADER_KEY) continue;
-      const perms = toRoleAccess(role).permissions;
-      if (perms.has("work.design") || perms.has("work.ceramist")) continue;
+      // The Designer and Ceramist roles already have their own pages above.
+      const name = role.name.trim().toLowerCase();
+      if (showDesigners && (role.key === "DESIGNER" || name === "designer" || name === "designers")) continue;
+      if (showCeramists && (name === "ceramist" || name === "ceramists")) continue;
       links.push({ href: `/team/${role.id}`, label: role.name });
     }
   }
