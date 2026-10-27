@@ -211,6 +211,23 @@ time (or "All time"): case profit minus that month's expenses and salaries gives
 who can see their own earnings also see their salary on My earnings. Salaries use
 each person's current salary for every month.
 
+## Money counts only once a case is delivered
+
+A case's money counts from the moment it's marked **Delivered** (`Case.deliveredAt`,
+set by Mark as Delivered, Move to status or a skipped Revision, and cleared if the case
+is moved back):
+
+- **Reports** list delivered cases by the month they were delivered; cases still in
+  progress appear under "Not delivered yet" with their price greyed out and not in
+  any total.
+- **Invoices** include the doctor's cases delivered in that month.
+- **Doctor balance** (Payments) counts delivered cases only, and shows the value
+  still in progress separately.
+- **Team earnings** (My earnings, Payments → Team) count a fee as earned only once
+  the case is delivered.
+
+Cases already delivered before this took their last-change date as delivery date.
+
 ## Extra fees and deductions
 
 Each case has a list of **extra fees** and **deductions** (e.g. "Rush order +500",

@@ -467,7 +467,7 @@ export async function markDelivered(caseId: string) {
     }
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
-    await prisma.case.update({ where: { id: caseId }, data: { status: "DELIVERED" } });
+    await prisma.case.update({ where: { id: caseId }, data: { status: "DELIVERED", deliveredAt: new Date() } });
     await notifyStatusWatchers(caseId, caseRecord.patientName, "DELIVERED", session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
@@ -500,7 +500,10 @@ export async function advanceProduction(caseId: string) {
       caseRecord.status === "PRINTING" && caseRecord.printForTryIn ? "TRY_IN" : await nextStatus(step.next);
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
-    await prisma.case.update({ where: { id: caseId }, data: { status: next } });
+    await prisma.case.update({
+      where: { id: caseId },
+      data: { status: next, ...(next === "DELIVERED" ? { deliveredAt: new Date() } : {}) },
+    });
     await notifyStatusWatchers(caseId, caseRecord.patientName, next, session.userId);
     if (next === "TRY_IN") await notifyTryInReady(caseId, caseRecord.patientName, session.userId);
   } catch (error) {
@@ -775,7 +778,10 @@ export async function setCaseStatus(caseId: string, status: string) {
     if (status === caseRecord.status) return;
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
-    await prisma.case.update({ where: { id: caseId }, data: { status } });
+    await prisma.case.update({
+      where: { id: caseId },
+      data: { status, deliveredAt: status === "DELIVERED" ? new Date() : null },
+    });
     await notifyStatusWatchers(caseId, caseRecord.patientName, status, session.userId);
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);

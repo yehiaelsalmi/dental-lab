@@ -1,12 +1,4 @@
-import type { CaseStatus } from "@/lib/constants";
-import { isBeforeIbar } from "@/lib/caseFlow";
-
 export type EarningItem = { label: string; amount: number | null; done: boolean };
-
-// The design is finished once it's approved for the ceramist's work; a print
-// for a try-in still has a redesign to come.
-const AFTER_APPROVAL: CaseStatus[] = ["PRINTING", "MILLING", "STAIN_AND_GLAZE", "COMPLETED", "DELIVERED"];
-const FINISHED: CaseStatus[] = ["COMPLETED", "DELIVERED"];
 
 type EarningFields = {
   status: string;
@@ -27,33 +19,25 @@ type EarningFields = {
 // What one person earns on a case, and whether their part is done (so the
 // amount is due). Uses the amounts locked onto the case.
 export function earningsOnCase(c: EarningFields, userId: string): EarningItem[] {
-  const status = c.status as CaseStatus;
+  // Nothing is earned until the case is delivered.
+  const done = c.status === "DELIVERED";
   const items: EarningItem[] = [];
 
   if (c.firstDesignerId === userId) {
-    items.push({
-      label: "Design before ibar",
-      amount: c.firstDesignerFee,
-      // Approved by the Lab Leader: the case has moved on to the ibar.
-      done: status === "IBAR_DESIGN" || !!c.ibarDoneAt,
-    });
+    items.push({ label: "Design before ibar", amount: c.firstDesignerFee, done });
   }
   if (c.assignedDesignerId === userId) {
-    items.push({
-      label: c.ibarDesignerId ? "Design after ibar" : "Design",
-      amount: c.designerFee,
-      done: !isBeforeIbar(c) && AFTER_APPROVAL.includes(status) && !(status === "PRINTING" && c.printForTryIn),
-    });
+    items.push({ label: c.ibarDesignerId ? "Design after ibar" : "Design", amount: c.designerFee, done });
   }
   if (c.ceramistId === userId) {
-    items.push({ label: "Stain & glaze", amount: c.ceramistFee, done: FINISHED.includes(status) });
+    items.push({ label: "Stain & glaze", amount: c.ceramistFee, done });
   }
   if (c.photogrammetryDoneById === userId) {
-    items.push({ label: "Photogrammetry", amount: c.photogrammetryCost, done: true });
+    items.push({ label: "Photogrammetry", amount: c.photogrammetryCost, done });
   }
   for (const a of c.assignments ?? []) {
     if (a.userId === userId) {
-      items.push({ label: a.role.name, amount: a.fee, done: FINISHED.includes(status) });
+      items.push({ label: a.role.name, amount: a.fee, done });
     }
   }
   return items;

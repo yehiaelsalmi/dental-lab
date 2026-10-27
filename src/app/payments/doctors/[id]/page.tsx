@@ -44,8 +44,17 @@ export default async function DoctorPaymentsPage({
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat
-          label="Owed (all cases)"
-          hint={summary.unpriced > 0 ? `${summary.unpriced} case${summary.unpriced === 1 ? " has" : "s have"} no price yet` : undefined}
+          label="Owed (delivered cases)"
+          hint={
+            [
+              summary.pendingCases > 0
+                ? `${formatEGP(summary.pending)} more in ${summary.pendingCases} case${summary.pendingCases === 1 ? "" : "s"} not delivered yet`
+                : "",
+              summary.unpriced > 0 ? `${summary.unpriced} delivered case${summary.unpriced === 1 ? " has" : "s have"} no price` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
         >
           {formatEGP(summary.owed)}
         </Stat>
@@ -137,8 +146,12 @@ export default async function DoctorPaymentsPage({
                   <span className="text-xs text-slate-400">{new Date(c.entryDate).toLocaleDateString("en-GB")}</span>
                   <StatusBadge status={c.status} />
                 </div>
-                <span className={c.totalPrice == null ? "text-amber-600" : "text-slate-900"}>
+                <span
+                  className={c.totalPrice == null ? "text-amber-600" : c.status === "DELIVERED" ? "text-slate-900" : "text-slate-400"}
+                  title={c.status === "DELIVERED" ? undefined : "Not counted until the case is delivered"}
+                >
                   {c.totalPrice == null ? "No price" : formatEGP(c.totalPrice)}
+                  {c.status !== "DELIVERED" && c.totalPrice != null && " (not delivered)"}
                 </span>
               </li>
             ))}

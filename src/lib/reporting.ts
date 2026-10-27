@@ -3,11 +3,15 @@ import { materialSummary, metalSummary } from "@/lib/caseMaterials";
 import { monthStart, nextMonthStart } from "@/lib/overheads";
 import { formatFieldValue } from "@/lib/customFields";
 
-// Cases entered in a month ("YYYY-MM"), or every case when no month is given.
+// Cases delivered in a month ("YYYY-MM"), or every delivered case when no
+// month is given. A case's money only counts once it's delivered.
 export async function getReportCases(month?: string) {
   return prisma.case.findMany({
-    where: month ? { entryDate: { gte: monthStart(month), lt: nextMonthStart(month) } } : undefined,
-    orderBy: { entryDate: "desc" },
+    where: {
+      status: "DELIVERED",
+      deliveredAt: month ? { gte: monthStart(month), lt: nextMonthStart(month) } : { not: null },
+    },
+    orderBy: { deliveredAt: "desc" },
     include: {
       doctor: true,
       materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } },
@@ -18,6 +22,16 @@ export async function getReportCases(month?: string) {
       assignments: { include: { role: true, user: true } },
       fieldValues: true,
     },
+  });
+}
+
+// Cases not delivered yet (entered by the end of the month, if one is given):
+// listed in Reports without counting their money.
+export async function getUndeliveredCases(month?: string) {
+  return prisma.case.findMany({
+    where: { status: { not: "DELIVERED" }, ...(month ? { entryDate: { lt: nextMonthStart(month) } } : {}) },
+    orderBy: { entryDate: "desc" },
+    include: { doctor: true },
   });
 }
 

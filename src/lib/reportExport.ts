@@ -115,7 +115,7 @@ export async function buildReportExcelBuffer(
 
   cases.forEach((c) => {
     sheet.addRow([
-      new Date(c.entryDate),
+      new Date(c.deliveredAt ?? c.entryDate),
       c.patientName,
       c.doctor.name,
       caseMaterialsText(c),
@@ -265,7 +265,7 @@ export async function buildReportPdfBuffer(
     doc,
     PDF_COLUMNS,
     cases.map((c) => [
-      formatDate(new Date(c.entryDate)),
+      formatDate(new Date(c.deliveredAt ?? c.entryDate)),
       c.patientName,
       c.doctor.name,
       caseMaterialsText(c) || "-",

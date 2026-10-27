@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/access";
 import { formatEGP } from "@/lib/money";
 import {
   getReportCases,
+  getUndeliveredCases,
   computeTotals,
   caseUnits,
   caseProfit,
@@ -25,6 +26,7 @@ import {
   overheadsForMonth,
 } from "@/lib/overheads";
 import { activeFields } from "@/lib/customFields";
+import { StatusBadge } from "@/components/StatusBadge";
 
 function shiftMonth(key: string, by: number) {
   const d = monthStart(key);
@@ -47,7 +49,7 @@ export default async function ReportsPage({
   const month = allTime ? undefined : isMonthKey(monthParam) ? monthParam : currentMonthKey();
   const exportQuery = month ? `&month=${month}` : "";
 
-  const cases = await getReportCases(month);
+  const [cases, undelivered] = await Promise.all([getReportCases(month), getUndeliveredCases(month)]);
   const customFields = await activeFields();
   const overheads = month ? await overheadsForMonth(month) : null;
   const totals = computeTotals(cases);
@@ -59,8 +61,9 @@ export default async function ReportsPage({
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Reports</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Every case with its price and costs, plus each month&apos;s expenses, salaries and net
-            profit, like the old sheet.
+            Delivered cases with their price and costs, by the month they were delivered, plus each
+            month&apos;s expenses, salaries and net profit. A case&apos;s money only counts once it&apos;s
+            delivered.
           </p>
         </div>
         <div className="flex gap-2">
@@ -149,7 +152,7 @@ export default async function ReportsPage({
         <table className="w-full min-w-[2080px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3 font-medium">Date</th>
+              <th className="px-4 py-3 font-medium">Delivered</th>
               <th className="px-4 py-3 font-medium">Patient</th>
               <th className="px-4 py-3 font-medium">Doctor</th>
               <th className="px-4 py-3 font-medium">Material</th>
@@ -181,7 +184,7 @@ export default async function ReportsPage({
             {cases.map((c) => (
               <tr key={c.id} className="hover:bg-slate-50">
                 <td className="whitespace-nowrap px-4 py-2.5 text-slate-500">
-                  {new Date(c.entryDate).toLocaleDateString()}
+                  {new Date(c.deliveredAt ?? c.entryDate).toLocaleDateString()}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 font-medium text-slate-900">
                   <a href={`/cases/${c.id}`} className="hover:text-brand">
@@ -233,7 +236,7 @@ export default async function ReportsPage({
             {cases.length === 0 && (
               <tr>
                 <td colSpan={21 + customFields.length} className="px-4 py-10 text-center text-slate-400">
-                  No cases yet.
+                  No cases delivered {month ? "this month" : "yet"}.
                 </td>
               </tr>
             )}
@@ -266,6 +269,50 @@ export default async function ReportsPage({
           )}
         </table>
       </div>
+
+      {undelivered.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-1 text-lg font-semibold text-slate-900">Not delivered yet</h2>
+          <p className="mb-3 text-sm text-slate-500">
+            {undelivered.length} case{undelivered.length === 1 ? "" : "s"} still in progress. Their
+            amounts aren&apos;t counted anywhere until they&apos;re marked delivered.
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Entered</th>
+                  <th className="px-4 py-3 font-medium">Patient</th>
+                  <th className="px-4 py-3 font-medium">Doctor</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 text-right font-medium">Units</th>
+                  <th className="px-4 py-3 text-right font-medium">Price (not counted)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {undelivered.map((c) => (
+                  <tr key={c.id} className="hover:bg-slate-50">
+                    <td className="whitespace-nowrap px-4 py-2.5 text-slate-500">
+                      {new Date(c.entryDate).toLocaleDateString()}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2.5 font-medium text-slate-900">
+                      <a href={`/cases/${c.id}`} className="hover:text-brand">
+                        {c.patientName}
+                      </a>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">{c.doctor.name}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5">
+                      <StatusBadge status={c.status} />
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-slate-600">{caseUnits(c)}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-400">{fmt(c.totalPrice)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <h2 className="mb-3 text-lg font-semibold text-slate-900">By person</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

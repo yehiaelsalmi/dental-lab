@@ -40,18 +40,19 @@ export async function generateInvoice(formData: FormData) {
     const cases = await prisma.case.findMany({
       where: {
         doctorId,
-        entryDate: { gte: periodStart, lt: periodEnd },
+        status: "DELIVERED",
+        deliveredAt: { gte: periodStart, lt: periodEnd },
         totalPrice: { not: null },
       },
       include: {
         adjustments: { orderBy: { createdAt: "asc" } },
         materials: { orderBy: { createdAt: "asc" }, include: { material: true } },
       },
-      orderBy: { entryDate: "asc" },
+      orderBy: { deliveredAt: "asc" },
     });
 
     if (cases.length === 0) {
-      throw new Error("No priced cases for that doctor in that month.");
+      throw new Error("No delivered, priced cases for that doctor in that month.");
     }
 
     const totalAmount = cases.reduce((sum, c) => sum + (c.totalPrice ?? 0), 0);

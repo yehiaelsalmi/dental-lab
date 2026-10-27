@@ -17,7 +17,7 @@ import {
 // 1. The units: every material line of every case, at its unit price.
 const UNIT_COLUMNS: PdfColumn[] = [
   { header: "#", width: 18 },
-  { header: "Date", width: 56 },
+  { header: "Delivered", width: 56 },
   { header: "Patient", width: 94 },
   { header: "Material", width: 148 },
   { header: "Arch", width: 36 },
@@ -84,6 +84,10 @@ function adjustmentsOf(line: LineWithCase): AdjustmentRow[] {
   return line.case?.adjustments ?? [];
 }
 
+function deliveredTime(c: { deliveredAt: Date | null; entryDate: Date } | null): number {
+  return (c?.deliveredAt ?? c?.entryDate)?.getTime() ?? 0;
+}
+
 function monthLabel(date: Date) {
   return date.toLocaleDateString("en-GB", { year: "numeric", month: "long", timeZone: "UTC" });
 }
@@ -112,7 +116,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
   const lines = [...invoice.lines].sort(
-    (a, b) => (a.case?.entryDate.getTime() ?? 0) - (b.case?.entryDate.getTime() ?? 0)
+    (a, b) => deliveredTime(a.case) - deliveredTime(b.case)
   );
   const period = invoice.periodStart.toISOString().slice(0, 7);
   const invoiceNumber = `INV-${period.replace("-", "")}-${invoice.id.slice(-5).toUpperCase()}`;
@@ -165,7 +169,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // 1. Units at their price.
   sectionTitle("UNITS");
   const unitRows = lines.flatMap((line, i) => {
-    const first = [String(i + 1), line.case ? formatDate(line.case.entryDate) : "-", line.patientName];
+    const first = [
+      String(i + 1),
+      line.case ? formatDate(line.case.deliveredAt ?? line.case.entryDate) : "-",
+      line.patientName,
+    ];
     const blank = ["", "", ""];
     const parts = breakdownOf(line);
     if (parts.length === 0) {

@@ -56,8 +56,8 @@ export default async function EarningsPage({
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">My earnings</h1>
       <p className="mb-6 text-sm text-slate-500">
-        What you earn for your part of each case. &quot;Done&quot; means your part is finished and
-        approved; &quot;pending&quot; means it&apos;s still in progress.
+        What you earn for your part of each case. &quot;Done&quot; means the case has been delivered;
+        &quot;pending&quot; means it&apos;s still in progress.
       </p>
 
       <div className="mb-6 flex flex-wrap gap-2">

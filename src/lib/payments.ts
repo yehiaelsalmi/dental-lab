@@ -27,19 +27,29 @@ export type DoctorBalance = {
   name: string;
   cases: number;
   unpriced: number;
+  // Cases not delivered yet and their value; not counted in `owed`.
+  pendingCases: number;
+  pending: number;
   owed: number;
   paid: number;
   // Positive: the doctor still owes this. Negative: credit (paid in advance).
   balance: number;
 };
 
-// Owed = the price of every case for the doctor; paid = payments entered.
+// Owed = the price of the doctor's delivered cases; paid = payments entered.
 export async function doctorBalances(doctorId?: string): Promise<DoctorBalance[]> {
   const where = doctorId ? { doctorId } : {};
-  const [doctors, priced, unpriced, payments] = await Promise.all([
+  const delivered = { ...where, status: "DELIVERED" };
+  const [doctors, priced, unpriced, inProgress, payments] = await Promise.all([
     prisma.doctor.findMany({ where: doctorId ? { id: doctorId } : {}, orderBy: { name: "asc" } }),
-    prisma.case.groupBy({ by: ["doctorId"], where, _sum: { totalPrice: true }, _count: { _all: true } }),
-    prisma.case.groupBy({ by: ["doctorId"], where: { ...where, totalPrice: null }, _count: { _all: true } }),
+    prisma.case.groupBy({ by: ["doctorId"], where: delivered, _sum: { totalPrice: true }, _count: { _all: true } }),
+    prisma.case.groupBy({ by: ["doctorId"], where: { ...delivered, totalPrice: null }, _count: { _all: true } }),
+    prisma.case.groupBy({
+      by: ["doctorId"],
+      where: { ...where, status: { not: "DELIVERED" } },
+      _sum: { totalPrice: true },
+      _count: { _all: true },
+    }),
     prisma.doctorPayment.groupBy({ by: ["doctorId"], where, _sum: { amount: true } }),
   ]);
   return doctors.map((d) => {
@@ -51,6 +61,8 @@ export async function doctorBalances(doctorId?: string): Promise<DoctorBalance[]
       name: d.name,
       cases: c?._count._all ?? 0,
       unpriced: unpriced.find((p) => p.doctorId === d.id)?._count._all ?? 0,
+      pendingCases: inProgress.find((p) => p.doctorId === d.id)?._count._all ?? 0,
+      pending: inProgress.find((p) => p.doctorId === d.id)?._sum.totalPrice ?? 0,
       owed,
       paid,
       balance: owed - paid,

@@ -127,6 +127,9 @@ model Case {
   system         String?
   shade          String?
   status         String    @default("READY_FOR_DESIGN")
+  // When the case was marked delivered. Its money (reports, invoices, doctor
+  // balance, team earnings) only counts from then, in that month.
+  deliveredAt    DateTime?
   // Set when a design is approved: "PRINTING" or "MILLING", and whether the
   // print goes to the doctor for a try-in before the ceramist.
   productionMethod String?

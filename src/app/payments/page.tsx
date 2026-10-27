@@ -41,7 +41,8 @@ async function DoctorsTable() {
   return (
     <>
       <p className="mb-3 text-sm text-slate-500">
-        Owed is the price of all their cases. In total, doctors{" "}
+        Owed is the price of their delivered cases; cases still in progress aren&apos;t counted yet.
+        In total, doctors{" "}
         <BalanceText balance={totalBalance} owing="owe" ahead="have a credit of" />.
       </p>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">

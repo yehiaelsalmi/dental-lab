@@ -77,7 +77,10 @@ async function moveCasesOut(key: string, label: string, moveTo: string) {
   if (!target) {
     fail(`${inUse} case${inUse === 1 ? " is" : "s are"} in "${label}". Pick the status to move ${inUse === 1 ? "it" : "them"} to.`);
   }
-  await prisma.case.updateMany({ where: { status: key }, data: { status: target.key } });
+  await prisma.case.updateMany({
+    where: { status: key },
+    data: { status: target.key, ...(target.key === "DELIVERED" ? { deliveredAt: new Date() } : {}) },
+  });
 }
 
 // Statuses listed after it move up to take its place.
