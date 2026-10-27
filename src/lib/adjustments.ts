@@ -45,11 +45,3 @@ export async function syncCaseTotals(caseId: string) {
     },
   });
 }
-
-// "+500 Rush order; −300 Remake discount", for invoices.
-export function describeAdjustments(list: { kind: string; amount: number; reason: string }[]): string | null {
-  if (list.length === 0) return null;
-  return list
-    .map((a) => `${a.kind === "DEDUCTION" ? "−" : "+"}${Math.round(a.amount).toLocaleString("en-US")} ${a.reason}`)
-    .join("; ");
-}

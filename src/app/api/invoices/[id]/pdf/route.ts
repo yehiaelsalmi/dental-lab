@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { materialSummary } from "@/lib/caseMaterials";
 import { requirePermission } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { getLabSettings, pdfLab } from "@/lib/labSettings";
@@ -15,34 +14,41 @@ import {
   type PdfColumn,
 } from "@/lib/pdfTable";
 
-const COLUMNS: PdfColumn[] = [
-  { header: "#", width: 22 },
-  { header: "Date", width: 60 },
-  { header: "Patient", width: 104 },
-  { header: "Material", width: 104 },
-  { header: "Units", width: 34, align: "right" },
-  { header: "Extras", width: 56, align: "right" },
-  { header: "Deduct.", width: 56, align: "right" },
-  { header: "Amount", width: 63, align: "right" },
+// 1. The units: every material line of every case, at its unit price.
+const UNIT_COLUMNS: PdfColumn[] = [
+  { header: "#", width: 18 },
+  { header: "Date", width: 56 },
+  { header: "Patient", width: 94 },
+  { header: "Material", width: 148 },
+  { header: "Arch", width: 36 },
+  { header: "Units", width: 32, align: "right" },
+  { header: "Price / unit", width: 55, align: "right" },
+  { header: "Subtotal", width: 60, align: "right" },
 ];
 
-const BREAKDOWN_COLUMNS: PdfColumn[] = [
-  { header: "Patient", width: 120 },
-  { header: "Material", width: 165 },
-  { header: "Arch", width: 44 },
-  { header: "Units", width: 36, align: "right" },
-  { header: "Price / unit", width: 66, align: "right" },
-  { header: "Subtotal", width: 68, align: "right" },
+// 2. Extra fees and deductions, one row each.
+const ADJUSTMENT_COLUMNS: PdfColumn[] = [
+  { header: "Patient", width: 140 },
+  { header: "Reason", width: 239 },
+  { header: "Type", width: 60 },
+  { header: "Amount", width: 60, align: "right" },
 ];
 
 type BreakdownRow = { material: string; arch: string; units: number; pricePerUnit: number | null };
+type AdjustmentRow = { kind: string; amount: number; reason: string };
+
+type LineWithCase = {
+  breakdown: string | null;
+  adjustments: string | null;
+  case: {
+    materials: { arch: string; units: number; pricePerUnit: number | null; material: { name: string; pricePerUnit: number } }[];
+    adjustments: AdjustmentRow[];
+  } | null;
+};
 
 // The unit prices as invoiced; invoices made before they were stored use the
 // case's saved lines.
-function breakdownOf(line: {
-  breakdown: string | null;
-  case: { materials: { arch: string; units: number; pricePerUnit: number | null; material: { name: string; pricePerUnit: number } }[] } | null;
-}): BreakdownRow[] {
+function breakdownOf(line: LineWithCase): BreakdownRow[] {
   if (line.breakdown) {
     try {
       return JSON.parse(line.breakdown) as BreakdownRow[];
@@ -58,6 +64,26 @@ function breakdownOf(line: {
   }));
 }
 
+// Extra fees / deductions as invoiced (JSON), from older invoices' text
+// ("+500 Rush; −300 Remake"), or from the case itself.
+function adjustmentsOf(line: LineWithCase): AdjustmentRow[] {
+  const text = line.adjustments;
+  if (text) {
+    if (text.startsWith("[")) {
+      try {
+        return JSON.parse(text) as AdjustmentRow[];
+      } catch {
+        // fall through
+      }
+    }
+    return text.split("; ").flatMap((part) => {
+      const m = part.match(/^([+−-])([\d,.]+)\s+(.*)$/);
+      return m ? [{ kind: m[1] === "+" ? "FEE" : "DEDUCTION", amount: Number(m[2].replace(/,/g, "")), reason: m[3] }] : [];
+    });
+  }
+  return line.case?.adjustments ?? [];
+}
+
 function monthLabel(date: Date) {
   return date.toLocaleDateString("en-GB", { year: "numeric", month: "long", timeZone: "UTC" });
 }
@@ -70,7 +96,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     where: { id },
     include: {
       doctor: true,
-      lines: { include: { case: { include: { materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } } } } } },
+      lines: {
+        include: {
+          case: {
+            include: {
+              materials: { orderBy: { createdAt: "asc" }, include: { material: true } },
+              adjustments: { orderBy: { createdAt: "asc" } },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -84,6 +119,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const totalUnits = lines.reduce((sum, l) => sum + l.units, 0);
   const totalExtras = lines.reduce((sum, l) => sum + (l.extraFee ?? 0), 0);
   const totalDeductions = lines.reduce((sum, l) => sum + (l.deduction ?? 0), 0);
+  // The price for the units alone (each amount without its extras).
+  const unitsSubtotal = invoice.totalAmount - totalExtras + totalDeductions;
 
   const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true });
   const left = doc.page.margins.left;
@@ -115,84 +152,88 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   doc.text(monthLabel(invoice.periodStart), left + pageWidth / 2, infoTop + 27, { lineBreak: false });
   doc.y = infoTop + 58 + 18;
 
-  drawTable(
-    doc,
-    COLUMNS,
-    lines.map((line, i) => [
-      String(i + 1),
-      line.case ? formatDate(line.case.entryDate) : "-",
-      line.patientName,
-      line.case ? materialSummary(line.case.materials) || "-" : "-",
-      String(line.units),
-      line.extraFee ? formatMoney(line.extraFee) : "-",
-      line.deduction ? `-${formatMoney(line.deduction)}` : "-",
-      formatMoney(line.amount),
-    ]),
-    {
-      fontSize: 8.5,
-      footer: [
-        "",
-        "",
-        "Total",
-        "",
-        String(totalUnits),
-        totalExtras ? formatMoney(totalExtras) : "",
-        totalDeductions ? `-${formatMoney(totalDeductions)}` : "",
-        formatMoney(invoice.totalAmount),
-      ],
+  const sectionTitle = (title: string) => {
+    if (doc.y + 70 > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      doc.y = doc.page.margins.top;
     }
-  );
+    doc.font("Helvetica-Bold").fontSize(10).fillColor(PDF_COLORS.text);
+    doc.text(title, left, doc.y);
+    doc.y += 5;
+  };
 
-  // Unit prices behind each case's amount.
-  const breakdownRows = lines.flatMap((l) =>
-    breakdownOf(l).map((b, i) => [
-      i === 0 ? l.patientName : "",
+  // 1. Units at their price.
+  sectionTitle("UNITS");
+  const unitRows = lines.flatMap((line, i) => {
+    const first = [String(i + 1), line.case ? formatDate(line.case.entryDate) : "-", line.patientName];
+    const blank = ["", "", ""];
+    const parts = breakdownOf(line);
+    if (parts.length === 0) {
+      const base = line.amount - (line.extraFee ?? 0) + (line.deduction ?? 0);
+      return [[...first, "-", "-", String(line.units), "-", formatMoney(base)]];
+    }
+    return parts.map((b, j) => [
+      ...(j === 0 ? first : blank),
       b.material,
       b.arch === "UPPER" ? "Upper" : "Lower",
       String(b.units),
       b.pricePerUnit == null ? "-" : formatMoney(b.pricePerUnit),
       b.pricePerUnit == null ? "-" : formatMoney(b.pricePerUnit * b.units),
+    ]);
+  });
+  drawTable(doc, UNIT_COLUMNS, unitRows, {
+    fontSize: 8.5,
+    footer: ["", "", "Units subtotal", "", "", String(totalUnits), "", formatMoney(unitsSubtotal)],
+  });
+
+  // 2. Extra fees and deductions.
+  const adjustmentRows = lines.flatMap((line) =>
+    adjustmentsOf(line).map((a, j) => [
+      j === 0 ? line.patientName : "",
+      a.reason,
+      a.kind === "DEDUCTION" ? "Deduction" : "Extra fee",
+      `${a.kind === "DEDUCTION" ? "-" : "+"}${formatMoney(a.amount)}`,
     ])
   );
-  if (breakdownRows.length > 0) {
-    if (doc.y + 80 > doc.page.height - doc.page.margins.bottom) {
-      doc.addPage();
-      doc.y = doc.page.margins.top;
-    }
-    doc.moveDown(0.8);
-    doc.font("Helvetica-Bold").fontSize(9).fillColor(PDF_COLORS.text);
-    doc.text("UNIT PRICES", left, doc.y);
-    doc.y += 4;
-    drawTable(doc, BREAKDOWN_COLUMNS, breakdownRows, { fontSize: 8.5 });
+  if (adjustmentRows.length > 0) {
+    doc.y += 16;
+    sectionTitle("EXTRA FEES AND DEDUCTIONS");
+    const net = totalExtras - totalDeductions;
+    drawTable(doc, ADJUSTMENT_COLUMNS, adjustmentRows, {
+      fontSize: 8.5,
+      footer: ["", "Total", "", `${net < 0 ? "-" : "+"}${formatMoney(Math.abs(net))}`],
+    });
   }
 
-  // What each extra fee and deduction was for.
-  const explained = lines.filter((l) => l.adjustments);
-  if (explained.length > 0) {
-    doc.moveDown(0.8);
-    doc.font("Helvetica-Bold").fontSize(9).fillColor(PDF_COLORS.text);
-    doc.text("EXTRA FEES AND DEDUCTIONS", left, doc.y);
-    doc.font("Helvetica").fontSize(8.5).fillColor(PDF_COLORS.muted);
-    for (const l of explained) {
-      doc.text(`${l.patientName}: ${l.adjustments}`, left, doc.y + 3, { width: pageWidth });
-    }
-  }
-
-  // Amount-due box, right-aligned under the table.
-  const boxWidth = 220;
-  const boxHeight = 50;
-  if (doc.y + boxHeight + 40 > doc.page.height - doc.page.margins.bottom) {
+  // 3. Summary: units subtotal, extras, deductions, total due.
+  const summary: [string, string][] = [["Units subtotal", formatMoney(unitsSubtotal)]];
+  if (totalExtras) summary.push(["Extra fees", `+${formatMoney(totalExtras)}`]);
+  if (totalDeductions) summary.push(["Deductions", `-${formatMoney(totalDeductions)}`]);
+  const boxWidth = 230;
+  const rowH = 16;
+  const boxHeight = summary.length * rowH + 52;
+  if (doc.y + boxHeight + 50 > doc.page.height - doc.page.margins.bottom) {
     doc.addPage();
     doc.y = doc.page.margins.top;
   }
-  const boxTop = doc.y + 18;
+  const boxTop = doc.y + 20;
   const boxLeft = left + pageWidth - boxWidth;
-  doc.roundedRect(boxLeft, boxTop, boxWidth, boxHeight, 6).fill(PDF_COLORS.brand);
+  doc.roundedRect(boxLeft, boxTop, boxWidth, boxHeight, 6).fill(PDF_COLORS.stripe);
+  summary.forEach(([label, value], i) => {
+    const y = boxTop + 12 + i * rowH;
+    doc.font("Helvetica").fontSize(9.5).fillColor(PDF_COLORS.muted);
+    doc.text(label, boxLeft + 14, y, { lineBreak: false });
+    doc.font("Helvetica-Bold").fillColor(PDF_COLORS.text);
+    doc.text(value, boxLeft + 14, y, { width: boxWidth - 28, align: "right", lineBreak: false });
+  });
+  const dueTop = boxTop + 12 + summary.length * rowH + 2;
+  doc.roundedRect(boxLeft, dueTop, boxWidth, boxTop + boxHeight - dueTop, 6).fill(PDF_COLORS.brand);
   doc.font("Helvetica").fontSize(9).fillColor("#ffffff");
-  doc.text("AMOUNT DUE", boxLeft + 14, boxTop + 10, { lineBreak: false });
-  doc.font("Helvetica-Bold").fontSize(17);
-  doc.text(formatMoney(invoice.totalAmount), boxLeft + 14, boxTop + 24, {
+  doc.text("TOTAL DUE", boxLeft + 14, dueTop + 12, { lineBreak: false });
+  doc.font("Helvetica-Bold").fontSize(15);
+  doc.text(formatMoney(invoice.totalAmount), boxLeft + 14, dueTop + 9, {
     width: boxWidth - 28,
+    align: "right",
     lineBreak: false,
   });
 
