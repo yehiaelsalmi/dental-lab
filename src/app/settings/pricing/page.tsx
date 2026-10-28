@@ -20,7 +20,7 @@ export default async function PricingSettingsPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-10">
+    <div className="mx-auto max-w-full px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Pricing</h1>
       <p className="mb-6 text-sm text-slate-500">
         Fixed rates used to calculate each case&apos;s price and costs automatically.
