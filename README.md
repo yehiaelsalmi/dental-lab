@@ -269,7 +269,10 @@ fee, the ceramist fee, the **matching fee**, the **milling fee**, the ibar fee a
 **Matching** / **Milling** role in the case's Team box (roles marked with the keys
 `MATCHING` / `MILLING`), locked when they're assigned; the photogrammetry fee goes to
 whoever marks photogrammetry done. Like every fee they count as earned once the case is
-delivered and are taken off profit. There is no separate milling cost any more.
+delivered and are taken off profit.
+Saving a material's matching or milling fee updates the Matching / Milling fees on the
+cases using it (`refreshMaterialRoleFees` in `src/lib/roleFees.ts`): cases not delivered
+follow the new price, and delivered cases only get a fee filled in if they had none. There is no separate milling cost any more.
 
 ## Pricing
 

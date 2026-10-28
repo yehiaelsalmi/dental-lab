@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
+import { refreshMaterialRoleFees } from "@/lib/roleFees";
 
 function errorMessage(error: unknown): string {
   if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
@@ -81,11 +82,13 @@ export async function updateMaterial(formData: FormData) {
         photogrammetryCostPerUnit: parsed.data.photogrammetryCostPerUnit ?? null,
       },
     });
+    // Matching / milling people on cases using this material get the new fee.
+    await refreshMaterialRoleFees(id);
   } catch (error) {
     redirect(`${back}?error=${encodeURIComponent(errorMessage(error))}`);
   }
 
-  revalidatePath("/settings/pricing");
+  revalidatePath("/", "layout");
   redirect("/settings/pricing");
 }
 
