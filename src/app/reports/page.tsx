@@ -149,83 +149,54 @@ export default async function ReportsPage({
       )}
 
       <div className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[1980px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <table className="w-full min-w-[980px] text-left text-[13px]">
+          <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3 font-medium">Delivered</th>
-              <th className="px-4 py-3 font-medium">Patient</th>
-              <th className="px-4 py-3 font-medium">Doctor</th>
-              <th className="px-4 py-3 font-medium">Material</th>
-              <th className="px-4 py-3 text-right font-medium">Units</th>
-              <th className="px-4 py-3 text-right font-medium">Extra fees</th>
-              <th className="px-4 py-3 text-right font-medium">Deduction</th>
-              <th className="px-4 py-3 text-right font-medium">Price</th>
-              <th className="px-4 py-3 font-medium">Ceramist</th>
-              <th className="px-4 py-3 text-right font-medium">Ceramist fee</th>
-              <th className="px-4 py-3 font-medium">Designer</th>
-              <th className="px-4 py-3 text-right font-medium">Designer fee</th>
-              <th className="px-4 py-3 font-medium">Ibar</th>
-              <th className="px-4 py-3 text-right font-medium">Ibar fee</th>
-              <th className="px-4 py-3 font-medium">Metal</th>
-              <th className="px-4 py-3 text-right font-medium">Metal cost</th>
-              <th className="px-4 py-3 text-right font-medium">Photogrammetry fee</th>
-              <th className="px-4 py-3 font-medium">Other roles</th>
-              <th className="px-4 py-3 text-right font-medium">Fees</th>
-              <th className="px-4 py-3 text-right font-medium">Profit</th>
+              <Th>Delivered</Th>
+              <Th sub="Patient">Doctor</Th>
+              <Th>Material</Th>
+              <Th right sub="+ fees / − deductions">Extras</Th>
+              <Th right>Price</Th>
+              <Th sub="Fee">Ceramist</Th>
+              <Th sub="Fee">Designer</Th>
+              <Th sub="Fee">Ibar</Th>
+              <Th sub="Cost">Metal</Th>
+              <Th right>Photogr. fee</Th>
+              <Th sub="Fees">Other roles</Th>
+              <Th right>Profit</Th>
               {customFields.map((f) => (
-                <th key={f.id} className="px-4 py-3 font-medium">
-                  {f.label}
-                </th>
+                <Th key={f.id}>{f.label}</Th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {cases.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-50">
-                <td className="whitespace-nowrap px-4 py-2.5 text-slate-500">
-                  {new Date(c.deliveredAt ?? c.entryDate).toLocaleDateString()}
+              <tr key={c.id} className="align-top hover:bg-slate-50">
+                <td className="whitespace-nowrap px-2.5 py-2 text-slate-500">
+                  {new Date(c.deliveredAt ?? c.entryDate).toLocaleDateString("en-GB")}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 font-medium text-slate-900">
-                  <a href={`/cases/${c.id}`} className="hover:text-brand">
+                <td className="min-w-[150px] px-2.5 py-2">
+                  <span className="font-semibold text-slate-900">{c.doctor.name}</span>
+                  <a href={`/cases/${c.id}`} className="block text-xs text-slate-500 hover:text-brand">
                     {c.patientName}
                   </a>
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">{c.doctor.name}</td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
-                  {caseMaterialsText(c) || "-"}
+                <td className="px-2.5 py-2 text-slate-600">{caseMaterialsText(c) || "-"}</td>
+                <td className="whitespace-nowrap px-2.5 py-2 text-right text-slate-700">
+                  {c.extraFee ? <span className="block text-emerald-700">+{fmt(c.extraFee)}</span> : null}
+                  {c.deduction ? <span className="block text-rose-700">−{fmt(c.deduction)}</span> : null}
+                  {!c.extraFee && !c.deduction ? "-" : null}
                 </td>
-                <td className="px-4 py-2.5 text-right text-slate-600">{caseUnits(c)}</td>
-                <td className="px-4 py-2.5 text-right text-slate-600">{fmt(c.extraFee)}</td>
-                <td className="px-4 py-2.5 text-right text-slate-600">{fmt(c.deduction)}</td>
-                <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.totalPrice)}</td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
-                  {c.ceramist?.name ?? "-"}
-                </td>
-                <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.ceramistFee)}</td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
-                  {designerNames(c) || "-"}
-                </td>
-                <td className="px-4 py-2.5 text-right text-slate-800">{fmt(designerFees(c))}</td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
-                  {c.ibarDesigner?.name ?? "-"}
-                </td>
-                <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.ibarFee)}</td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
-                  {caseMetalsText(c) || "-"}
-                </td>
-                <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.metalCost)}</td>
-                <td className="px-4 py-2.5 text-right text-slate-800">
-                  {fmt(c.photogrammetryCost)}
-                </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">{staffText(c) || "-"}</td>
-                <td className="px-4 py-2.5 text-right text-slate-800">
-                  {c.assignments.length ? fmt(staffFees(c)) : "-"}
-                </td>
-                <td className="px-4 py-2.5 text-right font-medium text-slate-900">
-                  {fmt(caseProfit(c))}
-                </td>
+                <Num value={c.totalPrice} strong />
+                <Who name={c.ceramist?.name} amount={c.ceramistFee} />
+                <Who name={designerNames(c)} amount={designerFees(c)} />
+                <Who name={c.ibarDesigner?.name} amount={c.ibarFee} />
+                <Who name={caseMetalsText(c)} amount={c.metalCost} />
+                <Num value={c.photogrammetryCost} />
+                <Who name={staffText(c)} amount={c.assignments.length ? staffFees(c) : null} />
+                <Num value={caseProfit(c)} strong />
                 {customFields.map((f) => (
-                  <td key={f.id} className="whitespace-nowrap px-4 py-2.5 text-slate-600">
+                  <td key={f.id} className="px-2.5 py-2 text-slate-600">
                     {caseFieldText(c, f)}
                   </td>
                 ))}
@@ -233,7 +204,7 @@ export default async function ReportsPage({
             ))}
             {cases.length === 0 && (
               <tr>
-                <td colSpan={20 + customFields.length} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={12 + customFields.length} className="px-4 py-10 text-center text-slate-400">
                   No cases delivered {month ? "this month" : "yet"}.
                 </td>
               </tr>
@@ -242,22 +213,17 @@ export default async function ReportsPage({
           {cases.length > 0 && (
             <tfoot className="border-t-2 border-slate-300 bg-slate-50 font-medium text-slate-900">
               <tr>
-                <td colSpan={7} className="px-4 py-3">
-                  Total
+                <td colSpan={4} className="px-2.5 py-2.5">
+                  Total ({cases.length} case{cases.length === 1 ? "" : "s"})
                 </td>
-                <td className="px-4 py-3 text-right">{fmt(totals.price)}</td>
-                <td />
-                <td className="px-4 py-3 text-right">{fmt(totals.ceramist)}</td>
-                <td />
-                <td className="px-4 py-3 text-right">{fmt(totals.designer)}</td>
-                <td />
-                <td className="px-4 py-3 text-right">{fmt(totals.ibar)}</td>
-                <td />
-                <td className="px-4 py-3 text-right">{fmt(totals.metal)}</td>
-                <td className="px-4 py-3 text-right">{fmt(totals.photogrammetry)}</td>
-                <td />
-                <td className="px-4 py-3 text-right">{fmt(totals.staff)}</td>
-                <td className="px-4 py-3 text-right">{fmt(totals.profit)}</td>
+                <Num value={totals.price} strong />
+                <Num value={totals.ceramist} />
+                <Num value={totals.designer} />
+                <Num value={totals.ibar} />
+                <Num value={totals.metal} />
+                <Num value={totals.photogrammetry} />
+                <Num value={totals.staff} />
+                <Num value={totals.profit} strong />
                 {customFields.map((f) => (
                   <td key={f.id} />
                 ))}
@@ -279,8 +245,8 @@ export default async function ReportsPage({
               <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">Entered</th>
-                  <th className="px-4 py-3 font-medium">Patient</th>
                   <th className="px-4 py-3 font-medium">Doctor</th>
+                  <th className="px-4 py-3 font-medium">Patient</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 text-right font-medium">Units</th>
                   <th className="px-4 py-3 text-right font-medium">Price (not counted)</th>
@@ -292,12 +258,12 @@ export default async function ReportsPage({
                     <td className="whitespace-nowrap px-4 py-2.5 text-slate-500">
                       {new Date(c.entryDate).toLocaleDateString()}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-2.5 font-medium text-slate-900">
+                    <td className="whitespace-nowrap px-4 py-2.5 font-semibold text-slate-900">{c.doctor.name}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">
                       <a href={`/cases/${c.id}`} className="hover:text-brand">
                         {c.patientName}
                       </a>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">{c.doctor.name}</td>
                     <td className="whitespace-nowrap px-4 py-2.5">
                       <StatusBadge status={c.status} />
                     </td>
@@ -346,5 +312,34 @@ function Stat({ label, value, strong }: { label: string; value: number; strong?:
         {fmt(value)}
       </p>
     </div>
+  );
+}
+
+// Two-line column header: the title, with what's under it in each cell.
+function Th({ children, sub, right }: { children: React.ReactNode; sub?: string; right?: boolean }) {
+  return (
+    <th className={`px-2.5 py-2.5 align-bottom font-medium leading-tight ${right ? "text-right" : ""}`}>
+      {children}
+      {sub && <span className="block font-normal normal-case tracking-normal text-slate-400">{sub}</span>}
+    </th>
+  );
+}
+
+function Num({ value, strong }: { value: number | null | undefined; strong?: boolean }) {
+  return (
+    <td className={`whitespace-nowrap px-2.5 py-2 text-right ${strong ? "font-semibold text-slate-900" : "text-slate-700"}`}>
+      {fmt(value)}
+    </td>
+  );
+}
+
+// A person (or metal) with their fee (or cost) under it.
+function Who({ name, amount }: { name: string | null | undefined; amount: number | null | undefined }) {
+  if (!name && amount == null) return <td className="px-2.5 py-2 text-slate-300">-</td>;
+  return (
+    <td className="px-2.5 py-2">
+      <span className="text-slate-700">{name || "-"}</span>
+      <span className="block whitespace-nowrap text-xs font-medium text-slate-900">{fmt(amount)}</span>
+    </td>
   );
 }
