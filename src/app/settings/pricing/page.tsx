@@ -31,36 +31,35 @@ export default async function PricingSettingsPage({
       )}
 
       <section className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[1320px] text-left text-sm">
+        <table className="w-full min-w-[860px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-5 py-3 font-medium">Material</th>
-              <th className="px-5 py-3 text-right font-medium">Price / unit</th>
-              <th className="px-5 py-3 text-right font-medium">Ceramist fee / unit</th>
-              <th className="px-5 py-3 text-right font-medium">Designer fee / unit</th>
-              <th className="px-5 py-3 text-right font-medium">Matching fee / unit</th>
-              <th className="px-5 py-3 text-right font-medium">Milling fee / unit</th>
-              <th className="px-5 py-3 text-right font-medium">Ibar fee / unit</th>
-              <th className="px-5 py-3 text-right font-medium">Photogrammetry fee / unit</th>
-              <th className="px-5 py-3" />
+              <th className="px-3 py-3 font-medium">Material</th>
+              {["Price", "Ceramist fee", "Designer fee", "Matching fee", "Milling fee", "Ibar fee", "Photogrammetry fee"].map((h) => (
+                <th key={h} className="px-3 py-3 text-right align-bottom font-medium leading-tight">
+                  {h}
+                  <span className="block font-normal normal-case tracking-normal text-slate-400">per unit</span>
+                </th>
+              ))}
+              <th className="px-3 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {materials.map((m) => (
               <tr key={m.id}>
-                <td className="px-5 py-3 font-medium text-slate-900">{m.name}</td>
-                <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.pricePerUnit)}</td>
-                <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.ceramistFeePerUnit)}</td>
-                <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.designerFeePerUnit)}</td>
-                <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.matchingFeePerUnit)}</td>
-                <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.millingFeePerUnit)}</td>
-                <td className="px-5 py-3 text-right text-slate-700">
+                <td className="px-3 py-3 font-medium text-slate-900">{m.name}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">{formatEGP(m.pricePerUnit)}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">{formatEGP(m.ceramistFeePerUnit)}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">{formatEGP(m.designerFeePerUnit)}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">{formatEGP(m.matchingFeePerUnit)}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">{formatEGP(m.millingFeePerUnit)}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">
                   {formatEGP(m.ibarFeePerUnit)}
                 </td>
-                <td className="px-5 py-3 text-right text-slate-700">
+                <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">
                   {formatEGP(m.photogrammetryCostPerUnit)}
                 </td>
-                <td className="px-5 py-3 text-right">
+                <td className="px-3 py-3 text-right">
                   <EditLink href={`/settings/pricing/materials/${m.id}`} />
                 </td>
               </tr>
