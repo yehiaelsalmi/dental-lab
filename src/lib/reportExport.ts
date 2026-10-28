@@ -85,8 +85,7 @@ const EXCEL_COLUMNS: { header: string; width: number; money?: boolean }[] = [
   { header: "Ibar fee", width: 12, money: true },
   { header: "Metal", width: 18 },
   { header: "Metal cost", width: 13, money: true },
-  { header: "Milling cost", width: 13, money: true },
-  { header: "Photogrammetry cost", width: 20, money: true },
+  { header: "Photogrammetry fee", width: 20, money: true },
   { header: "Other roles", width: 30 },
   { header: "Other roles fees", width: 16, money: true },
   { header: "Profit", width: 14, money: true },
@@ -133,7 +132,6 @@ export async function buildReportExcelBuffer(
       c.ibarFee ?? null,
       caseMetalsText(c),
       c.metalCost ?? null,
-      c.millingCost ?? null,
       c.photogrammetryCost ?? null,
       staffText(c),
       c.assignments.length ? staffFees(c) : null,
@@ -163,7 +161,6 @@ export async function buildReportExcelBuffer(
       totals.ibar,
       "",
       totals.metal,
-      totals.milling,
       totals.photogrammetry,
       "",
       totals.staff,
@@ -227,7 +224,7 @@ const PDF_COLUMNS: PdfColumn[] = [
   { header: "Fee", width: 46, align: "right" },
   { header: "Metal", width: 38 },
   { header: "Cost", width: 46, align: "right" },
-  { header: "Milling", width: 44, align: "right" },
+  { header: "Team fees", width: 44, align: "right" },
   { header: "Photogr.", width: 44, align: "right" },
   { header: "Profit", width: 56, align: "right" },
 ];
@@ -247,7 +244,6 @@ export async function buildReportPdfBuffer(
     totals.designer +
     totals.ibar +
     totals.metal +
-    totals.milling +
     totals.photogrammetry +
     totals.staff;
   const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 20, bufferPages: true });
@@ -279,7 +275,7 @@ export async function buildReportPdfBuffer(
       money(c.ibarFee),
       caseMetalsText(c) || "-",
       money(c.metalCost),
-      money(c.millingCost),
+      c.assignments.length ? money(staffFees(c)) : "-",
       money(c.photogrammetryCost),
       formatMoney(caseProfit(c)),
     ]),
@@ -300,7 +296,7 @@ export async function buildReportPdfBuffer(
         formatMoney(totals.ibar),
         "",
         formatMoney(totals.metal),
-        formatMoney(totals.milling),
+        formatMoney(totals.staff),
         formatMoney(totals.photogrammetry),
         formatMoney(totals.profit),
       ],

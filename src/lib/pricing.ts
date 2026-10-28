@@ -3,10 +3,11 @@ type MaterialRates = {
   pricePerUnit: number;
   ceramistFeePerUnit: number;
   designerFeePerUnit: number;
+  matchingFeePerUnit: number | null;
+  millingFeePerUnit: number | null;
   ibarFeePerUnit: number | null;
   extraFee: number | null;
   deduction: number | null;
-  millingCostPerUnit: number | null;
   photogrammetryCostPerUnit: number | null;
 };
 
@@ -29,6 +30,15 @@ function sumRate(lines: PricedLine[], rate: (line: PricedLine) => number | null)
 
 export function designerFeeFor(lines: PricedLine[]): number {
   return sumRate(lines, (l) => l.material.designerFeePerUnit) ?? 0;
+}
+
+// Null when no material on the case has a matching fee.
+export function matchingFeeFor(lines: PricedLine[]): number | null {
+  return sumRate(lines, (l) => l.material.matchingFeePerUnit);
+}
+
+export function millingFeeFor(lines: PricedLine[]): number | null {
+  return sumRate(lines, (l) => l.material.millingFeePerUnit);
 }
 
 export function ceramistFeeFor(lines: PricedLine[]): number {
@@ -56,7 +66,6 @@ export function computeCasePricing(input: {
     ceramistFee: input.hasCeramist ? ceramistFeeFor(lines) : null,
     ibarFee: input.hasIbarDesigner ? sumRate(lines, (l) => l.material.ibarFeePerUnit) : null,
     metalCost: sumRate(lines, (l) => l.metalCostPerUnit),
-    millingCost: sumRate(lines, (l) => l.material.millingCostPerUnit),
     photogrammetryCost: input.needsPhotogrammetry
       ? sumRate(lines, (l) => l.material.photogrammetryCostPerUnit)
       : null,

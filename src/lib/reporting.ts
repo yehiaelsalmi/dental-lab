@@ -63,7 +63,6 @@ export function caseProfit(c: ReportCase): number {
     (c.firstDesignerFee ?? 0) -
     (c.ibarFee ?? 0) -
     (c.metalCost ?? 0) -
-    (c.millingCost ?? 0) -
     (c.photogrammetryCost ?? 0) -
     staffFees(c)
   );
@@ -87,12 +86,11 @@ export function computeTotals(cases: ReportCase[]) {
       acc.designer += (c.designerFee ?? 0) + (c.firstDesignerFee ?? 0);
       acc.ibar += c.ibarFee ?? 0;
       acc.metal += c.metalCost ?? 0;
-      acc.milling += c.millingCost ?? 0;
       acc.photogrammetry += c.photogrammetryCost ?? 0;
       acc.staff += staffFees(c);
       return acc;
     },
-    { price: 0, ceramist: 0, designer: 0, ibar: 0, metal: 0, milling: 0, photogrammetry: 0, staff: 0 }
+    { price: 0, ceramist: 0, designer: 0, ibar: 0, metal: 0, photogrammetry: 0, staff: 0 }
   );
   const profit =
     totals.price -
@@ -100,7 +98,6 @@ export function computeTotals(cases: ReportCase[]) {
     totals.designer -
     totals.ibar -
     totals.metal -
-    totals.milling -
     totals.photogrammetry -
     totals.staff;
   return { ...totals, profit };

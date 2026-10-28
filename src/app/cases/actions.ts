@@ -46,7 +46,8 @@ import {
   type CaseStatus,
   type ReviewDecision,
 } from "@/lib/constants";
-import { ceramistFeeFor, computeCasePricing, designerFeeFor } from "@/lib/pricing";
+import { ceramistFeeFor, computeCasePricing, designerFeeFor, matchingFeeFor, millingFeeFor } from "@/lib/pricing";
+import { MATCHING_ROLE_KEY, MILLING_ROLE_KEY } from "@/lib/permissions";
 import {
   linesKey,
   parseLineInputs,
@@ -611,7 +612,16 @@ export async function assignRolePerson(caseId: string, roleId: string, userId: s
         throw new Error(`That person doesn't have the ${role.name} role.`);
       }
       const units = (caseRecord.unitsUpper ?? 0) + (caseRecord.unitsLower ?? 0);
-      const fee = role.feePerUnit != null ? role.feePerUnit * units : null;
+      // Matching and milling are paid per material (Pricing page), like
+      // designers and ceramists; other roles use the role's own fee per unit.
+      const fee =
+        role.key === MATCHING_ROLE_KEY
+          ? matchingFeeFor(await pricedLinesForCase(caseId))
+          : role.key === MILLING_ROLE_KEY
+            ? millingFeeFor(await pricedLinesForCase(caseId))
+            : role.feePerUnit != null
+            ? role.feePerUnit * units
+            : null;
       await prisma.caseAssignment.upsert({
         where: { caseId_roleId: { caseId, roleId } },
         create: { caseId, roleId, userId, fee },

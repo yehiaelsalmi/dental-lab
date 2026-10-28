@@ -97,6 +97,10 @@ model Material {
   pricePerUnit        Float
   ceramistFeePerUnit  Float
   designerFeePerUnit  Float
+  // What the person assigned to the Matching role earns per unit.
+  matchingFeePerUnit  Float?
+  // What the person assigned to the Milling role earns per unit.
+  millingFeePerUnit   Float?
   ibarFeePerUnit      Float?
   // Flat amounts per case, added to / taken off the price billed to the doctor.
   extraFee            Float?

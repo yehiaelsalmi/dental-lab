@@ -31,16 +31,17 @@ export default async function PricingSettingsPage({
       )}
 
       <section className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[1080px] text-left text-sm">
+        <table className="w-full min-w-[1320px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-3 font-medium">Material</th>
               <th className="px-5 py-3 text-right font-medium">Price / unit</th>
               <th className="px-5 py-3 text-right font-medium">Ceramist fee / unit</th>
               <th className="px-5 py-3 text-right font-medium">Designer fee / unit</th>
+              <th className="px-5 py-3 text-right font-medium">Matching fee / unit</th>
+              <th className="px-5 py-3 text-right font-medium">Milling fee / unit</th>
               <th className="px-5 py-3 text-right font-medium">Ibar fee / unit</th>
-              <th className="px-5 py-3 text-right font-medium">Milling cost / unit</th>
-              <th className="px-5 py-3 text-right font-medium">Photogrammetry cost / unit</th>
+              <th className="px-5 py-3 text-right font-medium">Photogrammetry fee / unit</th>
               <th className="px-5 py-3" />
             </tr>
           </thead>
@@ -51,11 +52,10 @@ export default async function PricingSettingsPage({
                 <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.pricePerUnit)}</td>
                 <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.ceramistFeePerUnit)}</td>
                 <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.designerFeePerUnit)}</td>
+                <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.matchingFeePerUnit)}</td>
+                <td className="px-5 py-3 text-right text-slate-700">{formatEGP(m.millingFeePerUnit)}</td>
                 <td className="px-5 py-3 text-right text-slate-700">
                   {formatEGP(m.ibarFeePerUnit)}
-                </td>
-                <td className="px-5 py-3 text-right text-slate-700">
-                  {formatEGP(m.millingCostPerUnit)}
                 </td>
                 <td className="px-5 py-3 text-right text-slate-700">
                   {formatEGP(m.photogrammetryCostPerUnit)}
@@ -80,11 +80,12 @@ export default async function PricingSettingsPage({
             <RateInput name="pricePerUnit" label="Price / unit" required />
             <RateInput name="ceramistFeePerUnit" label="Ceramist fee / unit" required />
             <RateInput name="designerFeePerUnit" label="Designer fee / unit" required />
+            <RateInput name="matchingFeePerUnit" label="Matching fee / unit (optional)" />
+            <RateInput name="millingFeePerUnit" label="Milling fee / unit (optional)" />
             <RateInput name="ibarFeePerUnit" label="Ibar fee / unit (optional)" />
-            <RateInput name="millingCostPerUnit" label="Milling cost / unit (optional)" />
             <RateInput
               name="photogrammetryCostPerUnit"
-              label="Photogrammetry cost / unit (optional)"
+              label="Photogrammetry fee / unit (optional)"
             />
             <div className="flex items-end">
               <button
@@ -97,9 +98,11 @@ export default async function PricingSettingsPage({
           </div>
           <p className="mt-3 text-xs text-slate-500">
             Case price = price per unit x units. Extra fees and deductions (e.g. a rush order or
-            a remake discount) are added on each case. Milling and
-            photogrammetry costs are what the lab pays: they&apos;re taken off profit, not billed
-            to the doctor (photogrammetry only on cases that need it).
+            a remake discount) are added on each case. Designer, ceramist, matching, milling and photogrammetry fees
+            are what the people doing that work earn per unit (matching and milling go to whoever is
+            assigned to the Matching or Milling role on the case). The photogrammetry fee goes to
+            whoever marks photogrammetry done, only on cases that need it. All of these are taken off
+            profit, not billed to the doctor.
           </p>
         </form>
       </section>

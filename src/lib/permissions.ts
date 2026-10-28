@@ -71,6 +71,10 @@ export type CaseScope = (typeof CASE_SCOPES)[number]["key"];
 export const PHOTOGRAMMETRY_NEEDED = "PHOTOGRAMMETRY_NEEDED";
 
 export const LAB_LEADER_KEY = "LAB_LEADER";
+// The Matching role: its people earn each material's matching fee per unit.
+export const MATCHING_ROLE_KEY = "MATCHING";
+// The Milling role: its people earn each material's milling fee per unit.
+export const MILLING_ROLE_KEY = "MILLING";
 
 export type RolePreset = {
   id: string;

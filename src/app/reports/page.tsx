@@ -149,7 +149,7 @@ export default async function ReportsPage({
       )}
 
       <div className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[2080px] text-left text-sm">
+        <table className="w-full min-w-[1980px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Delivered</th>
@@ -168,8 +168,7 @@ export default async function ReportsPage({
               <th className="px-4 py-3 text-right font-medium">Ibar fee</th>
               <th className="px-4 py-3 font-medium">Metal</th>
               <th className="px-4 py-3 text-right font-medium">Metal cost</th>
-              <th className="px-4 py-3 text-right font-medium">Milling cost</th>
-              <th className="px-4 py-3 text-right font-medium">Photogrammetry cost</th>
+              <th className="px-4 py-3 text-right font-medium">Photogrammetry fee</th>
               <th className="px-4 py-3 font-medium">Other roles</th>
               <th className="px-4 py-3 text-right font-medium">Fees</th>
               <th className="px-4 py-3 text-right font-medium">Profit</th>
@@ -215,7 +214,6 @@ export default async function ReportsPage({
                   {caseMetalsText(c) || "-"}
                 </td>
                 <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.metalCost)}</td>
-                <td className="px-4 py-2.5 text-right text-slate-800">{fmt(c.millingCost)}</td>
                 <td className="px-4 py-2.5 text-right text-slate-800">
                   {fmt(c.photogrammetryCost)}
                 </td>
@@ -235,7 +233,7 @@ export default async function ReportsPage({
             ))}
             {cases.length === 0 && (
               <tr>
-                <td colSpan={21 + customFields.length} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={20 + customFields.length} className="px-4 py-10 text-center text-slate-400">
                   No cases delivered {month ? "this month" : "yet"}.
                 </td>
               </tr>
@@ -256,7 +254,6 @@ export default async function ReportsPage({
                 <td className="px-4 py-3 text-right">{fmt(totals.ibar)}</td>
                 <td />
                 <td className="px-4 py-3 text-right">{fmt(totals.metal)}</td>
-                <td className="px-4 py-3 text-right">{fmt(totals.milling)}</td>
                 <td className="px-4 py-3 text-right">{fmt(totals.photogrammetry)}</td>
                 <td />
                 <td className="px-4 py-3 text-right">{fmt(totals.staff)}</td>

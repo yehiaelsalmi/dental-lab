@@ -65,18 +65,23 @@ export default async function EditMaterialPage({
             defaultValue={material.designerFeePerUnit}
           />
           <RateInput
+            name="matchingFeePerUnit"
+            label="Matching fee / unit (optional)"
+            defaultValue={material.matchingFeePerUnit}
+          />
+          <RateInput
+            name="millingFeePerUnit"
+            label="Milling fee / unit (optional)"
+            defaultValue={material.millingFeePerUnit}
+          />
+          <RateInput
             name="ibarFeePerUnit"
             label="Ibar fee / unit (optional)"
             defaultValue={material.ibarFeePerUnit}
           />
           <RateInput
-            name="millingCostPerUnit"
-            label="Milling cost / unit (optional)"
-            defaultValue={material.millingCostPerUnit}
-          />
-          <RateInput
             name="photogrammetryCostPerUnit"
-            label="Photogrammetry cost / unit (optional)"
+            label="Photogrammetry fee / unit (optional)"
             defaultValue={material.photogrammetryCostPerUnit}
           />
         </div>

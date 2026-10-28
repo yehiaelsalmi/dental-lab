@@ -81,7 +81,9 @@ export function RoleForm({
             />
             <span className="text-xs font-normal text-slate-500">
               What the assigned person earns per unit. Locked onto the case when they&apos;re
-              assigned; shown on their earnings and taken off profit.
+              assigned; shown on their earnings and taken off profit. (The Matching and Milling
+              roles are paid each material&apos;s &quot;Matching fee / unit&quot; / &quot;Milling fee / unit&quot;
+              from the Pricing page instead.)
             </span>
           </label>
         </section>

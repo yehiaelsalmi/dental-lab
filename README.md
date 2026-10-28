@@ -261,6 +261,16 @@ Cheque; the list is edited on Lab settings) and an optional note.
 Payments don't appear on Expenses or in Reports, because case fees are already
 subtracted from case profit. The logic is in `src/lib/payments.ts`.
 
+## Per-unit fees
+
+Each material on **Pricing** has, per unit: the price to the doctor, the designer
+fee, the ceramist fee, the **matching fee**, the **milling fee**, the ibar fee and the
+**photogrammetry fee**. The matching and milling fees go to whoever is assigned to the
+**Matching** / **Milling** role in the case's Team box (roles marked with the keys
+`MATCHING` / `MILLING`), locked when they're assigned; the photogrammetry fee goes to
+whoever marks photogrammetry done. Like every fee they count as earned once the case is
+delivered and are taken off profit. There is no separate milling cost any more.
+
 ## Pricing
 
 A case's materials are entered as **material lines**: each line is an arch (Upper

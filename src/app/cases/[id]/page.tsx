@@ -478,11 +478,10 @@ export default async function CaseDetailPage({
           />
           <Money label="Ibar fee" value={caseRecord.ibarFee} />
           <Money label="Metal cost" value={caseRecord.metalCost} />
-          <Money label="Milling cost" value={caseRecord.millingCost} />
           {caseRecord.assignments.map((a) => (
             <Money key={a.id} label={`${a.role.name} fee (${a.user.name})`} value={a.fee} />
           ))}
-          <Money label="Photogrammetry cost" value={caseRecord.photogrammetryCost} />
+          <Money label="Photogrammetry fee" value={caseRecord.photogrammetryCost} />
           <Money
             label="Profit"
             value={
@@ -494,7 +493,6 @@ export default async function CaseDetailPage({
                   (caseRecord.firstDesignerFee ?? 0) -
                   (caseRecord.ibarFee ?? 0) -
                   (caseRecord.metalCost ?? 0) -
-                  (caseRecord.millingCost ?? 0) -
                   (caseRecord.photogrammetryCost ?? 0) -
                   caseRecord.assignments.reduce((sum, a) => sum + (a.fee ?? 0), 0)
             }
