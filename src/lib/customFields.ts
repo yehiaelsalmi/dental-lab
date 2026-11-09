@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
+import { formatDate } from "@/lib/dates";
 export const FIELD_TYPES = [
   { key: "TEXT", label: "Short text" },
   { key: "LONGTEXT", label: "Long text" },
@@ -77,6 +78,6 @@ export async function saveFieldValues(caseId: string, values: { fieldId: string;
 export function formatFieldValue(type: string, value: string | null | undefined): string {
   if (!value) return "-";
   if (type === "CHECKBOX") return value === "yes" ? "Yes" : "No";
-  if (type === "DATE") return new Date(value).toLocaleDateString();
+  if (type === "DATE") return formatDate(value);
   return value;
 }

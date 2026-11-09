@@ -6,6 +6,7 @@ import { formatEGP } from "@/lib/money";
 import type { CaseStatus } from "@/lib/constants";
 import { StatusBadge } from "@/components/StatusBadge";
 
+import { formatDate } from "@/lib/dates";
 function monthKey(date: Date) {
   return date.toISOString().slice(0, 7);
 }
@@ -106,7 +107,7 @@ export default async function EarningsPage({
                     {c.patientName}
                   </Link>
                   <p className="text-xs text-slate-500">
-                    {c.doctor.name} · {new Date(c.entryDate).toLocaleDateString()}
+                    {c.doctor.name} · {formatDate(c.entryDate)}
                   </p>
                 </td>
                 <td className="px-4 py-3 text-slate-700">

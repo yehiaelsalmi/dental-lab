@@ -15,6 +15,7 @@ import {
 } from "@/lib/payments";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { DateField } from "@/components/DateField";
 import { addStaffPayment, deleteStaffPayment } from "../../actions";
 import { BalanceText, INPUT, Notice, Stat } from "../../ui";
 
@@ -75,7 +76,7 @@ export default async function StaffPaymentsPage({
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
             Date
-            <input name="paidAt" type="date" required defaultValue={todayKey()} className={INPUT} />
+            <DateField name="paidAt" required defaultValue={todayKey()} className={INPUT} />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
             For

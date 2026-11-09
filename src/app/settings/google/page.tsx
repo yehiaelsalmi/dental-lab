@@ -6,6 +6,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { createRootFolderAction, regenerateSyncSecretAction } from "./actions";
 
+import { formatDateTime } from "@/lib/dates";
 export default async function GoogleSettingsPage({
   searchParams,
 }: {
@@ -155,7 +156,7 @@ export default async function GoogleSettingsPage({
           Last check:{" "}
           <span className="font-medium">
             {syncedAt
-              ? syncedAt.toLocaleString("en-GB", { timeZone: "Africa/Cairo", dateStyle: "medium", timeStyle: "short" })
+              ? formatDateTime(syncedAt)
               : "never (not set up yet)"}
           </span>
         </p>

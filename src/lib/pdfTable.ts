@@ -19,9 +19,7 @@ export function formatMoney(value: number) {
   return formatEGP(value);
 }
 
-export function formatDate(date: Date) {
-  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-}
+export { formatDate } from "@/lib/dates";
 
 // Cells never wrap, so a long name is cut with "..." instead of spilling
 // into the next row.

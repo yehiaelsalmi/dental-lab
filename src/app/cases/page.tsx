@@ -11,6 +11,7 @@ import { getCaseAlert } from "@/lib/caseAlerts";
 import { getLabSettings } from "@/lib/labSettings";
 import { isBeforeIbar } from "@/lib/caseFlow";
 
+import { formatDate } from "@/lib/dates";
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
@@ -287,7 +288,7 @@ export default async function CasesPage({
                 <p className="mt-2 text-xs text-slate-400">
                   {(isBeforeIbar(c) ? c.firstDesigner : c.assignedDesigner)?.name ?? "Unassigned"}
                   {c.dueDate
-                    ? ` - Due ${new Date(c.dueDate).toLocaleDateString()}`
+                    ? ` - Due ${formatDate(c.dueDate)}`
                     : ""}
                 </p>
               </Link>
@@ -354,7 +355,7 @@ export default async function CasesPage({
                     )}
                   </td>
                   <td className="px-5 py-4 text-slate-500">
-                    {c.dueDate ? new Date(c.dueDate).toLocaleDateString() : "-"}
+                    {c.dueDate ? formatDate(c.dueDate) : "-"}
                   </td>
                   <td className="px-5 py-4">
                     <StatusBadge status={c.status} />

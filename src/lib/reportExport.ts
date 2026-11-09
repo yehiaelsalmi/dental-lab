@@ -139,7 +139,7 @@ export async function buildReportExcelBuffer(
       ...customFields.map((f) => caseFieldText(c, f)),
     ]);
   });
-  sheet.getColumn(1).numFmt = "dd mmm yyyy";
+  sheet.getColumn(1).numFmt = "dd/mm/yyyy";
 
   styleTotalRow(
     sheet.addRow([

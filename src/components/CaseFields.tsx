@@ -1,4 +1,5 @@
 import { EntitySelect } from "@/components/EntitySelect";
+import { DateField } from "@/components/DateField";
 import { UnitCodesField } from "@/components/UnitCodesField";
 import { MaterialLinesField, type MaterialLineDefault } from "@/components/MaterialLinesField";
 import { fieldInputName, type FieldDef } from "@/lib/customFields";
@@ -59,12 +60,14 @@ export function CaseFields({
             defaultValue={defaults.system ?? undefined}
           />
           <Field label="Shade" name="shade" defaultValue={defaults.shade ?? undefined} />
-          <Field
-            label="Due date"
-            name="dueDate"
-            type="date"
-            defaultValue={defaults.dueDate ? defaults.dueDate.toISOString().slice(0, 10) : undefined}
-          />
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+            Due date
+            <DateField
+              name="dueDate"
+              defaultValue={defaults.dueDate ? defaults.dueDate.toISOString().slice(0, 10) : undefined}
+              className={INPUT_CLASS}
+            />
+          </label>
           <EntitySelect
             label="Ibar designer"
             idField="ibarDesignerId"
@@ -177,10 +180,12 @@ function CustomFieldInput({ field, value }: { field: FieldDef; value?: string })
             </option>
           ))}
         </select>
+      ) : field.type === "DATE" ? (
+        <DateField name={name} required={field.required} defaultValue={value} className={INPUT_CLASS} />
       ) : (
         <input
           name={name}
-          type={field.type === "NUMBER" ? "number" : field.type === "DATE" ? "date" : "text"}
+          type={field.type === "NUMBER" ? "number" : "text"}
           step={field.type === "NUMBER" ? "any" : undefined}
           required={field.required}
           defaultValue={value}

@@ -74,6 +74,7 @@ import {
   deleteCaseFileAction,
 } from "./actions";
 
+import { formatDate, formatDateTime } from "@/lib/dates";
 export default async function CaseDetailPage({
   params,
   searchParams,
@@ -257,7 +258,7 @@ export default async function CaseDetailPage({
                         {e.done && (e.doneBy || e.doneAt) && (
                           <span className="block text-xs text-slate-400">
                             {e.doneBy ?? "Someone"}
-                            {e.doneAt && ` · ${new Date(e.doneAt).toLocaleString()}`}
+                            {e.doneAt && ` · ${formatDateTime(e.doneAt)}`}
                           </span>
                         )}
                       </span>
@@ -299,8 +300,8 @@ export default async function CaseDetailPage({
         <Info label="Ibar designer" value={caseRecord.ibarDesigner?.name ?? "-"} />
         <Info label="System" value={caseRecord.system ?? "-"} />
         <Info label="Shade" value={caseRecord.shade ?? "-"} />
-        <Info label="Entry date" value={new Date(caseRecord.entryDate).toLocaleDateString()} />
-        <Info label="Due date" value={caseRecord.dueDate ? new Date(caseRecord.dueDate).toLocaleDateString() : "-"} />
+        <Info label="Entry date" value={formatDate(caseRecord.entryDate)} />
+        <Info label="Due date" value={caseRecord.dueDate ? formatDate(caseRecord.dueDate) : "-"} />
         <Info label="Created by" value={caseRecord.createdBy.name} />
         {hasIbar && (
           <Info
@@ -323,7 +324,7 @@ export default async function CaseDetailPage({
             !caseRecord.needsPhotogrammetry
               ? "Not needed"
               : caseRecord.photogrammetryDoneAt
-                ? `Done ${new Date(caseRecord.photogrammetryDoneAt).toLocaleDateString()}`
+                ? `Done ${formatDate(caseRecord.photogrammetryDoneAt)}`
                 : "Pending"
           }
         />
@@ -423,7 +424,7 @@ export default async function CaseDetailPage({
                     </p>
                     <p className="text-xs text-slate-400">
                       {ADJUSTMENT_KINDS[a.kind as AdjustmentKind] ?? a.kind}
-                      {a.createdBy ? ` · added by ${a.createdBy.name}` : ""} · {new Date(a.createdAt).toLocaleString("en-GB", { timeZone: "Africa/Cairo", dateStyle: "medium", timeStyle: "short" })}
+                      {a.createdBy ? ` · added by ${a.createdBy.name}` : ""} · {formatDateTime(a.createdAt)}
                     </p>
                   </div>
                   {can(access, "money.adjust") && (
@@ -903,7 +904,7 @@ export default async function CaseDetailPage({
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">
-                    {w.uploadedBy.name} ({w.roleName}) · {new Date(w.createdAt).toLocaleString()}
+                    {w.uploadedBy.name} ({w.roleName}) · {formatDateTime(w.createdAt)}
                   </p>
                   {w.note && <p className="text-slate-600">{w.note}</p>}
                   {w.reviewedBy && (
@@ -1014,7 +1015,7 @@ export default async function CaseDetailPage({
                     {f.fileName}
                   </a>
                   <p className="mt-0.5 pl-6 text-xs text-slate-400">
-                    {new Date(f.createdAt).toLocaleString("en-GB", { timeZone: "Africa/Cairo", dateStyle: "medium", timeStyle: "short" })}
+                    {formatDateTime(f.createdAt)}
                     {f.uploadedBy ? ` · ${f.uploadedBy.name}` : f.type === "DRIVE" ? " · added in Drive" : ""}
                     {f.folder ? ` · ${f.folder}` : ""}
                   </p>
@@ -1092,7 +1093,7 @@ export default async function CaseDetailPage({
                       <User size={12} /> {r.reviewedBy.name}
                     </span>{" "}
                     <span className="text-slate-400">
-                      · {new Date(r.createdAt).toLocaleString()}
+                      · {formatDateTime(r.createdAt)}
                     </span>
                   </p>
                   {r.comment && <p className="mt-0.5 text-slate-500">{r.comment}</p>}

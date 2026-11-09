@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { earningsOnCase } from "@/lib/earnings";
 
+import { formatDate } from "@/lib/dates";
 export const STAFF_PAYMENT_KINDS = {
   FEES: "Toward case fees (advances too)",
   SALARY: "Salary / other",
@@ -15,7 +16,7 @@ export function parsePaidAt(value: FormDataEntryValue | null): Date | null {
 }
 
 export function formatPaidAt(date: Date): string {
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  return formatDate(date);
 }
 
 export function todayKey(): string {

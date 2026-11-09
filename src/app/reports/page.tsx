@@ -28,6 +28,7 @@ import {
 import { activeFields } from "@/lib/customFields";
 import { StatusBadge } from "@/components/StatusBadge";
 
+import { formatDate } from "@/lib/dates";
 function shiftMonth(key: string, by: number) {
   const d = monthStart(key);
   d.setUTCMonth(d.getUTCMonth() + by);
@@ -173,7 +174,7 @@ export default async function ReportsPage({
             {cases.map((c) => (
               <tr key={c.id} className="align-top hover:bg-slate-50">
                 <td className="whitespace-nowrap px-2.5 py-2 text-slate-500">
-                  {new Date(c.deliveredAt ?? c.entryDate).toLocaleDateString("en-GB")}
+                  {formatDate(c.deliveredAt ?? c.entryDate)}
                 </td>
                 <td className="min-w-[150px] px-2.5 py-2">
                   <span className="font-semibold text-slate-900">{c.doctor.name}</span>
@@ -256,7 +257,7 @@ export default async function ReportsPage({
                 {undelivered.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50">
                     <td className="whitespace-nowrap px-4 py-2.5 text-slate-500">
-                      {new Date(c.entryDate).toLocaleDateString()}
+                      {formatDate(c.entryDate)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-2.5 font-semibold text-slate-900">{c.doctor.name}</td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-slate-600">

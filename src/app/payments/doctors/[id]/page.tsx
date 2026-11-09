@@ -8,9 +8,11 @@ import { formatEGP } from "@/lib/money";
 import { doctorBalances, formatPaidAt, todayKey } from "@/lib/payments";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { DateField } from "@/components/DateField";
 import { addDoctorPayment, deleteDoctorPayment } from "../../actions";
 import { BalanceText, INPUT, Notice, Stat } from "../../ui";
 
+import { formatDate } from "@/lib/dates";
 export default async function DoctorPaymentsPage({
   params,
   searchParams,
@@ -74,7 +76,7 @@ export default async function DoctorPaymentsPage({
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
             Date
-            <input name="paidAt" type="date" required defaultValue={todayKey()} className={INPUT} />
+            <DateField name="paidAt" required defaultValue={todayKey()} className={INPUT} />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
             Method
@@ -143,7 +145,7 @@ export default async function DoctorPaymentsPage({
                   <Link href={`/cases/${c.id}`} className="truncate font-medium text-slate-800 hover:text-brand">
                     {c.patientName}
                   </Link>
-                  <span className="text-xs text-slate-400">{new Date(c.entryDate).toLocaleDateString("en-GB")}</span>
+                  <span className="text-xs text-slate-400">{formatDate(c.entryDate)}</span>
                   <StatusBadge status={c.status} />
                 </div>
                 <span

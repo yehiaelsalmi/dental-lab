@@ -12,6 +12,7 @@ import { LabMark } from "@/components/LabMark";
 import { PrintButton } from "@/components/PrintButton";
 import { FitToPage } from "@/components/FitToPage";
 
+import { formatDate, formatDateTime } from "@/lib/dates";
 // A one-page sheet with the case details (no prices) to keep with the work.
 export default async function CasePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -39,7 +40,7 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
     statusLabel(caseRecord.status),
     QRCode.toDataURL(caseUrl(caseRecord.id), { margin: 1, width: 320 }),
   ]);
-  const date = (d: Date | null) => (d ? new Date(d).toLocaleDateString() : "-");
+  const date = (d: Date | null) => (d ? formatDate(d) : "-");
   const hasIbar = !!caseRecord.ibarDesignerId;
 
   const details: [string, string][] = [
@@ -179,7 +180,7 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qrDataUrl} alt="Case QR code" style={{ width: "28mm", height: "28mm" }} />
           <span className="text-slate-500" style={{ fontSize: pt(6.5) }}>
-            Scan to open the case · Printed {new Date().toLocaleString("en-GB", { timeZone: "Africa/Cairo" })}
+            Scan to open the case · Printed {formatDateTime(new Date())}
           </span>
         </div>
       </FitToPage>

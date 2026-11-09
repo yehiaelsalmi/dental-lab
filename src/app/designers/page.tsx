@@ -5,6 +5,7 @@ import { DESIGN_PHASE_STATUSES, type CaseStatus } from "@/lib/constants";
 import { activeDesignerId } from "@/lib/caseFlow";
 import { StatusBadge } from "@/components/StatusBadge";
 
+import { formatDate } from "@/lib/dates";
 export default async function DesignersPage() {
   await requirePermission("page.designers");
 
@@ -113,7 +114,7 @@ export default async function DesignersPage() {
                       </td>
                       <td className="truncate px-5 py-2.5 text-slate-500">{c.doctor.name}</td>
                       <td className="px-5 py-2.5 text-slate-500">
-                        {c.dueDate ? `Due ${new Date(c.dueDate).toLocaleDateString()}` : "No due date"}
+                        {c.dueDate ? `Due ${formatDate(c.dueDate)}` : "No due date"}
                       </td>
                       <td className="px-5 py-2.5 text-right">
                         <StatusBadge status={c.status as CaseStatus} />

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAccess } from "@/lib/access";
 import { markAllNotificationsRead, openNotification } from "./actions";
 
+import { formatDateTime } from "@/lib/dates";
 export default async function NotificationsPage() {
   const session = await requireAccess();
 
@@ -56,7 +57,7 @@ export default async function NotificationsPage() {
                         {n.message}
                       </span>
                       <span className="mt-0.5 block text-xs text-slate-400">
-                        {new Date(n.createdAt).toLocaleString()}
+                        {formatDateTime(n.createdAt)}
                       </span>
                     </span>
                   </button>
