@@ -205,7 +205,18 @@ export default async function CaseDetailPage({
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="break-words text-2xl font-semibold text-slate-900">{caseRecord.patientName}</h1>
-          <p className="mt-1 text-sm text-slate-500">{caseRecord.doctor.name}</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {caseRecord.doctor.name}
+            {caseRecord.doctor.phone && (
+              <>
+                {" · "}
+                <a href={`tel:${caseRecord.doctor.phone.replace(/[^\d+]/g, "")}`} className="font-medium text-brand hover:text-brand-hover">
+                  {caseRecord.doctor.phone}
+                </a>
+              </>
+            )}
+          </p>
+          {caseRecord.doctor.address && <p className="text-xs text-slate-400">{caseRecord.doctor.address}</p>}
         </div>
         <div className="flex items-center gap-3">
           {can(access, "case.edit") && (

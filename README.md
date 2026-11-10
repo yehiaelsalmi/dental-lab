@@ -228,6 +228,13 @@ is moved back):
 
 Cases already delivered before this took their last-change date as delivery date.
 
+## Doctors
+
+Each doctor has a name, a **phone number** and an optional **address**. Adding a new
+doctor on the New Case form asks for the phone (required) and address; existing doctors
+are edited on the Doctors page (missing phones are highlighted). The phone shows on the
+case page (tap to call) and with the address on invoices.
+
 ## Problems
 
 Anyone who can see a case can **report a problem** (free text) on cases in a status
@@ -240,7 +247,8 @@ problem" tag on the Cases list (`CaseProblem`, `src/lib/problems.ts`).
 ## Cases list
 
 The Cases page opens on **Active** (every case not delivered) with its count; status
-cards filter by status and **All cases** includes delivered ones. The **Printing** card
+cards filter by status and **All cases** includes delivered ones. Both cards can be hidden on the Statuses page
+(with Active hidden, the page opens on every case). The **Printing** card
 shows the cases to print, total units and upper/lower models; **Stain & Glaze** shows
 each case's ceramist with a ceramist filter. Delivered can be hidden on the Statuses
 page like other built-in statuses; its cases stay delivered and still count.

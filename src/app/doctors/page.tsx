@@ -18,16 +18,16 @@ export default async function DoctorsPage({
   });
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-10">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Doctors</h1>
       <p className="mb-6 text-sm text-slate-500">
-        Fix a doctor&apos;s name or remove a duplicate. New doctors are still added from the New
+        Each doctor&apos;s name, phone number and address (optional). Fix a name or remove a duplicate. New doctors are still added from the New
         Case form. A doctor with cases or invoices can be renamed but not deleted.
       </p>
 
       {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {saved && (
-        <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Name saved.</p>
+        <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Doctor saved.</p>
       )}
       {deleted && (
         <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
@@ -43,13 +43,30 @@ export default async function DoctorsPage({
               key={d.id}
               className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center"
             >
-              <form action={renameDoctor} className="flex flex-1 gap-2">
+              <form action={renameDoctor} className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-[1.2fr_1fr_1.4fr_auto]">
                 <input type="hidden" name="id" value={d.id} />
                 <input
                   name="name"
                   defaultValue={d.name}
                   aria-label={`Name for ${d.name}`}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+                <input
+                  name="phone"
+                  type="tel"
+                  defaultValue={d.phone ?? ""}
+                  placeholder="Phone (missing)"
+                  aria-label={`Phone for ${d.name}`}
+                  className={`min-w-0 rounded-lg border px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 ${
+                    d.phone ? "border-slate-300" : "border-amber-300 bg-amber-50 placeholder:text-amber-600"
+                  }`}
+                />
+                <input
+                  name="address"
+                  defaultValue={d.address ?? ""}
+                  placeholder="Address (optional)"
+                  aria-label={`Address for ${d.name}`}
+                  className="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
                 />
                 <button
                   type="submit"

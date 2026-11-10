@@ -12,6 +12,7 @@ import { getLabSettings } from "@/lib/labSettings";
 import { isBeforeIbar } from "@/lib/caseFlow";
 
 import { formatDate } from "@/lib/dates";
+import { CASE_CARDS, hiddenCaseCards } from "@/lib/caseCards";
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
@@ -37,7 +38,10 @@ export default async function CasesPage({
   const allStatuses = await getStatuses();
   const activeStatus = allStatuses.some((s) => s.key === statusParam) ? statusParam! : null;
   // Without a status: "Active" (not delivered) by default, or "All".
-  const showAll = statusParam === "ALL";
+  const hiddenCards = await hiddenCaseCards();
+  // With the Active card hidden, the page opens on every case instead.
+  const defaultAll = hiddenCards.has("ACTIVE");
+  const showAll = statusParam === "ALL" || (!activeStatus && defaultAll);
   // Status counters only for the statuses this role can see.
   const shownStatuses = allStatuses
     .filter((s) => visibleStatuses.length === 0 || visibleStatuses.includes(s.key))
@@ -132,7 +136,7 @@ export default async function CasesPage({
   ];
   const alertCount = visibleCases.filter((c) => alerts.get(c.id)).length;
 
-  const currentView = activeStatus ?? (showAll ? "ALL" : null);
+  const currentView = activeStatus ?? (statusParam === "ALL" ? "ALL" : null);
   const withParams = (params: { status?: string | null; q?: string }) => {
     const search = new URLSearchParams();
     if (params.status) search.set("status", params.status);
@@ -229,13 +233,15 @@ export default async function CasesPage({
       </form>
 
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <CountCard
-          href={withParams({ status: null, q: query })}
-          active={!currentView}
-          count={activeCount}
-          label="Active (not delivered)"
-          strong
-        />
+        {!hiddenCards.has("ACTIVE") && (
+          <CountCard
+            href={withParams({ status: null, q: query })}
+            active={!currentView}
+            count={activeCount}
+            label={CASE_CARDS.ACTIVE}
+            strong
+          />
+        )}
         {shownStatuses.map((status) => {
           const active = status === activeStatus;
           return (
@@ -261,12 +267,14 @@ export default async function CasesPage({
             </Link>
           );
         })}
-        <CountCard
-          href={withParams({ status: "ALL", q: query })}
-          active={showAll}
-          count={matchingCases.length}
-          label="All cases"
-        />
+        {!hiddenCards.has("ALL") && (
+          <CountCard
+            href={withParams({ status: defaultAll ? null : "ALL", q: query })}
+            active={showAll}
+            count={matchingCases.length}
+            label={CASE_CARDS.ALL}
+          />
+        )}
       </div>
 
       {printing && (
@@ -279,7 +287,7 @@ export default async function CasesPage({
       )}
 
       <p className="mb-4 text-sm text-slate-500">
-        {activeStatus || query || showAll ? (
+        {activeStatus || query || (showAll && !defaultAll) ? (
           <>
             Showing {visibleCases.length} case
             {visibleCases.length === 1 ? "" : "s"}
@@ -308,11 +316,13 @@ export default async function CasesPage({
               href="/cases"
               className="font-medium text-brand hover:text-brand-hover"
             >
-              Back to active cases
+              {defaultAll ? "Show all" : "Back to active cases"}
             </Link>
           </>
         ) : (
-          `Showing the ${visibleCases.length} active case${visibleCases.length === 1 ? "" : "s"} (not delivered). Click a status to see only the cases in it.`
+          defaultAll
+            ? `Showing all ${visibleCases.length} case${visibleCases.length === 1 ? "" : "s"}. Click a status to see only the cases in it.`
+            : `Showing the ${visibleCases.length} active case${visibleCases.length === 1 ? "" : "s"} (not delivered). Click a status to see only the cases in it.`
         )}
       </p>
 

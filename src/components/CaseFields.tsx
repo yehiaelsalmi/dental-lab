@@ -51,6 +51,10 @@ export function CaseFields({
             items={doctors}
             addLabel="+ Add new doctor"
             defaultId={defaults.doctorId}
+            newFields={[
+              { name: "newDoctorPhone", placeholder: "Doctor's phone number", required: true, type: "tel" },
+              { name: "newDoctorAddress", placeholder: "Doctor's address (optional)" },
+            ]}
           />
           <Field label="Patient" name="patientName" required defaultValue={defaults.patientName} />
           <Field

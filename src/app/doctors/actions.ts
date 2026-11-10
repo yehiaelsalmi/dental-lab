@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
+import { cleanAddress, cleanPhone } from "@/lib/doctors";
 
 function back(params: string): never {
   redirect(`/doctors?${params}`);
@@ -18,7 +19,16 @@ export async function renameDoctor(formData: FormData) {
   const clash = await prisma.doctor.findUnique({ where: { name } });
   if (clash && clash.id !== id) back(`error=${encodeURIComponent(`There is already a doctor called ${name}.`)}`);
 
-  await prisma.doctor.update({ where: { id }, data: { name } });
+  let phone: string | null;
+  try {
+    phone = cleanPhone(formData.get("phone"), false);
+  } catch (error) {
+    back(`error=${encodeURIComponent((error as Error).message)}`);
+  }
+  await prisma.doctor.update({
+    where: { id },
+    data: { name, phone, address: cleanAddress(formData.get("address")) },
+  });
   revalidatePath("/doctors");
   back("saved=1");
 }

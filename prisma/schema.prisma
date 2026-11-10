@@ -54,6 +54,8 @@ model User {
 model Doctor {
   id        String   @id @default(cuid())
   name      String   @unique
+  phone     String?
+  address   String?
   createdAt DateTime @default(now())
 
   cases    Case[]

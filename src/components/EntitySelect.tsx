@@ -14,7 +14,10 @@ export function EntitySelect({
   addLabel,
   optional,
   defaultId,
+  newFields = [],
 }: {
+  // More boxes shown when adding a new one (e.g. a doctor's phone).
+  newFields?: { name: string; placeholder: string; required?: boolean; type?: string }[];
   label: string;
   idField: string;
   newNameField: string;
@@ -55,6 +58,17 @@ export function EntitySelect({
           className="mt-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
         />
       )}
+      {addingNew &&
+        newFields.map((f) => (
+          <input
+            key={f.name}
+            type={f.type ?? "text"}
+            name={f.name}
+            required={f.required}
+            placeholder={f.placeholder}
+            className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          />
+        ))}
     </div>
   );
 }

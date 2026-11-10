@@ -154,6 +154,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     ellipsis: true,
   });
   doc.text(monthLabel(invoice.periodStart), left + pageWidth / 2, infoTop + 27, { lineBreak: false });
+  const doctorContact = [invoice.doctor.phone, invoice.doctor.address].filter(Boolean).join(" · ");
+  if (doctorContact) {
+    doc.font("Helvetica").fontSize(8.5).fillColor(PDF_COLORS.muted);
+    doc.text(doctorContact, left + 14, infoTop + 43, { width: pageWidth / 2 - 28, lineBreak: false, ellipsis: true });
+  }
   doc.y = infoTop + 58 + 18;
 
   const sectionTitle = (title: string) => {

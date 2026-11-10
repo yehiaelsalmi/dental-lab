@@ -20,9 +20,11 @@ import {
   moveStatus,
   renameBuiltInStatus,
   showStatus,
+  toggleCaseCard,
   toggleProblemStatus,
   updateStatus,
 } from "./actions";
+import { CASE_CARDS, hiddenCaseCards, type CaseCard } from "@/lib/caseCards";
 import { problemStatuses } from "@/lib/problems";
 
 const INPUT =
@@ -44,6 +46,7 @@ export default async function StatusesPage({
     prisma.case.groupBy({ by: ["status"], _count: { _all: true } }),
     problemStatuses(),
   ]);
+  const hiddenCards = await hiddenCaseCards();
   const caseCount = (key: string) => counts.find((c) => c.status === key)?._count._all ?? 0;
 
   return (
@@ -82,6 +85,41 @@ export default async function StatusesPage({
           </button>
         </form>
       </section>
+
+      <h2 className="mb-1 text-sm font-semibold text-slate-900">Cases page cards</h2>
+      <p className="mb-3 text-xs text-slate-500">
+        The two cards next to the statuses on the Cases page. With &quot;Active&quot; hidden, the
+        Cases page opens on every case.
+      </p>
+      <ul className="mb-8 flex flex-col gap-2">
+        {(Object.keys(CASE_CARDS) as CaseCard[]).map((card) => {
+          const isHidden = hiddenCards.has(card);
+          return (
+            <li
+              key={card}
+              className={`flex items-center justify-between gap-3 rounded-xl border p-4 text-sm ${
+                isHidden ? "border-dashed border-slate-300 bg-slate-50 text-slate-500" : "border-slate-200 bg-white text-slate-800"
+              }`}
+            >
+              <span className="font-medium">
+                {CASE_CARDS[card]}
+                {isHidden && <span className="ml-2 text-xs font-normal">Hidden</span>}
+              </span>
+              <form action={toggleCaseCard}>
+                <input type="hidden" name="card" value={card} />
+                <input type="hidden" name="hidden" value={isHidden ? "0" : "1"} />
+                <button
+                  type="submit"
+                  className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  {isHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                  {isHidden ? "Show again" : "Hide"}
+                </button>
+              </form>
+            </li>
+          );
+        })}
+      </ul>
 
       <h2 className="mb-1 text-sm font-semibold text-slate-900">All statuses, in order</h2>
       <p className="mb-3 text-xs text-slate-500">

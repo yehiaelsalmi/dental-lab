@@ -18,6 +18,7 @@ import {
 } from "@/lib/statuses";
 import { getSetting, setSetting } from "@/lib/settings";
 import { setProblemStatus } from "@/lib/problems";
+import { CASE_CARDS, setCaseCardHidden, type CaseCard } from "@/lib/caseCards";
 
 function back(params: string): never {
   redirect(`/settings/statuses?${params}`);
@@ -168,6 +169,16 @@ export async function toggleProblemStatus(formData: FormData) {
   const key = String(formData.get("key"));
   if (!(await getAllStatuses()).some((s) => s.key === key)) back("");
   await setProblemStatus(key, formData.get("allowed") === "1");
+  revalidatePath("/", "layout");
+  back("saved=1");
+}
+
+// Shows or hides the Active / All cases card on the Cases page.
+export async function toggleCaseCard(formData: FormData) {
+  await requirePermission("page.statuses");
+  const card = String(formData.get("card"));
+  if (!Object.hasOwn(CASE_CARDS, card)) back("");
+  await setCaseCardHidden(card as CaseCard, formData.get("hidden") === "1");
   revalidatePath("/", "layout");
   back("saved=1");
 }

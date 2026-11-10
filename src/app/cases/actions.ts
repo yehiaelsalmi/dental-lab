@@ -60,6 +60,7 @@ import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 import { availableRoutes, getStatuses, hiddenStatuses, nextStatus, statusLabel } from "@/lib/statuses";
 import { assertChecklistDone } from "@/lib/checklists";
 import { problemStatuses } from "@/lib/problems";
+import { cleanAddress, cleanPhone } from "@/lib/doctors";
 import { activeFields, parseFieldValues, saveFieldValues } from "@/lib/customFields";
 
 const createCaseSchema = z.object({
@@ -173,7 +174,17 @@ export async function createCase(formData: FormData) {
         ? await (async () => {
             const name = data.newDoctorName?.trim();
             if (!name) throw new Error("Enter the new doctor's name.");
-            return prisma.doctor.upsert({ where: { name }, create: { name }, update: {} });
+            const phone = cleanPhone(formData.get("newDoctorPhone"), true);
+            const address = cleanAddress(formData.get("newDoctorAddress"));
+            const existing = await prisma.doctor.findUnique({ where: { name } });
+            if (existing) {
+              // Same name already listed: fill in what it was missing.
+              return prisma.doctor.update({
+                where: { id: existing.id },
+                data: { phone: existing.phone ?? phone, address: existing.address ?? address },
+              });
+            }
+            return prisma.doctor.create({ data: { name, phone, address } });
           })()
         : await prisma.doctor.findUniqueOrThrow({ where: { id: data.doctorId } });
 
@@ -909,7 +920,17 @@ export async function updateCase(formData: FormData) {
         ? await (async () => {
             const name = data.newDoctorName?.trim();
             if (!name) throw new Error("Enter the new doctor's name.");
-            return prisma.doctor.upsert({ where: { name }, create: { name }, update: {} });
+            const phone = cleanPhone(formData.get("newDoctorPhone"), true);
+            const address = cleanAddress(formData.get("newDoctorAddress"));
+            const existing = await prisma.doctor.findUnique({ where: { name } });
+            if (existing) {
+              // Same name already listed: fill in what it was missing.
+              return prisma.doctor.update({
+                where: { id: existing.id },
+                data: { phone: existing.phone ?? phone, address: existing.address ?? address },
+              });
+            }
+            return prisma.doctor.create({ data: { name, phone, address } });
           })()
         : await prisma.doctor.findUniqueOrThrow({ where: { id: data.doctorId } });
 
