@@ -46,6 +46,9 @@ model User {
   staffPayments          StaffPayment[]  @relation("StaffPaymentsReceived")
   staffPaymentsRecorded  StaffPayment[]  @relation("StaffPaymentsRecorded")
   adjustmentsAdded       CaseAdjustment[] @relation("CaseAdjustmentsAdded")
+  problemsReported       CaseProblem[]    @relation("ProblemsReported")
+  problemsSolved         CaseProblem[]    @relation("ProblemsSolved")
+  printsRecorded         PrintRecord[]    @relation("PrintsRecorded")
 }
 
 model Doctor {
@@ -208,6 +211,8 @@ model Case {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   adjustments    CaseAdjustment[]
+  problems       CaseProblem[]
+  printRecords   PrintRecord[]
 }
 
 model CaseUnit {
@@ -504,4 +509,40 @@ model StaffPayment {
   createdAt   DateTime @default(now())
 
   @@index([userId])
+}
+
+// A problem someone reported on a case (e.g. "scan is missing the upper
+// arch"). Open until someone marks it solved.
+model CaseProblem {
+  id          String    @id @default(cuid())
+  caseId      String
+  case        Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  text        String
+  // The case's status when it was reported.
+  status      String
+  createdById String?
+  createdBy   User?     @relation("ProblemsReported", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  solvedAt    DateTime?
+  solvedById  String?
+  solvedBy    User?     @relation("ProblemsSolved", fields: [solvedById], references: [id], onDelete: SetNull)
+
+  @@index([caseId])
+}
+
+// What was printed for a case, entered while it's in Printing (a case can be
+// printed more than once, e.g. for a try-in and again for the final work).
+model PrintRecord {
+  id          String   @id @default(cuid())
+  caseId      String
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  units       Int
+  models      Int
+  prints      Int
+  createdById String?
+  createdBy   User?    @relation("PrintsRecorded", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([caseId])
+  @@index([createdAt])
 }

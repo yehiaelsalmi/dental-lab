@@ -20,8 +20,10 @@ import {
   moveStatus,
   renameBuiltInStatus,
   showStatus,
+  toggleProblemStatus,
   updateStatus,
 } from "./actions";
+import { problemStatuses } from "@/lib/problems";
 
 const INPUT =
   "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -34,12 +36,13 @@ export default async function StatusesPage({
   await requirePermission("page.statuses");
   const { error, saved, deleted, hidden: justHidden } = await searchParams;
 
-  const [all, statuses, hidden, custom, counts] = await Promise.all([
+  const [all, statuses, hidden, custom, counts, problems] = await Promise.all([
     getAllStatuses(),
     getStatuses(),
     hiddenStatuses(),
     prisma.customStatus.findMany(),
     prisma.case.groupBy({ by: ["status"], _count: { _all: true } }),
+    problemStatuses(),
   ]);
   const caseCount = (key: string) => counts.find((c) => c.status === key)?._count._all ?? 0;
 
@@ -143,9 +146,13 @@ export default async function StatusesPage({
                       ) : (
                         <form action={hideStatus} className="flex flex-wrap items-center gap-2">
                           <input type="hidden" name="key" value={s.key} />
-                          {count > 0 && <MoveToSelect statuses={others} count={count} />}
+                          {count > 0 && s.key !== "DELIVERED" && <MoveToSelect statuses={others} count={count} />}
                           <ConfirmSubmitButton
-                            message={`Hide "${s.label}"? The workflow will skip it${count > 0 ? ` and its ${count} case${count === 1 ? "" : "s"} move to the status you picked` : ""}.`}
+                            message={
+                              s.key === "DELIVERED"
+                                ? `Hide "${s.label}" from lists and counters? Delivered cases stay delivered and their money still counts.`
+                                : `Hide "${s.label}"? The workflow will skip it${count > 0 ? ` and its ${count} case${count === 1 ? "" : "s"} move to the status you picked` : ""}.`
+                            }
                             className="flex items-center gap-1 font-medium text-slate-600 hover:text-slate-900"
                           >
                             <EyeOff size={13} />
@@ -185,6 +192,20 @@ export default async function StatusesPage({
                     </div>
                   </div>
                 )}
+                <form action={toggleProblemStatus} className="mt-2">
+                  <input type="hidden" name="key" value={s.key} />
+                  <input type="hidden" name="allowed" value={problems.has(s.key) ? "0" : "1"} />
+                  <button
+                    type="submit"
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      problems.has(s.key)
+                        ? "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100"
+                        : "text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {problems.has(s.key) ? "✓ Problems can be reported (turn off)" : "Allow reporting problems"}
+                  </button>
+                </form>
               </div>
             </li>
           );

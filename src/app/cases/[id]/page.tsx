@@ -13,6 +13,7 @@ import {
   CheckSquare,
   Trash2,
   Upload,
+  TriangleAlert,
   Plus,
 } from "lucide-react";
 import QRCode from "qrcode";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/statuses";
 import { formatFieldValue } from "@/lib/customFields";
 import { caseChecklist } from "@/lib/checklists";
+import { problemStatuses } from "@/lib/problems";
 import { ADJUSTMENT_KINDS, type AdjustmentKind } from "@/lib/adjustments";
 import { CASE_SUBFOLDERS, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
 import {
@@ -70,6 +72,10 @@ import {
   removeCaseChecklistItemAction,
   uploadCaseFileAction,
   addCaseAdjustmentAction,
+  reportProblemAction,
+  addPrintRecordAction,
+  deletePrintRecordAction,
+  toggleProblemSolvedAction,
   removeCaseAdjustmentAction,
   deleteCaseFileAction,
 } from "./actions";
@@ -111,6 +117,11 @@ export default async function CaseDetailPage({
         include: { uploadedBy: { select: { name: true } } },
       },
       adjustments: { orderBy: { createdAt: "asc" }, include: { createdBy: { select: { name: true } } } },
+      printRecords: { orderBy: { createdAt: "desc" }, include: { createdBy: { select: { name: true } } } },
+      problems: {
+        orderBy: { createdAt: "desc" },
+        include: { createdBy: { select: { name: true } }, solvedBy: { select: { name: true } } },
+      },
       reviews: { orderBy: { createdAt: "desc" }, include: { reviewedBy: true } },
     },
   });
@@ -150,6 +161,8 @@ export default async function CaseDetailPage({
 
   const checklist = await caseChecklist(caseRecord.id, caseRecord.status);
   const canEditChecklist = can(access, "page.checklists");
+  const canReportProblem = (await problemStatuses()).has(caseRecord.status);
+  const openProblems = caseRecord.problems.filter((p) => !p.solvedAt).length;
   const statusName = findStatus(allStatuses, caseRecord.status).label;
 
   const qrDataUrl = await QRCode.toDataURL(caseUrl(caseRecord.id), { margin: 1, width: 220 });
@@ -222,6 +235,72 @@ export default async function CaseDetailPage({
           hidden={[...hidden]}
         />
       </section>
+
+      {(canReportProblem || caseRecord.problems.length > 0) && (
+        <section
+          className={`mb-6 rounded-xl border p-5 ${openProblems > 0 ? "border-rose-200 bg-rose-50/40" : "border-slate-200 bg-white"}`}
+        >
+          <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <TriangleAlert size={15} className={openProblems > 0 ? "text-rose-600" : "text-slate-400"} />
+            Problems
+            {openProblems > 0 && (
+              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
+                {openProblems} open
+              </span>
+            )}
+          </h2>
+          {caseRecord.problems.length === 0 ? (
+            <p className="mb-3 text-sm text-slate-400">No problems reported.</p>
+          ) : (
+            <ul className="mb-3 flex flex-col divide-y divide-slate-100 text-sm">
+              {caseRecord.problems.map((p) => (
+                <li key={p.id} className="flex items-start justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className={`whitespace-pre-wrap break-words ${p.solvedAt ? "text-slate-400 line-through" : "text-slate-800"}`}>
+                      {p.text}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-400">
+                      {p.createdBy?.name ?? "Someone"} · {formatDateTime(p.createdAt)} · in {label(p.status)}
+                      {p.solvedAt &&
+                        ` · solved${p.solvedBy ? ` by ${p.solvedBy.name}` : ""} ${formatDateTime(p.solvedAt)}`}
+                    </p>
+                  </div>
+                  <form action={toggleProblemSolvedAction} className="shrink-0">
+                    <input type="hidden" name="caseId" value={caseRecord.id} />
+                    <input type="hidden" name="problemId" value={p.id} />
+                    <button
+                      type="submit"
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                        p.solvedAt
+                          ? "border border-slate-300 text-slate-600 hover:bg-slate-50"
+                          : "bg-emerald-600 text-white hover:bg-emerald-700"
+                      }`}
+                    >
+                      {p.solvedAt ? "Reopen" : "Mark solved"}
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+          {canReportProblem && (
+            <form action={reportProblemAction} className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              <input type="hidden" name="caseId" value={caseRecord.id} />
+              <textarea
+                name="text"
+                required
+                rows={2}
+                maxLength={1000}
+                placeholder="Describe the problem"
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+              <button type="submit" className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">
+                Report problem
+              </button>
+            </form>
+          )}
+        </section>
+      )}
 
       {(checklist.length > 0 || canEditChecklist) && (
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
@@ -624,6 +703,70 @@ export default async function CaseDetailPage({
             </form>
           </section>
         )}
+
+      {((status === "PRINTING" && can(access, "case.printing")) || caseRecord.printRecords.length > 0) && (
+        <section className="mb-6 rounded-xl border border-cyan-200 bg-cyan-50/40 p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">Print log</h2>
+          <p className="mb-3 text-xs text-slate-500">
+            What was printed for this case. The lab leader sees the monthly totals in Reports.
+          </p>
+          {caseRecord.printRecords.length > 0 && (
+            <ul className="mb-3 flex flex-col divide-y divide-cyan-100 text-sm">
+              {caseRecord.printRecords.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+                  <div>
+                    <p className="text-slate-800">
+                      <strong>{r.units}</strong> unit{r.units === 1 ? "" : "s"} · <strong>{r.models}</strong> model
+                      {r.models === 1 ? "" : "s"} · <strong>{r.prints}</strong> print{r.prints === 1 ? "" : "s"}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {r.createdBy?.name ?? "Someone"} · {formatDateTime(r.createdAt)}
+                    </p>
+                  </div>
+                  {can(access, "case.printing") && (
+                    <form action={deletePrintRecordAction}>
+                      <input type="hidden" name="caseId" value={caseRecord.id} />
+                      <input type="hidden" name="recordId" value={r.id} />
+                      <ConfirmSubmitButton message="Delete this print entry?" className="p-1.5 text-slate-400 hover:text-rose-600">
+                        <Trash2 size={14} />
+                      </ConfirmSubmitButton>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {status === "PRINTING" && can(access, "case.printing") && (
+            <form action={addPrintRecordAction} className="grid grid-cols-3 gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+              <input type="hidden" name="caseId" value={caseRecord.id} />
+              {[
+                ["units", "Units", (caseRecord.unitsUpper ?? 0) + (caseRecord.unitsLower ?? 0)],
+                ["models", "Models", (caseRecord.unitsUpper ? 1 : 0) + (caseRecord.unitsLower ? 1 : 0)],
+                ["prints", "Prints", 1],
+              ].map(([name, text, value]) => (
+                <label key={name as string} className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+                  {text}
+                  <input
+                    name={name as string}
+                    type="number"
+                    min={0}
+                    step={1}
+                    required
+                    defaultValue={value as number}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                  />
+                </label>
+              ))}
+              <button
+                type="submit"
+                className="col-span-3 rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-800 sm:col-span-1"
+              >
+                Save print
+              </button>
+            </form>
+          )}
+        </section>
+      )}
 
       {can(access, "case.tryIn") && status === "TRY_IN" && (
         <section className="mb-6 rounded-xl border border-lime-200 bg-lime-50/50 p-5">

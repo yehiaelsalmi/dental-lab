@@ -25,9 +25,9 @@ const DEFAULT_SORT: SortKey = "newest";
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; sort?: string; error?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; sort?: string; error?: string; ceramist?: string }>;
 }) {
-  const { status: statusParam, q, sort: sortParam, error } = await searchParams;
+  const { status: statusParam, q, sort: sortParam, error, ceramist: ceramistParam } = await searchParams;
   const query = (q ?? "").trim();
   const sort: SortKey = SORT_OPTIONS.some((o) => o.value === sortParam)
     ? (sortParam as SortKey)
@@ -36,6 +36,8 @@ export default async function CasesPage({
   const { caseScope, visibleStatuses } = access.role;
   const allStatuses = await getStatuses();
   const activeStatus = allStatuses.some((s) => s.key === statusParam) ? statusParam! : null;
+  // Without a status: "Active" (not delivered) by default, or "All".
+  const showAll = statusParam === "ALL";
   // Status counters only for the statuses this role can see.
   const shownStatuses = allStatuses
     .filter((s) => visibleStatuses.length === 0 || visibleStatuses.includes(s.key))
@@ -43,7 +45,13 @@ export default async function CasesPage({
 
   const cases = await prisma.case.findMany({
     where: caseVisibilityWhere(access),
-    include: { assignedDesigner: true, firstDesigner: true, doctor: true },
+    include: {
+      assignedDesigner: true,
+      firstDesigner: true,
+      doctor: true,
+      ceramist: { select: { id: true, name: true } },
+      problems: { where: { solvedAt: null }, select: { id: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -61,9 +69,39 @@ export default async function CasesPage({
     allStatuses.map((s) => [s.key, matchingCases.filter((c) => c.status === s.key).length]),
   );
 
+  const activeCount = matchingCases.filter((c) => c.status !== "DELIVERED").length;
+  // In Stain & Glaze each case shows its ceramist and can be filtered by one.
+  const showCeramist = activeStatus === "STAIN_AND_GLAZE";
+  const ceramistOptions = showCeramist
+    ? [
+        ...new Map(
+          matchingCases
+            .filter((c) => c.status === activeStatus && c.ceramist)
+            .map((c) => [c.ceramist!.id, c.ceramist!.name] as const)
+        ),
+      ].sort((a, b) => a[1].localeCompare(b[1]))
+    : [];
+  const ceramistFilter = showCeramist ? (ceramistParam ?? "") : "";
   const filteredCases = activeStatus
-    ? matchingCases.filter((c) => c.status === activeStatus)
-    : matchingCases;
+    ? matchingCases.filter(
+        (c) =>
+          c.status === activeStatus &&
+          (!ceramistFilter ||
+            (ceramistFilter === "none" ? !c.ceramist : c.ceramist?.id === ceramistFilter))
+      )
+    : showAll
+      ? matchingCases
+      : matchingCases.filter((c) => c.status !== "DELIVERED");
+
+  // Printing: what has to be printed across the cases waiting for it.
+  const printing =
+    activeStatus === "PRINTING"
+      ? {
+          units: filteredCases.reduce((s, c) => s + (c.unitsUpper ?? 0) + (c.unitsLower ?? 0), 0),
+          upper: filteredCases.filter((c) => (c.unitsUpper ?? 0) > 0).length,
+          lower: filteredCases.filter((c) => (c.unitsLower ?? 0) > 0).length,
+        }
+      : null;
 
   // `cases` is already newest first. Cases without a due date go last.
   const byName = (a: string, b: string) =>
@@ -94,6 +132,7 @@ export default async function CasesPage({
   ];
   const alertCount = visibleCases.filter((c) => alerts.get(c.id)).length;
 
+  const currentView = activeStatus ?? (showAll ? "ALL" : null);
   const withParams = (params: { status?: string | null; q?: string }) => {
     const search = new URLSearchParams();
     if (params.status) search.set("status", params.status);
@@ -136,9 +175,7 @@ export default async function CasesPage({
       )}
 
       <form action="/cases" className="mb-4 flex flex-col gap-2 sm:flex-row">
-        {activeStatus && (
-          <input type="hidden" name="status" value={activeStatus} />
-        )}
+        {currentView && <input type="hidden" name="status" value={currentView} />}
         <div className="flex flex-1 gap-2">
           <div className="relative flex-1">
             <Search
@@ -161,7 +198,7 @@ export default async function CasesPage({
           </button>
           {query && (
             <Link
-              href={withParams({ status: activeStatus })}
+              href={withParams({ status: currentView })}
               aria-label="Clear search"
               className="flex items-center rounded-lg border border-slate-300 bg-white px-3 text-slate-500 hover:bg-slate-50"
             >
@@ -169,6 +206,19 @@ export default async function CasesPage({
             </Link>
           )}
         </div>
+        {showCeramist && (
+          <AutoSubmitSelect
+            name="ceramist"
+            label="Filter by ceramist"
+            defaultValue={ceramistFilter}
+            options={[
+              { value: "", label: "All ceramists" },
+              ...ceramistOptions.map(([id, name]) => ({ value: id, label: name })),
+              { value: "none", label: "No ceramist yet" },
+            ]}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          />
+        )}
         <AutoSubmitSelect
           name="sort"
           label="Sort cases"
@@ -179,6 +229,13 @@ export default async function CasesPage({
       </form>
 
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <CountCard
+          href={withParams({ status: null, q: query })}
+          active={!currentView}
+          count={activeCount}
+          label="Active (not delivered)"
+          strong
+        />
         {shownStatuses.map((status) => {
           const active = status === activeStatus;
           return (
@@ -204,10 +261,25 @@ export default async function CasesPage({
             </Link>
           );
         })}
+        <CountCard
+          href={withParams({ status: "ALL", q: query })}
+          active={showAll}
+          count={matchingCases.length}
+          label="All cases"
+        />
       </div>
 
+      {printing && (
+        <div className="mb-4 grid grid-cols-2 gap-3 rounded-xl border border-cyan-200 bg-cyan-50/60 p-4 text-sm sm:grid-cols-4">
+          <PrintStat label="Cases to print" value={filteredCases.length} />
+          <PrintStat label="Total units" value={printing.units} />
+          <PrintStat label="Upper models" value={printing.upper} />
+          <PrintStat label="Lower models" value={printing.lower} />
+        </div>
+      )}
+
       <p className="mb-4 text-sm text-slate-500">
-        {activeStatus || query ? (
+        {activeStatus || query || showAll ? (
           <>
             Showing {visibleCases.length} case
             {visibleCases.length === 1 ? "" : "s"}
@@ -220,6 +292,8 @@ export default async function CasesPage({
                 </span>
               </>
             )}
+            {showAll && " (all cases, delivered included)"}
+            {!activeStatus && !showAll && " that aren't delivered"}
             {activeStatus && (
               <>
                 {" "}
@@ -234,11 +308,11 @@ export default async function CasesPage({
               href="/cases"
               className="font-medium text-brand hover:text-brand-hover"
             >
-              Show all
+              Back to active cases
             </Link>
           </>
         ) : (
-          "Click a status to see only the cases in it."
+          `Showing the ${visibleCases.length} active case${visibleCases.length === 1 ? "" : "s"} (not delivered). Click a status to see only the cases in it.`
         )}
       </p>
 
@@ -285,8 +359,9 @@ export default async function CasesPage({
                 </div>
                 <p className="mt-1 text-sm text-slate-500">{c.doctor.name}</p>
               {c.needsPhotogrammetry && <PhotogrammetryTag done={!!c.photogrammetryDoneAt} />}
+              {c.problems.length > 0 && <ProblemTag count={c.problems.length} />}
                 <p className="mt-2 text-xs text-slate-400">
-                  {(isBeforeIbar(c) ? c.firstDesigner : c.assignedDesigner)?.name ?? "Unassigned"}
+                  {showCeramist ? `Ceramist: ${c.ceramist?.name ?? "none yet"}` : (isBeforeIbar(c) ? c.firstDesigner : c.assignedDesigner)?.name ?? "Unassigned"}
                   {c.dueDate
                     ? ` - Due ${formatDate(c.dueDate)}`
                     : ""}
@@ -312,7 +387,7 @@ export default async function CasesPage({
             <tr>
               <th className="px-5 py-3 font-medium">Patient</th>
               <th className="px-5 py-3 font-medium">Doctor</th>
-              <th className="px-5 py-3 font-medium">Designer</th>
+              <th className="px-5 py-3 font-medium">{showCeramist ? "Ceramist" : "Designer"}</th>
               <th className="px-5 py-3 font-medium">Due</th>
               <th className="px-5 py-3 font-medium">Status</th>
             </tr>
@@ -342,6 +417,7 @@ export default async function CasesPage({
                         {alert.label}
                       </p>
                     )}
+                    {c.problems.length > 0 && <ProblemTag count={c.problems.length} />}
                   </td>
                   <td className="px-5 py-4 text-slate-500">
                   {c.doctor.name}
@@ -350,7 +426,7 @@ export default async function CasesPage({
                   )}
                 </td>
                   <td className="px-5 py-4 text-slate-500">
-                    {(isBeforeIbar(c) ? c.firstDesigner : c.assignedDesigner)?.name ?? (
+                    {(showCeramist ? c.ceramist : isBeforeIbar(c) ? c.firstDesigner : c.assignedDesigner)?.name ?? (
                       <span className="text-slate-300">Unassigned</span>
                     )}
                   </td>
@@ -394,5 +470,53 @@ function PhotogrammetryTag({ done }: { done: boolean }) {
     >
       {done ? "Photogrammetry done" : "Photogrammetry pending"}
     </span>
+  );
+}
+
+function ProblemTag({ count }: { count: number }) {
+  return (
+    <span className="mt-1.5 flex w-fit items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700">
+      <TriangleAlert size={11} />
+      {count} open problem{count === 1 ? "" : "s"}
+    </span>
+  );
+}
+
+function CountCard({
+  href,
+  active,
+  count,
+  label,
+  strong,
+}: {
+  href: string;
+  active: boolean;
+  count: number;
+  label: string;
+  strong?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-xl border p-4 transition-colors ${
+        active
+          ? "border-brand bg-brand-soft"
+          : strong
+            ? "border-slate-300 bg-white hover:border-brand/40 hover:bg-slate-50"
+            : "border-slate-200 bg-white hover:border-brand/40 hover:bg-slate-50"
+      }`}
+    >
+      <p className={`text-2xl font-semibold ${active ? "text-brand" : "text-slate-900"}`}>{count}</p>
+      <p className={`mt-1 text-xs font-medium ${active ? "text-brand" : "text-slate-500"}`}>{label}</p>
+    </Link>
+  );
+}
+
+function PrintStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <p className="text-2xl font-semibold text-cyan-900">{value}</p>
+      <p className="text-xs font-medium text-cyan-800">{label}</p>
+    </div>
   );
 }

@@ -8,6 +8,10 @@ import {
   completeIbar,
   completeMatching,
   completeTryIn,
+  addPrintRecord,
+  deletePrintRecord,
+  reportProblem,
+  toggleProblemSolved,
   addCaseAdjustment,
   removeCaseAdjustment,
   deleteCaseFile,
@@ -149,4 +153,20 @@ export async function removeCaseAdjustmentAction(formData: FormData) {
 
 export async function deleteCaseFileAction(formData: FormData) {
   await deleteCaseFile(formData.get("caseId") as string, formData.get("fileId") as string);
+}
+
+export async function reportProblemAction(formData: FormData) {
+  await reportProblem(formData.get("caseId") as string, String(formData.get("text") ?? ""));
+}
+
+export async function toggleProblemSolvedAction(formData: FormData) {
+  await toggleProblemSolved(formData.get("caseId") as string, formData.get("problemId") as string);
+}
+
+export async function addPrintRecordAction(formData: FormData) {
+  await addPrintRecord(formData.get("caseId") as string, formData);
+}
+
+export async function deletePrintRecordAction(formData: FormData) {
+  await deletePrintRecord(formData.get("caseId") as string, formData.get("recordId") as string);
 }

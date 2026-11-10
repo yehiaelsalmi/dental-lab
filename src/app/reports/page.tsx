@@ -23,8 +23,10 @@ import {
   isMonthKey,
   monthLabel,
   monthStart,
+  nextMonthStart,
   overheadsForMonth,
 } from "@/lib/overheads";
+import { prisma } from "@/lib/prisma";
 import { activeFields } from "@/lib/customFields";
 import { StatusBadge } from "@/components/StatusBadge";
 
@@ -50,7 +52,28 @@ export default async function ReportsPage({
   const month = allTime ? undefined : isMonthKey(monthParam) ? monthParam : currentMonthKey();
   const exportQuery = month ? `&month=${month}` : "";
 
-  const [cases, undelivered] = await Promise.all([getReportCases(month), getUndeliveredCases(month)]);
+  const [cases, undelivered, printRecords] = await Promise.all([
+    getReportCases(month),
+    getUndeliveredCases(month),
+    prisma.printRecord.findMany({
+      where: month ? { createdAt: { gte: monthStart(month), lt: nextMonthStart(month) } } : {},
+      include: { case: { select: { id: true, patientName: true, doctor: { select: { name: true } } } } },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+  // Print log per case for the period.
+  const prints = [...printRecords.reduce((map, r) => {
+    const row = map.get(r.caseId) ?? { c: r.case, units: 0, models: 0, prints: 0, last: r.createdAt };
+    row.units += r.units;
+    row.models += r.models;
+    row.prints += r.prints;
+    row.last = r.createdAt;
+    return map.set(r.caseId, row);
+  }, new Map<string, { c: (typeof printRecords)[number]["case"]; units: number; models: number; prints: number; last: Date }>()).values()];
+  const printTotals = prints.reduce(
+    (t, p) => ({ units: t.units + p.units, models: t.models + p.models, prints: t.prints + p.prints }),
+    { units: 0, models: 0, prints: 0 }
+  );
   const customFields = await activeFields();
   const overheads = month ? await overheadsForMonth(month) : null;
   const totals = computeTotals(cases);
@@ -233,6 +256,70 @@ export default async function ReportsPage({
           )}
         </table>
       </div>
+
+      <section className="mb-8">
+        <h2 className="mb-1 text-lg font-semibold text-slate-900">Printing</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          What was printed {month ? "this month" : "in total"}, from each case&apos;s print log (any status).
+        </p>
+        <div className="mb-3 grid grid-cols-3 gap-3 sm:max-w-xl">
+          <div className="rounded-xl border border-cyan-200 bg-cyan-50/60 p-3">
+            <p className="text-xl font-semibold text-cyan-900">{printTotals.units}</p>
+            <p className="text-xs font-medium text-cyan-800">Units</p>
+          </div>
+          <div className="rounded-xl border border-cyan-200 bg-cyan-50/60 p-3">
+            <p className="text-xl font-semibold text-cyan-900">{printTotals.models}</p>
+            <p className="text-xs font-medium text-cyan-800">Models</p>
+          </div>
+          <div className="rounded-xl border border-cyan-200 bg-cyan-50/60 p-3">
+            <p className="text-xl font-semibold text-cyan-900">{printTotals.prints}</p>
+            <p className="text-xs font-medium text-cyan-800">Prints</p>
+          </div>
+        </div>
+        {prints.length === 0 ? (
+          <p className="text-sm text-slate-400">Nothing printed {month ? "this month" : "yet"}.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">Doctor / patient</th>
+                  <th className="px-4 py-2.5 font-medium">Last printed</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Units</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Models</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Prints</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {prints.map((p) => (
+                  <tr key={p.c.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-2">
+                      <span className="font-semibold text-slate-900">{p.c.doctor.name}</span>
+                      <a href={`/cases/${p.c.id}`} className="block text-xs text-slate-500 hover:text-brand">
+                        {p.c.patientName}
+                      </a>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2 text-slate-500">{formatDate(p.last)}</td>
+                    <td className="px-4 py-2 text-right text-slate-800">{p.units}</td>
+                    <td className="px-4 py-2 text-right text-slate-800">{p.models}</td>
+                    <td className="px-4 py-2 text-right text-slate-800">{p.prints}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t-2 border-slate-300 bg-slate-50 font-semibold text-slate-900">
+                <tr>
+                  <td className="px-4 py-2.5" colSpan={2}>
+                    Total ({prints.length} case{prints.length === 1 ? "" : "s"})
+                  </td>
+                  <td className="px-4 py-2.5 text-right">{printTotals.units}</td>
+                  <td className="px-4 py-2.5 text-right">{printTotals.models}</td>
+                  <td className="px-4 py-2.5 text-right">{printTotals.prints}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </section>
 
       {undelivered.length > 0 && (
         <section className="mb-8">

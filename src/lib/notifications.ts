@@ -219,3 +219,19 @@ export async function notifyWorkReviewed(
     `Your work on case ${patientName} was ${approved ? "approved" : "sent back for changes"}${comment ? `: ${comment}` : ""}`
   );
 }
+
+// Lab leaders and the lab team (whoever reviews designs) hear about problems.
+export async function notifyProblemReported(
+  caseId: string,
+  patientName: string,
+  text: string,
+  reporterName: string,
+  actorId: string
+) {
+  await notifyMany(
+    await reviewers(actorId),
+    caseId,
+    `Problem on case ${patientName}`,
+    `${reporterName} reported a problem on case ${patientName}: ${text}`
+  );
+}

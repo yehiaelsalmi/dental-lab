@@ -66,7 +66,8 @@ export const STATUS_ORDER_KEY = "status.order";
 export const STATUS_HIDDEN_KEY = "status.hidden";
 
 // These carry the workflow and can't be hidden.
-export const UNHIDEABLE_STATUSES: CaseStatus[] = ["IBAR_DESIGN", "WAITING_FOR_REVIEW", "DELIVERED"];
+// Delivered can be hidden from lists while its cases stay delivered.
+export const UNHIDEABLE_STATUSES: CaseStatus[] = ["IBAR_DESIGN", "WAITING_FOR_REVIEW"];
 
 // Where the workflow goes instead of a hidden status. Printing, milling and
 // try-in have no stand-in: hiding them removes the approval choices that use

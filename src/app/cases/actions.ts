@@ -30,6 +30,7 @@ import {
   notifyLabLeadersReviewReady,
   notifyLabLeadersMatchingDone,
   notifyMatchingReady,
+  notifyProblemReported,
   notifyDesignerRedesign,
   notifyTryInReady,
   notifyPhotogrammetryDone,
@@ -58,6 +59,7 @@ import {
 import { activeDesignerId, isBeforeIbar } from "@/lib/caseFlow";
 import { availableRoutes, getStatuses, hiddenStatuses, nextStatus, statusLabel } from "@/lib/statuses";
 import { assertChecklistDone } from "@/lib/checklists";
+import { problemStatuses } from "@/lib/problems";
 import { activeFields, parseFieldValues, saveFieldValues } from "@/lib/customFields";
 
 const createCaseSchema = z.object({
@@ -1068,6 +1070,82 @@ export async function deleteCaseFile(caseId: string, fileId: string) {
     if (!file) throw new Error("That file was already deleted.");
     await trashDriveFile(file.driveFileId);
     await prisma.caseFile.update({ where: { id: file.id }, data: { deletedAt: new Date() } });
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+}
+
+// Anyone who can see the case reports a problem, on cases in a status that
+// allows it (Statuses page). Lab leaders / the lab team are notified.
+export async function reportProblem(caseId: string, text: string) {
+  const session = await requireAccess();
+  try {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    if (!(await problemStatuses()).has(caseRecord.status)) {
+      throw new Error("Problems can't be reported in this status.");
+    }
+    const clean = text.trim().slice(0, 1000);
+    if (!clean) throw new Error("Write the problem first.");
+    await prisma.caseProblem.create({
+      data: { caseId, text: clean, status: caseRecord.status, createdById: session.userId },
+    });
+    await notifyProblemReported(caseId, caseRecord.patientName, clean, session.name, session.userId);
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/cases");
+}
+
+// Marks a problem solved, or opens it again.
+export async function toggleProblemSolved(caseId: string, problemId: string) {
+  const session = await requireAccess();
+  try {
+    await requireVisibleCase(session, caseId);
+    const problem = await prisma.caseProblem.findFirst({ where: { id: problemId, caseId } });
+    if (!problem) throw new Error("That problem no longer exists.");
+    await prisma.caseProblem.update({
+      where: { id: problem.id },
+      data: problem.solvedAt
+        ? { solvedAt: null, solvedById: null }
+        : { solvedAt: new Date(), solvedById: session.userId },
+    });
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+  revalidatePath("/cases");
+}
+
+// What was printed for a case (units, models, number of prints), entered while
+// it's in Printing by people who mark printing done.
+export async function addPrintRecord(caseId: string, formData: FormData) {
+  const session = await requirePermission("case.printing");
+  try {
+    const caseRecord = await requireVisibleCase(session, caseId);
+    if (caseRecord.status !== "PRINTING") throw new Error("Prints can only be recorded while the case is in printing.");
+    const count = (name: string, label: string) => {
+      const n = Number(formData.get(name));
+      if (!Number.isInteger(n) || n < 0) throw new Error(`Enter the number of ${label} (0 or more).`);
+      return n;
+    };
+    const units = count("units", "units");
+    const models = count("models", "models");
+    const prints = count("prints", "prints");
+    if (units + models + prints === 0) throw new Error("Enter what was printed.");
+    await prisma.printRecord.create({ data: { caseId, units, models, prints, createdById: session.userId } });
+  } catch (error) {
+    redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function deletePrintRecord(caseId: string, recordId: string) {
+  const session = await requirePermission("case.printing");
+  try {
+    await requireVisibleCase(session, caseId);
+    await prisma.printRecord.deleteMany({ where: { id: recordId, caseId } });
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }

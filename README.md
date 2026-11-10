@@ -228,6 +228,29 @@ is moved back):
 
 Cases already delivered before this took their last-change date as delivery date.
 
+## Problems
+
+Anyone who can see a case can **report a problem** (free text) on cases in a status
+where problems are allowed. Each status has an "Allow reporting problems" switch on
+the Statuses page (AppSetting `status.problems`; the lab's "Problems" status starts
+on). Problems show who reported them and when, stay open until someone marks them
+solved (or reopens them), notify whoever reviews designs, and show as a red "open
+problem" tag on the Cases list (`CaseProblem`, `src/lib/problems.ts`).
+
+## Cases list
+
+The Cases page opens on **Active** (every case not delivered) with its count; status
+cards filter by status and **All cases** includes delivered ones. The **Printing** card
+shows the cases to print, total units and upper/lower models; **Stain & Glaze** shows
+each case's ceramist with a ceramist filter. Delivered can be hidden on the Statuses
+page like other built-in statuses; its cases stay delivered and still count.
+
+## Print log
+
+While a case is in Printing, people with "Mark printing done" record what they printed
+(units, models, number of prints; `PrintRecord`), as often as needed. Reports has a
+**Printing** section with each case's totals and the month's totals.
+
 ## Extra fees and deductions
 
 Each case has a list of **extra fees** and **deductions** (e.g. "Rush order +500",

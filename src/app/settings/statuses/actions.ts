@@ -17,6 +17,7 @@ import {
   isBuiltInStatus,
 } from "@/lib/statuses";
 import { getSetting, setSetting } from "@/lib/settings";
+import { setProblemStatus } from "@/lib/problems";
 
 function back(params: string): never {
   redirect(`/settings/statuses?${params}`);
@@ -144,7 +145,9 @@ export async function hideStatus(formData: FormData) {
   const reason = cannotHide(key, hidden);
   if (reason) fail(reason);
   const label = (await getAllStatuses()).find((s) => s.key === key)?.label ?? key;
-  await moveCasesOut(key, label, String(formData.get("moveTo") ?? ""));
+  // Delivered cases stay delivered (their money still counts); only the
+  // status leaves the lists.
+  if (key !== "DELIVERED") await moveCasesOut(key, label, String(formData.get("moveTo") ?? ""));
   await setSetting(STATUS_HIDDEN_KEY, JSON.stringify([...hidden, key]));
   revalidatePath("/", "layout");
   back(`hidden=${encodeURIComponent(label)}`);
@@ -155,6 +158,16 @@ export async function showStatus(formData: FormData) {
   const key = String(formData.get("key"));
   const hidden = [...(await hiddenStatuses())].filter((k) => k !== key);
   await setSetting(STATUS_HIDDEN_KEY, JSON.stringify(hidden));
+  revalidatePath("/", "layout");
+  back("saved=1");
+}
+
+// Turns the "Report a problem" box on or off for cases in a status.
+export async function toggleProblemStatus(formData: FormData) {
+  await requirePermission("page.statuses");
+  const key = String(formData.get("key"));
+  if (!(await getAllStatuses()).some((s) => s.key === key)) back("");
+  await setProblemStatus(key, formData.get("allowed") === "1");
   revalidatePath("/", "layout");
   back("saved=1");
 }
