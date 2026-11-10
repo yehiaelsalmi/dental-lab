@@ -1,9 +1,11 @@
 import { cache } from "react";
 import { getSetting, setSetting } from "@/lib/settings";
 
-// The "Active" and "All cases" cards on the Cases page can be hidden like
-// statuses (AppSetting: JSON array of the hidden ones).
-export const CASE_CARDS = { ACTIVE: "Active (not delivered)", ALL: "All cases" } as const;
+// The "Active" and "All cases" cards on the Cases page can be hidden and
+// renamed like statuses (AppSettings: JSON array of the hidden ones; one name
+// per card).
+export const CASE_CARDS = { ACTIVE: "Active", ALL: "All cases" } as const;
+const LABEL_PREFIX = "cases.cardLabel.";
 export type CaseCard = keyof typeof CASE_CARDS;
 const KEY = "cases.hiddenCards";
 
@@ -21,4 +23,17 @@ export async function setCaseCardHidden(card: CaseCard, hidden: boolean) {
   if (hidden) keys.add(card);
   else keys.delete(card);
   await setSetting(KEY, JSON.stringify([...keys]));
+}
+
+export const caseCardLabels = cache(async (): Promise<Record<CaseCard, string>> => {
+  const entries = await Promise.all(
+    (Object.keys(CASE_CARDS) as CaseCard[]).map(
+      async (card) => [card, (await getSetting(LABEL_PREFIX + card))?.trim() || CASE_CARDS[card]] as const
+    )
+  );
+  return Object.fromEntries(entries) as Record<CaseCard, string>;
+});
+
+export async function setCaseCardLabel(card: CaseCard, label: string) {
+  await setSetting(LABEL_PREFIX + card, label);
 }

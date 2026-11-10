@@ -12,7 +12,7 @@ import { getLabSettings } from "@/lib/labSettings";
 import { isBeforeIbar } from "@/lib/caseFlow";
 
 import { formatDate } from "@/lib/dates";
-import { CASE_CARDS, hiddenCaseCards } from "@/lib/caseCards";
+import { caseCardLabels, hiddenCaseCards } from "@/lib/caseCards";
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
@@ -38,7 +38,7 @@ export default async function CasesPage({
   const allStatuses = await getStatuses();
   const activeStatus = allStatuses.some((s) => s.key === statusParam) ? statusParam! : null;
   // Without a status: "Active" (not delivered) by default, or "All".
-  const hiddenCards = await hiddenCaseCards();
+  const [hiddenCards, cardLabels] = await Promise.all([hiddenCaseCards(), caseCardLabels()]);
   // With the Active card hidden, the page opens on every case instead.
   const defaultAll = hiddenCards.has("ACTIVE");
   const showAll = statusParam === "ALL" || (!activeStatus && defaultAll);
@@ -238,7 +238,7 @@ export default async function CasesPage({
             href={withParams({ status: null, q: query })}
             active={!currentView}
             count={activeCount}
-            label={CASE_CARDS.ACTIVE}
+            label={cardLabels.ACTIVE}
             strong
           />
         )}
@@ -272,7 +272,7 @@ export default async function CasesPage({
             href={withParams({ status: defaultAll ? null : "ALL", q: query })}
             active={showAll}
             count={matchingCases.length}
-            label={CASE_CARDS.ALL}
+            label={cardLabels.ALL}
           />
         )}
       </div>

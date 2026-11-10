@@ -20,11 +20,12 @@ import {
   moveStatus,
   renameBuiltInStatus,
   showStatus,
+  renameCaseCard,
   toggleCaseCard,
   toggleProblemStatus,
   updateStatus,
 } from "./actions";
-import { CASE_CARDS, hiddenCaseCards, type CaseCard } from "@/lib/caseCards";
+import { CASE_CARDS, caseCardLabels, hiddenCaseCards, type CaseCard } from "@/lib/caseCards";
 import { problemStatuses } from "@/lib/problems";
 
 const INPUT =
@@ -46,7 +47,7 @@ export default async function StatusesPage({
     prisma.case.groupBy({ by: ["status"], _count: { _all: true } }),
     problemStatuses(),
   ]);
-  const hiddenCards = await hiddenCaseCards();
+  const [hiddenCards, cardLabels] = await Promise.all([hiddenCaseCards(), caseCardLabels()]);
   const caseCount = (key: string) => counts.find((c) => c.status === key)?._count._all ?? 0;
 
   return (
@@ -101,10 +102,21 @@ export default async function StatusesPage({
                 isHidden ? "border-dashed border-slate-300 bg-slate-50 text-slate-500" : "border-slate-200 bg-white text-slate-800"
               }`}
             >
-              <span className="font-medium">
-                {CASE_CARDS[card]}
-                {isHidden && <span className="ml-2 text-xs font-normal">Hidden</span>}
-              </span>
+              <form action={renameCaseCard} className="flex min-w-0 flex-1 items-center gap-2">
+                <input type="hidden" name="card" value={card} />
+                <input
+                  name="label"
+                  required
+                  maxLength={40}
+                  defaultValue={cardLabels[card]}
+                  aria-label={`Name for the ${CASE_CARDS[card]} card`}
+                  className={`${INPUT} min-w-0 flex-1`}
+                />
+                <button type="submit" className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                  Rename
+                </button>
+                {isHidden && <span className="text-xs">Hidden</span>}
+              </form>
               <form action={toggleCaseCard}>
                 <input type="hidden" name="card" value={card} />
                 <input type="hidden" name="hidden" value={isHidden ? "0" : "1"} />

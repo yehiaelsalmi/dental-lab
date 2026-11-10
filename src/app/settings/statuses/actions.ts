@@ -18,7 +18,7 @@ import {
 } from "@/lib/statuses";
 import { getSetting, setSetting } from "@/lib/settings";
 import { setProblemStatus } from "@/lib/problems";
-import { CASE_CARDS, setCaseCardHidden, type CaseCard } from "@/lib/caseCards";
+import { CASE_CARDS, setCaseCardHidden, setCaseCardLabel, type CaseCard } from "@/lib/caseCards";
 
 function back(params: string): never {
   redirect(`/settings/statuses?${params}`);
@@ -179,6 +179,18 @@ export async function toggleCaseCard(formData: FormData) {
   const card = String(formData.get("card"));
   if (!Object.hasOwn(CASE_CARDS, card)) back("");
   await setCaseCardHidden(card as CaseCard, formData.get("hidden") === "1");
+  revalidatePath("/", "layout");
+  back("saved=1");
+}
+
+export async function renameCaseCard(formData: FormData) {
+  await requirePermission("page.statuses");
+  const card = String(formData.get("card"));
+  if (!Object.hasOwn(CASE_CARDS, card)) back("");
+  const label = String(formData.get("label") ?? "").trim();
+  if (!label) fail("Give the card a name.");
+  if (label.length > 40) fail("Keep the name under 40 characters.");
+  await setCaseCardLabel(card as CaseCard, label);
   revalidatePath("/", "layout");
   back("saved=1");
 }
