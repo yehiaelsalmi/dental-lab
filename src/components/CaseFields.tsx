@@ -1,4 +1,5 @@
 import { EntitySelect } from "@/components/EntitySelect";
+import { DoctorField, type DoctorOption } from "@/components/DoctorField";
 import { DateField } from "@/components/DateField";
 import { UnitCodesField } from "@/components/UnitCodesField";
 import { MaterialLinesField, type MaterialLineDefault } from "@/components/MaterialLinesField";
@@ -33,7 +34,7 @@ export function CaseFields({
   defaults = {},
 }: {
   customFields?: FieldDef[];
-  doctors: Option[];
+  doctors: DoctorOption[];
   materials: Option[];
   metalTypes: Option[];
   ibarDesigners: Option[];
@@ -44,18 +45,7 @@ export function CaseFields({
       <div>
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Case details</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <EntitySelect
-            label="Doctor"
-            idField="doctorId"
-            newNameField="newDoctorName"
-            items={doctors}
-            addLabel="+ Add new doctor"
-            defaultId={defaults.doctorId}
-            newFields={[
-              { name: "newDoctorPhone", placeholder: "Doctor's phone number", required: true, type: "tel" },
-              { name: "newDoctorAddress", placeholder: "Doctor's address (optional)" },
-            ]}
-          />
+          <DoctorField doctors={doctors} defaultId={defaults.doctorId} />
           <Field label="Patient" name="patientName" required defaultValue={defaults.patientName} />
           <Field
             label="System"

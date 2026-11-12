@@ -219,8 +219,8 @@ export async function createCase(formData: FormData) {
         ? await (async () => {
             const name = data.newDoctorName?.trim();
             if (!name) throw new Error("Enter the new doctor's name.");
-            const phone = cleanPhone(formData.get("newDoctorPhone"), true);
-            const address = cleanAddress(formData.get("newDoctorAddress"));
+            const phone = cleanPhone(formData.get("doctorPhone") ?? formData.get("newDoctorPhone"), true);
+            const address = cleanAddress(formData.get("doctorAddress") ?? formData.get("newDoctorAddress"));
             const existing = await prisma.doctor.findUnique({ where: { name } });
             if (existing) {
               // Same name already listed: fill in what it was missing.
@@ -231,7 +231,7 @@ export async function createCase(formData: FormData) {
             }
             return prisma.doctor.create({ data: { name, phone, address } });
           })()
-        : await prisma.doctor.findUniqueOrThrow({ where: { id: data.doctorId } });
+        : await saveDoctorContact(data.doctorId, formData);
 
     const ibarDesigner =
       data.ibarDesignerId === "__new__"
@@ -963,8 +963,8 @@ export async function updateCase(formData: FormData) {
         ? await (async () => {
             const name = data.newDoctorName?.trim();
             if (!name) throw new Error("Enter the new doctor's name.");
-            const phone = cleanPhone(formData.get("newDoctorPhone"), true);
-            const address = cleanAddress(formData.get("newDoctorAddress"));
+            const phone = cleanPhone(formData.get("doctorPhone") ?? formData.get("newDoctorPhone"), true);
+            const address = cleanAddress(formData.get("doctorAddress") ?? formData.get("newDoctorAddress"));
             const existing = await prisma.doctor.findUnique({ where: { name } });
             if (existing) {
               // Same name already listed: fill in what it was missing.
@@ -975,7 +975,7 @@ export async function updateCase(formData: FormData) {
             }
             return prisma.doctor.create({ data: { name, phone, address } });
           })()
-        : await prisma.doctor.findUniqueOrThrow({ where: { id: data.doctorId } });
+        : await saveDoctorContact(data.doctorId, formData);
 
     const ibarDesigner =
       data.ibarDesignerId === "__new__"
@@ -1240,4 +1240,19 @@ export async function attachNewCaseScan(formData: FormData) {
   }
   if (caseId) revalidatePath(`/cases/${caseId}`);
   return caseId;
+}
+
+// An existing doctor picked on the case form: the phone (and address) shown
+// there are saved to the doctor, so they're filled in on the next case.
+async function saveDoctorContact(doctorId: string, formData: FormData) {
+  const doctor = await prisma.doctor.findUniqueOrThrow({ where: { id: doctorId } });
+  if (!formData.has("doctorPhone")) return doctor;
+  const phone = cleanPhone(formData.get("doctorPhone"), true);
+  const address = cleanAddress(formData.get("doctorAddress"));
+  if (phone === doctor.phone && (address ?? doctor.address) === doctor.address) return doctor;
+  return prisma.doctor.update({
+    where: { id: doctor.id },
+    // A blank address keeps the saved one.
+    data: { phone, address: address ?? doctor.address },
+  });
 }
