@@ -95,10 +95,10 @@ export default async function NewCasePage({
 
         <div>
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Scan from doctor</h2>
-          <DirectFileField name="scanFile" purpose="newCaseScan" hint="ZIP or PDF, uploaded straight to the case's Drive folder" />
+          <DirectFileField name="scanFile" purpose="newCaseScan" hint="ZIP or PDF. It uploads in the background after the case is created" />
         </div>
 
-        <PendingSubmitButton overlay pendingText="Creating the case and uploading the scan..." className="self-start rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-hover">
+        <PendingSubmitButton overlay pendingText="Creating the case..." className="self-start rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-hover">
               Create Case
             </PendingSubmitButton>
       </form>

@@ -639,7 +639,7 @@ export default async function CaseDetailPage({
           </p>
           <form action={completeIbarAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
-            <DirectFileField name="ibarFile" purpose="ibar" caseId={caseRecord.id} hint="Optional: the ibar file, ZIP or STL" />
+            <DirectFileField name="ibarFile" purpose="ibar" caseId={caseRecord.id} caseName={caseRecord.patientName} hint="Optional: the ibar file, ZIP or STL" />
             <PendingSubmitButton overlay pendingText="Uploading the ibar file..." className="self-start rounded-lg bg-fuchsia-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-fuchsia-700">
               Ibar done: send to designer
             </PendingSubmitButton>
@@ -659,7 +659,7 @@ export default async function CaseDetailPage({
             <input type="hidden" name="caseId" value={caseRecord.id} />
             {caseRecord.driveFolderId && (
               <DirectFileField
-                name="matchingFiles" purpose="matching" caseId={caseRecord.id}
+                name="matchingFiles" purpose="matching" caseId={caseRecord.id} caseName={caseRecord.patientName}
                 multiple
                 hint={`Optional: the matching data (saved to "${CASE_SUBFOLDERS.MATCHING_DATA}")`}
               />
@@ -680,7 +680,7 @@ export default async function CaseDetailPage({
           </p>
           <form action={markPhotogrammetryDoneAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
-            <DirectFileField name="photogrammetryFile" purpose="photogrammetry" caseId={caseRecord.id} hint="Optional: photogrammetry export or ZIP" />
+            <DirectFileField name="photogrammetryFile" purpose="photogrammetry" caseId={caseRecord.id} caseName={caseRecord.patientName} hint="Optional: photogrammetry export or ZIP" />
             <PendingSubmitButton overlay pendingText="Saving photogrammetry..." className="self-start rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-sky-700">
               Mark photogrammetry done
             </PendingSubmitButton>
@@ -790,7 +790,7 @@ export default async function CaseDetailPage({
           </p>
           <form action={completeTryInAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
-            <DirectFileField name="scanFiles" purpose="tryInScans" caseId={caseRecord.id} required multiple hint="The new scans (you can pick several files)" />
+            <DirectFileField name="scanFiles" purpose="tryInScans" caseId={caseRecord.id} caseName={caseRecord.patientName} required multiple hint="The new scans (you can pick several files)" />
             <PendingSubmitButton overlay pendingText="Uploading the new scans..." className="self-start rounded-lg bg-lime-700 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-lime-800">
               New scans uploaded: send to {label("MATCHING")}
             </PendingSubmitButton>
@@ -910,7 +910,7 @@ export default async function CaseDetailPage({
           <div className="mb-3" />
           <form action={submitForReviewAction} className="flex flex-col gap-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
-            <DirectFileField name="designFile" purpose="design" caseId={caseRecord.id} required hint="Exocad export, ZIP or STL" />
+            <DirectFileField name="designFile" purpose="design" caseId={caseRecord.id} caseName={caseRecord.patientName} required hint="Exocad export, ZIP or STL" />
             <PendingSubmitButton overlay pendingText="Uploading your design..." className="self-start rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-hover">
               Submit for Review
             </PendingSubmitButton>
@@ -1099,7 +1099,7 @@ export default async function CaseDetailPage({
           {canSubmitWork && (
             <form action={submitWorkAction} className="flex flex-col gap-3">
               <input type="hidden" name="caseId" value={caseRecord.id} />
-              <DirectFileField name="workFile" purpose="work" caseId={caseRecord.id} required hint="The file to be reviewed (any type)" />
+              <DirectFileField name="workFile" purpose="work" caseId={caseRecord.id} caseName={caseRecord.patientName} required hint="The file to be reviewed (any type)" />
               <input
                 name="note"
                 placeholder="Note for the reviewer (optional)"
@@ -1201,7 +1201,7 @@ export default async function CaseDetailPage({
         {can(access, "case.upload") && caseRecord.driveFolderId && (
           <form action={uploadCaseFileAction} className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4">
             <input type="hidden" name="caseId" value={caseRecord.id} />
-            <DirectFileField name="caseFile" purpose="upload" caseId={caseRecord.id} required hint="Any file: photos, scans, ZIP, STL..." />
+            <DirectFileField name="caseFile" purpose="upload" caseId={caseRecord.id} caseName={caseRecord.patientName} required hint="Any file: photos, scans, ZIP, STL..." />
             <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
               Folder in Drive
               <select

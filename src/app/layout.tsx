@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Nav } from "@/components/Nav";
+import { UploadManagerProvider } from "@/components/UploadManager";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,8 +26,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background md:flex-row">
-        <Nav />
-        <main className="min-w-0 flex-1">{children}</main>
+        <UploadManagerProvider>
+          <Nav />
+          <main className="min-w-0 flex-1">{children}</main>
+        </UploadManagerProvider>
       </body>
     </html>
   );

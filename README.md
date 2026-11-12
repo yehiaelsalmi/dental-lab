@@ -51,11 +51,6 @@ delete a file: it disappears from the case and moves to Drive's trash (restorabl
 there for 30 days). Deleted files are kept as records (`CaseFile.deletedAt`) so the
 Drive sync doesn't bring them back.
 
-**Files added directly in Drive:** a Google Apps Script in the lab's Google account
-(Drive Settings shows it, with steps) checks the case folders every 5 minutes and
-posts new files to `/api/drive-sync` with a shared secret. They appear on the case
-as "Added in Drive" (opened in Drive) with their subfolder (`src/lib/driveSync.ts`).
-
 **Uploading any file:** roles with "Upload files to a case at any time, choosing
 the Drive subfolder" (the Lab Leader by default) get an upload box under **Files** on
 the case page with a folder picker. The file is saved as type `OTHER`, whatever the
@@ -474,6 +469,12 @@ a dropped connection, asks Google how much it has and continues
 (`src/lib/driveUploadClient.ts`). The form then carries only the Drive file ids
 (`<field>__uploaded`), and the server checks each file is in that case's folder before
 recording it. Team members never sign in to Google.
+
+Uploads run **in the background** (`UploadManager` in the root layout): a panel in the
+bottom-right corner shows each one while people keep working, and the form's step runs
+once its files are in Drive (`runUploadStep` in `src/app/cases/uploadSteps.ts`). On the
+New Case form the case is created at once and the scan, which waits for the case,
+is attached when it finishes. Closing or reloading the tab stops uploads (the browser warns).
 
 ### Folder layout
 

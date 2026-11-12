@@ -1215,3 +1215,29 @@ export async function deletePrintRecord(caseId: string, recordId: string) {
   }
   revalidatePath(`/cases/${caseId}`);
 }
+
+// The scan picked on the New Case form uploads in the background while the
+// case is created; once it's in Drive it's attached to the case whose folder
+// it's in (waiting briefly if the case is still being created).
+export async function attachNewCaseScan(formData: FormData) {
+  const session = await requirePermission("case.create");
+  let caseId: string | null = null;
+  for (const upload of filesFrom(formData, "scanFile")) {
+    if (upload instanceof File) continue;
+    const info = await uploadedFileInfo(upload.driveFileId);
+    let found = null;
+    for (let i = 0; i < 20 && !found; i++) {
+      found = await prisma.case.findFirst({
+        where: { driveFolderId: { in: info.grandParents } },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!found) await new Promise((r) => setTimeout(r, 1500));
+    }
+    if (!found?.driveFolderId) throw new Error("The case for this scan wasn't found.");
+    await requireVisibleCase(session, found.id);
+    await attachFile(found.id, found.driveFolderId, upload, "SCAN", session.userId, "SCANS");
+    caseId = found.id;
+  }
+  if (caseId) revalidatePath(`/cases/${caseId}`);
+  return caseId;
+}

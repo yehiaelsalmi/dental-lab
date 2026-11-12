@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { VISIBILITY_INCLUDE, can, canViewCase, getAccess } from "@/lib/access";
 import type { Permission } from "@/lib/permissions";
-import { caseUploadFolder, createCaseFolder, createDirectUpload } from "@/lib/googleDrive";
+import { caseUploadFolder, createDirectUpload } from "@/lib/googleDrive";
 import { designSubfolder, isCaseSubfolder, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
 
 // What an upload is for: who may do it, and which case subfolder it goes to.
@@ -39,14 +39,25 @@ export async function POST(request: Request) {
   let folderId: string;
   try {
     if (purpose === "newCaseScan") {
+      // The scan follows the case being created from the same form: wait for
+      // it (so only one patient folder is ever made), then use its folder.
       const patientName = String(body?.patientName ?? "").trim();
-      const doctorName =
-        String(body?.newDoctorName ?? "").trim() ||
-        (body?.doctorId ? (await prisma.doctor.findUnique({ where: { id: String(body.doctorId) } }))?.name : "") ||
-        "";
-      if (!patientName || !doctorName) return fail("Fill in the doctor and patient first.");
-      const folder = await createCaseFolder(doctorName, patientName);
-      folderId = await caseUploadFolder(folder.id, "SCANS");
+      if (!patientName) return fail("Fill in the patient first.");
+      let created = null;
+      for (let i = 0; i < 30 && !created; i++) {
+        created = await prisma.case.findFirst({
+          where: {
+            patientName,
+            createdById: access.userId,
+            createdAt: { gt: new Date(Date.now() - 10 * 60 * 1000) },
+            driveFolderId: { not: null },
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        if (!created) await new Promise((r) => setTimeout(r, 1000));
+      }
+      if (!created?.driveFolderId) return fail("The case wasn't created, so the scan wasn't uploaded. Fix the form and try again.");
+      folderId = await caseUploadFolder(created.driveFolderId, "SCANS");
     } else {
       const c = await prisma.case.findUnique({ where: { id: String(body?.caseId ?? "") }, include: VISIBILITY_INCLUDE });
       if (!c || !canViewCase(access, c)) return fail("Case not found.", 404);
