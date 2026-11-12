@@ -464,6 +464,17 @@ Google account can do:
 From then on the app uploads scans/design files to Drive automatically — no more
 manual link copy-pasting.
 
+### Uploads go straight to Drive
+
+Every upload box (`DirectFileField`) sends its files from the browser straight to
+Google Drive when the form is submitted: `/api/drive-upload` checks the user may do that
+upload and returns a one-time resumable upload link into the right case folder or
+subfolder; the browser sends the file in 8 MB pieces with a progress screen and, after
+a dropped connection, asks Google how much it has and continues
+(`src/lib/driveUploadClient.ts`). The form then carries only the Drive file ids
+(`<field>__uploaded`), and the server checks each file is in that case's folder before
+recording it. Team members never sign in to Google.
+
 ### Folder layout
 
 Files are filed as **main folder → doctor folder → patient folder**. The app

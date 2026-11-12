@@ -358,13 +358,36 @@ export async function createDirectUpload(input: {
   }
 }
 
-// The "test uploads" folder in the main folder, for trying uploads out.
-export async function getTestUploadFolder(): Promise<string> {
+// The folder a case upload goes into: the case folder or one of its subfolders.
+export async function caseUploadFolder(caseFolderId: string, subfolder?: CaseSubfolder): Promise<string> {
+  if (!subfolder) return caseFolderId;
   try {
     const drive = await getDriveClient();
-    const rootId = await getOrCreateRootFolder(drive);
-    return (await getOrCreateChildFolder(drive, rootId, "test uploads")).id;
+    return (await getOrCreateChildFolder(drive, caseFolderId, CASE_SUBFOLDERS[subfolder])).id;
   } catch (error) {
+    throw expiredConnectionError(error) ?? error;
+  }
+}
+
+// Name, link and folder of a file the app uploaded, plus the name of the
+// folder it's in and that folder's parents (to check it belongs to a case).
+export async function uploadedFileInfo(fileId: string) {
+  try {
+    const drive = await getDriveClient();
+    const file = await drive.files.get({ fileId, fields: "id, name, webViewLink, parents, trashed" });
+    if (!file.data.id || file.data.trashed) throw new Error("The uploaded file wasn't found in Drive. Try again.");
+    const parentId = file.data.parents?.[0] ?? "";
+    const parent = parentId ? await drive.files.get({ fileId: parentId, fields: "id, name, parents" }) : null;
+    return {
+      id: file.data.id,
+      name: file.data.name ?? "file",
+      url: file.data.webViewLink ?? `https://drive.google.com/file/d/${file.data.id}/view`,
+      parentId,
+      parentName: parent?.data.name ?? "",
+      grandParents: parent?.data.parents ?? [],
+    };
+  } catch (error) {
+    if (isNotFound(error)) throw new Error("The uploaded file wasn't found in Drive. Try again.");
     throw expiredConnectionError(error) ?? error;
   }
 }

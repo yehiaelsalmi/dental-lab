@@ -12,7 +12,7 @@ import {
   toRoleAccess,
 } from "@/lib/access";
 import type { Permission } from "@/lib/permissions";
-import { createCaseFolder, trashDriveFile, uploadFileToDrive } from "@/lib/googleDrive";
+import { createCaseFolder, trashDriveFile, uploadFileToDrive, uploadedFileInfo } from "@/lib/googleDrive";
 import {
   CASE_SUBFOLDERS,
   designSubfolder,
@@ -104,16 +104,61 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
+// A file the browser already sent straight to Drive (see DirectFileField).
+type DriveUpload = { driveFileId: string };
+
+// The files a form sent for `field`: uploaded straight to Drive (the usual
+// way: "<field>__uploaded" holds a JSON list of Drive ids) or attached.
+function filesFrom(formData: FormData | undefined, field: string): (File | DriveUpload)[] {
+  if (!formData) return [];
+  const direct = formData.getAll(field).filter((f): f is File => f instanceof File && f.size > 0);
+  let ids: unknown = [];
+  try {
+    ids = JSON.parse(String(formData.get(`${field}__uploaded`) || "[]"));
+  } catch {
+    ids = [];
+  }
+  const uploaded = (Array.isArray(ids) ? ids : [])
+    .filter((id): id is string => typeof id === "string" && /^[\w-]{10,100}$/.test(id))
+    .map((driveFileId) => ({ driveFileId }));
+  return [...uploaded, ...direct];
+}
+
 async function attachFile(
   caseId: string,
   folderId: string,
-  file: File,
+  file: File | DriveUpload,
   type: CaseFileType,
   uploadedById: string,
   subfolder?: CaseSubfolder
 ) {
-  const buffer = Buffer.from(await file.arrayBuffer());
   const stage = (await prisma.case.findUnique({ where: { id: caseId }, select: { status: true } }))?.status ?? null;
+
+  if (!(file instanceof File)) {
+    // Already in Drive: check it's in this case's folder (or one of its
+    // subfolders), then record it. The same file twice returns the first.
+    const existing = await prisma.caseFile.findFirst({ where: { driveFileId: file.driveFileId, caseId } });
+    if (existing) return existing;
+    const info = await uploadedFileInfo(file.driveFileId);
+    const inCaseFolder = info.parentId === folderId;
+    if (!inCaseFolder && !info.grandParents.includes(folderId)) {
+      throw new Error("That file isn't in this case's Drive folder.");
+    }
+    return prisma.caseFile.create({
+      data: {
+        caseId,
+        type,
+        fileName: info.name,
+        driveFileId: info.id,
+        driveLink: info.url,
+        uploadedById,
+        folder: inCaseFolder ? null : info.parentName,
+        stage,
+      },
+    });
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
   const uploaded = await uploadFileToDrive(
     folderId,
     file.name,
@@ -160,7 +205,7 @@ export async function createCase(formData: FormData) {
   }
 
   const data = parsed.data;
-  const scanFile = formData.get("scanFile");
+  const scanFiles = filesFrom(formData, "scanFile");
 
   let createdId: string;
   try {
@@ -251,7 +296,7 @@ export async function createCase(formData: FormData) {
       await syncCaseTotals(created.id);
     }
 
-    if (scanFile instanceof File && scanFile.size > 0) {
+    for (const scanFile of scanFiles) {
       await attachFile(created.id, folder.id, scanFile, "SCAN", session.userId, "SCANS");
     }
 
@@ -366,12 +411,12 @@ export async function submitForReview(caseId: string, formData: FormData) {
     }
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
-    const designFile = formData.get("designFile");
-    if (!(designFile instanceof File) || designFile.size === 0) {
-      throw new Error("Attach the design file before submitting for review.");
-    }
+    const designFiles = filesFrom(formData, "designFile");
+    if (designFiles.length === 0) throw new Error("Attach the design file before submitting for review.");
 
-    await attachFile(caseId, caseRecord.driveFolderId, designFile, "DESIGN", session.userId, designSubfolder(caseRecord));
+    for (const designFile of designFiles) {
+      await attachFile(caseId, caseRecord.driveFolderId, designFile, "DESIGN", session.userId, designSubfolder(caseRecord));
+    }
 
     // Every design goes to review; matching only happens after a try-in.
     const beforeIbar = isBeforeIbar(caseRecord);
@@ -537,7 +582,7 @@ export async function completeTryIn(caseId: string, formData: FormData) {
     const caseRecord = await requireVisibleCase(session, caseId);
     if (caseRecord.status !== "TRY_IN") throw new Error("This case isn't at the doctor for a try-in.");
     if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
-    const files = formData.getAll("scanFiles").filter((f): f is File => f instanceof File && f.size > 0);
+    const files = filesFrom(formData, "scanFiles");
     if (files.length === 0) throw new Error("Attach the new scans from the try-in.");
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
@@ -573,8 +618,7 @@ export async function completeIbar(caseId: string, formData: FormData) {
     if (caseRecord.status !== "IBAR_DESIGN") throw new Error("This case isn't in ibar design.");
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
-    const file = formData.get("ibarFile");
-    if (file instanceof File && file.size > 0) {
+    for (const file of filesFrom(formData, "ibarFile")) {
       if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
       await attachFile(caseId, caseRecord.driveFolderId, file, "IBAR", session.userId, "IBAR");
     }
@@ -662,8 +706,8 @@ export async function submitWork(caseId: string, formData: FormData) {
     if (!onCase) throw new Error("You can only upload work on cases you're assigned to.");
     if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
 
-    const file = formData.get("workFile");
-    if (!(file instanceof File) || file.size === 0) throw new Error("Attach the file to submit.");
+    const file = filesFrom(formData, "workFile")[0];
+    if (!file) throw new Error("Attach the file to submit.");
     const note = String(formData.get("note") ?? "").trim() || null;
 
     const saved = await attachFile(
@@ -778,11 +822,13 @@ export async function uploadCaseFile(caseId: string, formData: FormData) {
   try {
     const caseRecord = await requireVisibleCase(session, caseId);
     if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
-    const file = formData.get("caseFile");
-    if (!(file instanceof File) || file.size === 0) throw new Error("Attach the file to upload.");
+    const files = filesFrom(formData, "caseFile");
+    if (files.length === 0) throw new Error("Attach the file to upload.");
     const folder = formData.get("subfolder") || undefined;
     if (folder !== undefined && !isCaseSubfolder(folder)) throw new Error("Pick a folder to upload into.");
-    await attachFile(caseId, caseRecord.driveFolderId, file, "OTHER", session.userId, folder);
+    for (const file of files) {
+      await attachFile(caseId, caseRecord.driveFolderId, file, "OTHER", session.userId, folder);
+    }
   } catch (error) {
     redirect(`/cases/${caseId}?error=${encodeURIComponent(errorMessage(error))}`);
   }
@@ -823,9 +869,7 @@ export async function completeMatching(caseId: string, formData?: FormData) {
     if (caseRecord.status !== "MATCHING") throw new Error("This case isn't in matching.");
     await assertChecklistDone(caseId, caseRecord.status, await statusLabel(caseRecord.status));
 
-    const files = (formData?.getAll("matchingFiles") ?? []).filter(
-      (f): f is File => f instanceof File && f.size > 0
-    );
+    const files = filesFrom(formData, "matchingFiles");
     if (files.length > 0 && !caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
     for (const file of files) {
       await attachFile(caseId, caseRecord.driveFolderId!, file, "MATCHING", session.userId, "MATCHING_DATA");
@@ -861,8 +905,7 @@ export async function markPhotogrammetryDone(caseId: string, formData: FormData)
     }
     if (caseRecord.photogrammetryDoneAt) throw new Error("Photogrammetry is already done.");
 
-    const file = formData.get("photogrammetryFile");
-    if (file instanceof File && file.size > 0) {
+    for (const file of filesFrom(formData, "photogrammetryFile")) {
       if (!caseRecord.driveFolderId) throw new Error("This case has no Drive folder to upload into.");
       await attachFile(caseId, caseRecord.driveFolderId, file, "PHOTOGRAMMETRY", session.userId);
     }
