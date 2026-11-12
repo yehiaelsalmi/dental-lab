@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/access";
 import { getRootFolderInfo, hasDriveAccess, isGoogleDriveConnected } from "@/lib/googleDrive";
 import { appsScript, getSyncSecret, lastSync, syncEndpoint } from "@/lib/driveSync";
 import { CopyButton } from "@/components/CopyButton";
+import { DirectUploadDemo } from "@/components/DirectUploadDemo";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { createRootFolderAction, regenerateSyncSecretAction } from "./actions";
 
@@ -127,6 +128,19 @@ export default async function GoogleSettingsPage({
               </button>
             </form>
           )}
+        </div>
+      )}
+
+      {fullAccess && (
+        <div className="mt-6 rounded-xl border border-brand/30 bg-white p-6 shadow-sm">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">Test fast upload (demo)</h2>
+          <p className="mb-4 text-xs text-slate-500">
+            Sends the file straight from this computer to Google Drive in pieces, with a progress bar.
+            Try turning the Wi-Fi off for a few seconds in the middle: it continues where it stopped.
+            Test files go to the &quot;test uploads&quot; folder in the main Drive folder; nothing is
+            added to any case.
+          </p>
+          <DirectUploadDemo />
         </div>
       )}
 

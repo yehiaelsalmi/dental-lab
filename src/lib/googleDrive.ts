@@ -318,3 +318,53 @@ export async function trashDriveFile(fileId: string): Promise<boolean> {
     throw expiredConnectionError(error) ?? error;
   }
 }
+
+// Starts a resumable upload straight from the browser to Drive: returns a
+// one-time upload link for this one file. The browser sends the file there in
+// pieces (and can resume after a dropped connection); only requests from
+// `origin` (the system's own address) are accepted by Google.
+export async function createDirectUpload(input: {
+  folderId: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  origin: string;
+}): Promise<string> {
+  try {
+    const refreshToken = await getSetting(REFRESH_TOKEN_SETTING_KEY);
+    if (!refreshToken) throw new Error("Google Drive is not connected yet. Connect it from Settings first.");
+    const client = getOAuthClient();
+    client.setCredentials({ refresh_token: refreshToken });
+    const { token } = await client.getAccessToken();
+    const res = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,webViewLink,size",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json; charset=UTF-8",
+          "X-Upload-Content-Type": input.mimeType || "application/octet-stream",
+          "X-Upload-Content-Length": String(input.size),
+          Origin: input.origin,
+        },
+        body: JSON.stringify({ name: input.name, parents: [input.folderId] }),
+      }
+    );
+    const url = res.headers.get("location");
+    if (!res.ok || !url) throw new Error(`Google refused the upload (${res.status}).`);
+    return url;
+  } catch (error) {
+    throw expiredConnectionError(error) ?? error;
+  }
+}
+
+// The "test uploads" folder in the main folder, for trying uploads out.
+export async function getTestUploadFolder(): Promise<string> {
+  try {
+    const drive = await getDriveClient();
+    const rootId = await getOrCreateRootFolder(drive);
+    return (await getOrCreateChildFolder(drive, rootId, "test uploads")).id;
+  } catch (error) {
+    throw expiredConnectionError(error) ?? error;
+  }
+}
