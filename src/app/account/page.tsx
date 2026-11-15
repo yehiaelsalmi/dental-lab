@@ -1,14 +1,16 @@
 import { KeyRound } from "lucide-react";
 import { requireAccess } from "@/lib/access";
-import { changePassword } from "./actions";
+import { prisma } from "@/lib/prisma";
+import { changePassword, saveMyPhone } from "./actions";
 
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; success?: string }>;
+  searchParams: Promise<{ error?: string; success?: string; phoneSaved?: string; phoneError?: string }>;
 }) {
   const session = await requireAccess();
-  const { error, success } = await searchParams;
+  const { error, success, phoneSaved, phoneError } = await searchParams;
+  const me = await prisma.user.findUnique({ where: { id: session.userId }, select: { phone: true } });
 
   return (
     <div className="mx-auto max-w-md px-4 py-6 sm:px-8 sm:py-10">
@@ -29,6 +31,25 @@ export default async function AccountPage({
             <dd className="font-medium text-slate-900">{session.role.name}</dd>
           </div>
         </dl>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-1 text-sm font-semibold text-slate-900">WhatsApp number</h2>
+        <p className="mb-4 text-xs text-slate-500">Notifications from the system are sent to this number on WhatsApp.</p>
+        {phoneSaved && <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Number saved.</p>}
+        {phoneError && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{phoneError}</p>}
+        <form action={saveMyPhone} className="flex gap-2">
+          <input
+            name="phone"
+            type="tel"
+            defaultValue={me?.phone ?? ""}
+            placeholder="e.g. 01012345678"
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          />
+          <button type="submit" className="rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-hover">
+            Save
+          </button>
+        </form>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { caseUrl, sendEmail } from "@/lib/email";
+import { getWhatsAppSettings, sendWhatsAppMany } from "@/lib/whatsapp";
 import { statusLabel } from "@/lib/statuses";
 import { PHOTOGRAMMETRY_NEEDED, type Permission } from "@/lib/permissions";
 import { VISIBILITY_INCLUDE, canViewCase, toRoleAccess, usersWithPermission } from "@/lib/access";
 
-type Recipient = { id: string; email: string };
+type Recipient = { id: string; email: string; name: string; phone: string | null };
 
 async function holders(permission: Permission, excludeUserId?: string): Promise<Recipient[]> {
   return (await usersWithPermission(permission)).filter((u) => u.id !== excludeUserId);
@@ -16,22 +17,31 @@ function reviewers(excludeUserId?: string) {
   return holders("case.review", excludeUserId);
 }
 
-// In-app notification plus email to each recipient.
+// In-app notification to each recipient, plus WhatsApp once it's connected
+// (Lab settings); until then, email as before.
 async function notifyMany(recipients: Recipient[], caseId: string, subject: string, message: string) {
   if (recipients.length === 0) return;
   await prisma.notification.createMany({
     data: recipients.map((r) => ({ userId: r.id, caseId, message })),
   });
-  sendEmail(
-    recipients.map((r) => r.email),
-    subject,
-    message,
-    caseUrl(caseId)
-  );
+  const whatsapp = await getWhatsAppSettings();
+  if (whatsapp.configured) {
+    sendWhatsAppMany(whatsapp, recipients, message, caseUrl(caseId));
+  } else {
+    sendEmail(
+      recipients.map((r) => r.email),
+      subject,
+      message,
+      caseUrl(caseId)
+    );
+  }
 }
 
 async function userRecipient(userId: string): Promise<Recipient[]> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true, phone: true },
+  });
   return user ? [user] : [];
 }
 

@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
 import { LAB_LEADER_KEY } from "@/lib/permissions";
+import { cleanPhone } from "@/lib/doctors";
 
 const createUserSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -163,4 +164,17 @@ export async function resetPasswordAction(formData: FormData) {
   await prisma.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(password, 10) } });
   revalidatePath("/users");
   redirect(`/users?reset=${encodeURIComponent(user.name)}`);
+}
+
+export async function setUserPhoneAction(formData: FormData) {
+  await requirePermission("page.users");
+  const userId = formData.get("userId") as string;
+  let phone: string | null;
+  try {
+    phone = cleanPhone(formData.get("phone"), false);
+  } catch (error) {
+    fail((error as Error).message.replace("doctor's ", ""));
+  }
+  await prisma.user.update({ where: { id: userId }, data: { phone } });
+  revalidatePath("/users");
 }

@@ -17,6 +17,8 @@ model User {
   id           String   @id @default(cuid())
   name         String
   email        String   @unique
+  // WhatsApp number for notifications (e.g. 01012345678).
+  phone        String?
   passwordHash String
   roleId       String
   role         Role     @relation(fields: [roleId], references: [id])

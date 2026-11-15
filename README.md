@@ -360,6 +360,14 @@ no email/SMS setup required:
 - A designer is notified when a case is assigned to them (at creation, or later via "Assign designer").
 - Lab Leaders are notified when a designer submits a case for review.
 
+### WhatsApp notifications
+
+Once WhatsApp is connected on **Lab settings** (Meta WhatsApp Business Cloud API: Phone
+number ID, permanent access token, an approved Utility template named `case_update`
+with three parameters: name, message, link), notifications go by WhatsApp to each
+person's WhatsApp number (Users page or My Account) and to the bell, and emails stop.
+Until it's connected, emails are sent as before (`src/lib/whatsapp.ts`).
+
 ### Email notifications
 
 Every notification above is also emailed, once SMTP is configured in `.env`

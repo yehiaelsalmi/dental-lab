@@ -5,6 +5,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAccess } from "@/lib/access";
+import { cleanPhone } from "@/lib/doctors";
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
@@ -36,4 +37,16 @@ export async function changePassword(formData: FormData) {
   });
 
   redirect("/account?success=1");
+}
+
+export async function saveMyPhone(formData: FormData) {
+  const session = await requireAccess();
+  let phone: string | null;
+  try {
+    phone = cleanPhone(formData.get("phone"), false);
+  } catch (error) {
+    redirect(`/account?phoneError=${encodeURIComponent((error as Error).message.replace("doctor's ", ""))}`);
+  }
+  await prisma.user.update({ where: { id: session.userId }, data: { phone } });
+  redirect("/account?phoneSaved=1");
 }

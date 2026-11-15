@@ -1,7 +1,8 @@
 import { requirePermission } from "@/lib/access";
+import { WHATSAPP_TEMPLATE_TEXT, getWhatsAppSettings } from "@/lib/whatsapp";
 import { getLabSettings } from "@/lib/labSettings";
 import { LabMark } from "@/components/LabMark";
-import { saveLabSettings } from "./actions";
+import { saveLabSettings, saveWhatsAppAction, testWhatsAppAction } from "./actions";
 
 const INPUT =
   "rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -9,10 +10,11 @@ const INPUT =
 export default async function LabSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; waSaved?: string; waError?: string; waTest?: string }>;
 }) {
   await requirePermission("page.settings");
-  const { error, saved } = await searchParams;
+  const { error, saved, waSaved, waError, waTest } = await searchParams;
+  const whatsapp = await getWhatsAppSettings();
   const lab = await getLabSettings();
 
   return (
@@ -132,6 +134,92 @@ export default async function LabSettingsPage({
           Save settings
         </button>
       </form>
+
+      <section className="mt-8 flex flex-col gap-4 rounded-xl border border-emerald-200 bg-white p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">WhatsApp notifications</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {whatsapp.configured
+              ? "Connected: notifications go by WhatsApp (and to the bell in the system); emails are off."
+              : "Not connected yet: notifications still go by email. Connect Meta's WhatsApp Business account below to switch."}{" "}
+            Each person gets them on the WhatsApp number on their account (Users page or My Account).
+          </p>
+        </div>
+        {waSaved && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">WhatsApp settings saved.</p>}
+        {waTest && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Test message sent to +{waTest}. Check WhatsApp.</p>}
+        {waError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{waError}</p>}
+
+        <details className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+          <summary className="cursor-pointer font-medium">How to connect (one time)</summary>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            <li>Get a phone number that is <strong>not</strong> used on the normal WhatsApp app (e.g. a new SIM).</li>
+            <li>
+              At <strong>business.facebook.com</strong> create a business account, then at <strong>developers.facebook.com</strong>{" "}
+              create an app of type <em>Business</em> and add <strong>WhatsApp</strong> to it.
+            </li>
+            <li>In WhatsApp → API Setup, add and verify that phone number, and add a payment method.</li>
+            <li>
+              In WhatsApp Manager → Message templates, create a template named <code>case_update</code>, category{" "}
+              <strong>Utility</strong>, language <strong>English</strong>, with this body:
+              <pre className="mt-1 whitespace-pre-wrap rounded bg-white p-2 text-xs ring-1 ring-slate-200">{WHATSAPP_TEMPLATE_TEXT}</pre>
+              (example values: Ahmed / New case assigned: Omar Mohamed / https://system.alexandriaaallon4.com/cases). Wait for
+              it to be approved.
+            </li>
+            <li>
+              Create a <strong>permanent access token</strong>: Business settings → System users → add an admin system user →
+              assign the app (WhatsApp permissions) → Generate token.
+            </li>
+            <li>Paste the <strong>Phone number ID</strong> (from API Setup) and the token below, save, then send a test.</li>
+          </ol>
+        </details>
+
+        <form action={saveWhatsAppAction} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+            Phone number ID
+            <input name="phoneNumberId" defaultValue={whatsapp.phoneNumberId} placeholder="e.g. 123456789012345" className={INPUT} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+            Permanent access token
+            <input
+              name="token"
+              type="password"
+              autoComplete="off"
+              placeholder={whatsapp.token ? "Saved (leave empty to keep it)" : "Paste the token"}
+              className={INPUT}
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+            Template name
+            <input name="template" defaultValue={whatsapp.template} className={INPUT} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+            Template language code
+            <input name="language" defaultValue={whatsapp.language} className={INPUT} />
+          </label>
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+              Save WhatsApp settings
+            </button>
+            {whatsapp.configured && (
+              <button
+                type="submit"
+                name="disconnect"
+                value="1"
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Disconnect (back to email)
+              </button>
+            )}
+          </div>
+        </form>
+        {whatsapp.configured && (
+          <form action={testWhatsAppAction}>
+            <button type="submit" className="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
+              Send me a test message
+            </button>
+          </form>
+        )}
+      </section>
     </div>
   );
 }

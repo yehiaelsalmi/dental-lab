@@ -11,6 +11,7 @@ import {
   deleteUserAction,
   resetPasswordAction,
   setSalaryAction,
+  setUserPhoneAction,
   toggleUserActiveAction,
 } from "./actions";
 
@@ -62,11 +63,12 @@ export default async function UsersPage({
       )}
 
       <section className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full min-w-[1060px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-3 font-medium">Name</th>
               <th className="px-5 py-3 font-medium">Email</th>
+              <th className="px-5 py-3 font-medium">WhatsApp</th>
               <th className="px-5 py-3 font-medium">Role</th>
               <th className="px-5 py-3 font-medium">Salary / month</th>
               <th className="px-5 py-3 font-medium">Status</th>
@@ -78,6 +80,22 @@ export default async function UsersPage({
               <tr key={u.id} className="hover:bg-slate-50">
                 <td className="px-5 py-3.5 font-medium text-slate-900">{u.name}</td>
                 <td className="px-5 py-3.5 text-slate-500">{u.email}</td>
+                <td className="px-5 py-3.5">
+                  <form action={setUserPhoneAction} className="flex items-center gap-1.5">
+                    <input type="hidden" name="userId" value={u.id} />
+                    <input
+                      name="phone"
+                      type="tel"
+                      defaultValue={u.phone ?? ""}
+                      placeholder="None"
+                      aria-label={`WhatsApp number for ${u.name}`}
+                      className={`w-36 rounded-lg border bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand ${u.phone ? "border-slate-200" : "border-amber-300"}`}
+                    />
+                    <button type="submit" className="text-xs font-medium text-slate-500 hover:text-brand">
+                      Save
+                    </button>
+                  </form>
+                </td>
                 <td className="px-5 py-3.5">
                   <form action={changeUserRoleAction}>
                     <input type="hidden" name="userId" value={u.id} />
