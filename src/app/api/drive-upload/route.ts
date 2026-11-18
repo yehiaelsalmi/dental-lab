@@ -41,13 +41,15 @@ export async function POST(request: Request) {
     if (purpose === "newCaseScan") {
       // The scan follows the case being created from the same form: wait for
       // it (so only one patient folder is ever made), then use its folder.
-      const patientName = String(body?.patientName ?? "").trim();
+      const typedName = String(body?.patientName ?? "");
+      const patientName = typedName.trim();
       if (!patientName) return fail("Fill in the patient first.");
       let created = null;
       for (let i = 0; i < 30 && !created; i++) {
         created = await prisma.case.findFirst({
           where: {
-            patientName,
+            // Saved trimmed (older cases kept stray spaces): match either.
+            patientName: { in: [...new Set([patientName, typedName])] },
             createdById: access.userId,
             createdAt: { gt: new Date(Date.now() - 10 * 60 * 1000) },
             driveFolderId: { not: null },

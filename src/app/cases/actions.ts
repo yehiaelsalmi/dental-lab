@@ -68,7 +68,7 @@ const createCaseSchema = z.object({
   newDoctorName: z.string().optional(),
   ibarDesignerId: z.string().optional(),
   newIbarDesignerName: z.string().optional(),
-  patientName: z.string().min(1, "Patient name is required"),
+  patientName: z.string().trim().min(1, "Patient name is required"),
   system: z.string().optional(),
   shade: z.string().optional(),
   dueDate: z.string().optional(),
