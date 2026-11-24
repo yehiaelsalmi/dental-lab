@@ -44,6 +44,7 @@ export const PERMISSIONS = [
   { key: "page.statuses", group: "Pages", label: "Statuses (add custom statuses, rename statuses)" },
   { key: "page.checklists", group: "Pages", label: "Checklists (items to tick per status, and extra items on a case)" },
   { key: "page.expenses", group: "Pages", label: "Expenses" },
+  { key: "page.inventory", group: "Pages", label: "Inventory (materials in stock, scanning, adding received stock)" },
   { key: "page.fields", group: "Pages", label: "Custom fields (add fields to the case form)" },
   { key: "page.settings", group: "Pages", label: "Lab settings (name, logo, invoice details, alerts)" },
   { key: "page.drive", group: "Pages", label: "Drive Settings" },

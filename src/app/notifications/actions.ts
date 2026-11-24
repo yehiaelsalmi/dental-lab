@@ -27,5 +27,5 @@ export async function openNotification(formData: FormData) {
 
   await prisma.notification.update({ where: { id: notificationId }, data: { read: true } });
 
-  redirect(notification.caseId ? `/cases/${notification.caseId}` : "/notifications");
+  redirect(notification.caseId ? `/cases/${notification.caseId}` : (notification.link ?? "/notifications"));
 }

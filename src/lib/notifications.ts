@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { caseUrl, sendEmail } from "@/lib/email";
+import { appUrl, caseUrl, sendEmail } from "@/lib/email";
 import { getWhatsAppSettings, sendWhatsAppMany } from "@/lib/whatsapp";
 import { statusLabel } from "@/lib/statuses";
 import { PHOTOGRAMMETRY_NEEDED, type Permission } from "@/lib/permissions";
@@ -244,4 +244,16 @@ export async function notifyProblemReported(
     `Problem on case ${patientName}`,
     `${reporterName} reported a problem on case ${patientName}: ${text}`
   );
+}
+
+// An inventory item reached its minimum: everyone with the Inventory page hears.
+export async function notifyLowStock(item: { id: string; name: string; quantity: number }, actorId?: string) {
+  const recipients = await holders("page.inventory", actorId);
+  if (recipients.length === 0) return;
+  const link = `/inventory/${item.id}`;
+  const message = `Low stock: ${item.name} (${item.quantity} left)`;
+  await prisma.notification.createMany({ data: recipients.map((r) => ({ userId: r.id, link, message })) });
+  const whatsapp = await getWhatsAppSettings();
+  if (whatsapp.configured) sendWhatsAppMany(whatsapp, recipients, message, appUrl(link));
+  else sendEmail(recipients.map((r) => r.email), message, message, appUrl(link));
 }

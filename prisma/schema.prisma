@@ -51,6 +51,7 @@ model User {
   problemsReported       CaseProblem[]    @relation("ProblemsReported")
   problemsSolved         CaseProblem[]    @relation("ProblemsSolved")
   printsRecorded         PrintRecord[]    @relation("PrintsRecorded")
+  inventoryMovements     InventoryMovement[] @relation("InventoryMovements")
 }
 
 model Doctor {
@@ -300,6 +301,9 @@ model Notification {
 
   caseId String?
   case   Case?   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  // Where it opens when it isn't about a case (e.g. an inventory item).
+  link   String?
 }
 
 // One per doctor per calendar month. Snapshots line amounts at generation
@@ -549,4 +553,39 @@ model PrintRecord {
 
   @@index([caseId])
   @@index([createdAt])
+}
+
+// Lab stock (blocks, discs, liquids...). `code` is the manufacturer's
+// barcode/QR on the box, read by the scanner on the Inventory page.
+model InventoryItem {
+  id          String   @id @default(cuid())
+  name        String
+  type        String?
+  colour      String?
+  size        String?
+  code        String?  @unique
+  quantity    Int      @default(0)
+  // At or below this, the item shows as low stock and the lab is notified.
+  minQuantity Int?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  movements InventoryMovement[]
+}
+
+// Every change to an item's quantity: stock received, or a correction.
+model InventoryMovement {
+  id            String        @id @default(cuid())
+  itemId        String
+  item          InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  kind          String        // "RECEIVED" | "CORRECTION"
+  change        Int
+  quantityAfter Int
+  note          String?
+  createdById   String?
+  createdBy     User?         @relation("InventoryMovements", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+
+  @@index([itemId])
 }

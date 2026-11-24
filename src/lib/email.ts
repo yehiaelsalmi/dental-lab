@@ -13,6 +13,12 @@ function escapeHtml(text: string) {
     .replace(/"/g, "&quot;");
 }
 
+// A full link to a page of the system, e.g. appUrl("/inventory").
+export function appUrl(path: string) {
+  const base = (process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "");
+  return `${base}${path}`;
+}
+
 export function caseUrl(caseId: string) {
   // `||` rather than `??`: an empty APP_URL="" in .env must fall through too.
   const base = (process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "");

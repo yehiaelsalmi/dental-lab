@@ -267,6 +267,16 @@ material line's units and price per unit, saved on `CaseMaterial.pricePerUnit` w
 the case is priced); the PDF lists them; Reports show
 the totals. Materials no longer carry extra fees or deductions.
 
+## Inventory
+
+**Inventory** (`/inventory`, permission "Inventory") lists materials in stock: name, type,
+colour, size, quantity, an optional minimum and the manufacturer's barcode/QR code. A
+USB/Bluetooth scanner types the code and Enter into the scan box (which keeps focus):
+a known code opens the item, ready for **Add received stock**; an unknown one offers to
+add the item with the code filled in. Quantity changes are kept as history (received,
+or a correction from the item's details). Items at or below their minimum show first in
+red, and reaching it notifies everyone with the Inventory permission.
+
 ## Payments
 
 **Payments** (`/payments`, permission "Payments") records money that changes hands,

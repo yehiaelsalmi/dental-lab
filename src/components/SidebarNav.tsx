@@ -21,6 +21,7 @@ import {
   TextCursorInput,
   ClipboardCheck,
   HandCoins,
+  Boxes,
 } from "lucide-react";
 
 // `show` and `team` are decided on the server from the user's permissions.
@@ -32,6 +33,7 @@ const LINKS = [
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/expenses", label: "Expenses", icon: Banknote },
   { href: "/payments", label: "Payments", icon: HandCoins },
+  { href: "/inventory", label: "Inventory", icon: Boxes },
   { href: "/doctors", label: "Doctors", icon: Stethoscope },
   { href: "/users", label: "Users", icon: Users },
   { href: "/settings/roles", label: "Roles", icon: ShieldCheck },
