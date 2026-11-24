@@ -564,6 +564,8 @@ model InventoryItem {
   colour      String?
   size        String?
   code        String?  @unique
+  // The maker's product number read from the code (e.g. "EDDI G844005").
+  ref         String?
   quantity    Int      @default(0)
   // At or below this, the item shows as low stock and the lab is notified.
   minQuantity Int?
@@ -583,6 +585,10 @@ model InventoryMovement {
   change        Int
   quantityAfter Int
   note          String?
+  // Read from the box's code when it was scanned in.
+  lot           String?
+  expiresAt     DateTime?
+  madeAt        DateTime?
   createdById   String?
   createdBy     User?         @relation("InventoryMovements", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt     DateTime      @default(now())

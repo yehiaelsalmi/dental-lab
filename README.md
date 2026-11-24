@@ -273,7 +273,12 @@ the totals. Materials no longer carry extra fees or deductions.
 colour, size, quantity, an optional minimum and the manufacturer's barcode/QR code. A
 USB/Bluetooth scanner types the code and Enter into the scan box (which keeps focus):
 a known code opens the item, ready for **Add received stock**; an unknown one offers to
-add the item with the code filled in. Quantity changes are kept as history (received,
+add the item with the code filled in. Medical-device codes (UDI) are read (`src/lib/udi.ts`):
+HIBC (`+EDDIG8440051/$lot/16Dmade/14Dexpiry`) and GS1 (`(01)GTIN(17)expiry(10)lot`).
+Items are matched on the product part (maker + REF / GTIN), so every box of a product
+is recognised; each box's lot, expiry and manufacture date fill in and are saved with
+the stock received. A scanner set to a German keyboard ("]" for "+", "&" for "/") is
+corrected automatically. Quantity changes are kept as history (received,
 or a correction from the item's details). Items at or below their minimum show first in
 red, and reaching it notifies everyone with the Inventory permission.
 

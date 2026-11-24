@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
 import { ScanBox } from "@/components/ScanBox";
 import { createItem } from "./actions";
+import { parseScannedCode } from "@/lib/udi";
+import { formatDate } from "@/lib/dates";
 
 const INPUT =
   "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -20,24 +22,33 @@ export default async function InventoryPage({
   const { scan: scanParam, error, deleted } = await searchParams;
   const scan = (scanParam ?? "").trim();
 
-  // A scanned code opens its item straight away.
-  if (scan) {
-    const byCode = await prisma.inventoryItem.findUnique({ where: { code: scan } });
-    if (byCode) redirect(`/inventory/${byCode.id}?scanned=1`);
+  // A scanned code opens its item straight away (matched on the product
+  // part, so every box of it is found), with the box's lot / dates.
+  const scanned = scan ? parseScannedCode(scan) : null;
+  const batchQuery = new URLSearchParams(
+    Object.entries({ lot: scanned?.lot, expires: scanned?.expires, made: scanned?.made }).filter(
+      (e): e is [string, string] => !!e[1]
+    )
+  ).toString();
+  if (scanned) {
+    const byCode =
+      (await prisma.inventoryItem.findUnique({ where: { code: scanned.productKey } })) ??
+      (await prisma.inventoryItem.findUnique({ where: { code: scan } }));
+    if (byCode) redirect(`/inventory/${byCode.id}?scanned=1${batchQuery ? `&${batchQuery}` : ""}`);
   }
 
   const all = await prisma.inventoryItem.findMany({ orderBy: { name: "asc" } });
   const needle = scan.toLowerCase();
   const matches = needle
     ? all.filter((i) =>
-        [i.name, i.type, i.colour, i.size, i.code].some((v) => v?.toLowerCase().includes(needle))
+        [i.name, i.type, i.colour, i.size, i.code, i.ref].some((v) => v?.toLowerCase().includes(needle))
       )
     : all;
   const items = [...matches.filter(isLow), ...matches.filter((i) => !isLow(i))];
   const lowCount = all.filter(isLow).length;
   const types = [...new Set(all.map((i) => i.type).filter(Boolean))] as string[];
   // Nothing matched what was scanned: offer to add it with that code.
-  const unknownCode = scan && matches.length === 0 ? scan : null;
+  const unknownCode = scan && (matches.length === 0 || scanned?.format !== "PLAIN") ? scan : null;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
@@ -53,9 +64,20 @@ export default async function InventoryPage({
       {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {deleted && <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Item deleted.</p>}
       {unknownCode && (
-        <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          No item has the code <strong>{unknownCode}</strong>. Add it below; the code is already filled in.
-        </p>
+        <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p>
+            New product: no item has this code yet. Add it below; the code is already filled in.
+            Type the name, shade (colour), size and type once and every box of it will be recognised.
+          </p>
+          {scanned && scanned.format !== "PLAIN" && (
+            <p className="mt-1 text-xs">
+              Read from the code: REF <strong>{scanned.ref}</strong>
+              {scanned.lot && <> · lot <strong>{scanned.lot}</strong></>}
+              {scanned.expires && <> · expires <strong>{formatDate(scanned.expires)}</strong></>}
+              {scanned.made && <> · made {formatDate(scanned.made)}</>}
+            </p>
+          )}
+        </div>
       )}
       {lowCount > 0 && !scan && (
         <p className="mb-4 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -73,7 +95,7 @@ export default async function InventoryPage({
               <th className="px-4 py-3 font-medium">Size</th>
               <th className="px-4 py-3 text-right font-medium">Quantity</th>
               <th className="px-4 py-3 text-right font-medium">Minimum</th>
-              <th className="px-4 py-3 font-medium">Code</th>
+              <th className="px-4 py-3 font-medium">REF / code</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -91,7 +113,7 @@ export default async function InventoryPage({
                   <td className="px-4 py-2.5 text-slate-600">{i.size ?? "-"}</td>
                   <td className={`px-4 py-2.5 text-right font-semibold ${low ? "text-rose-700" : "text-slate-900"}`}>{i.quantity}</td>
                   <td className="px-4 py-2.5 text-right text-slate-500">{i.minQuantity ?? "-"}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{i.code ?? "-"}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{i.ref ?? i.code ?? "-"}</td>
                 </tr>
               );
             })}
@@ -143,8 +165,11 @@ export default async function InventoryPage({
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500 lg:col-span-2">
             Code (scan the box)
-            <input name="code" defaultValue={unknownCode ?? ""} maxLength={200} autoComplete="off" className={`${INPUT} font-mono`} />
+            <input name="code" defaultValue={unknownCode ?? ""} maxLength={300} autoComplete="off" className={`${INPUT} font-mono`} />
           </label>
+          <input type="hidden" name="lot" value={scanned?.lot ?? ""} />
+          <input type="hidden" name="expires" value={scanned?.expires ?? ""} />
+          <input type="hidden" name="made" value={scanned?.made ?? ""} />
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500 sm:col-span-2 lg:col-span-3">
             Notes (optional)
             <input name="notes" maxLength={500} className={INPUT} />
