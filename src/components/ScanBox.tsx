@@ -40,7 +40,7 @@ export function ScanBox({ defaultValue, grabTyping = true }: { defaultValue?: st
           name="scan"
           defaultValue={defaultValue}
           autoComplete="off"
-          placeholder="Scan an item (or type its code or name) and press Enter"
+          placeholder="Scan an item's QR label (or type its code or name) and press Enter"
           className="w-full rounded-lg border-2 border-brand/40 bg-white py-3 pl-10 pr-3 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
         />
       </div>

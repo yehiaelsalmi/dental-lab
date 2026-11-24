@@ -218,6 +218,7 @@ model Case {
   adjustments    CaseAdjustment[]
   problems       CaseProblem[]
   printRecords   PrintRecord[]
+  inventoryUses  InventoryMovement[]
 }
 
 model CaseUnit {
@@ -563,9 +564,14 @@ model InventoryItem {
   type        String?
   colour      String?
   size        String?
+  // The system's own code (e.g. INV00012), printed as a QR on the item's label.
   code        String?  @unique
-  // The maker's product number read from the code (e.g. "EDDI G844005").
+  // No longer shown (was the maker's product number from UDI barcodes).
   ref         String?
+  scalingFactor String?
+  // For blocks/discs milled into units (e.g. 25 per block): stock is then
+  // counted in units (quantity, minQuantity), received in whole blocks.
+  unitsPerBlock Int?
   quantity    Int      @default(0)
   // At or below this, the item shows as low stock and the lab is notified.
   minQuantity Int?
@@ -581,7 +587,7 @@ model InventoryMovement {
   id            String        @id @default(cuid())
   itemId        String
   item          InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  kind          String        // "RECEIVED" | "CORRECTION"
+  kind          String        // "RECEIVED" | "USED" | "BLOCK_DONE" | "CORRECTION"
   change        Int
   quantityAfter Int
   note          String?
@@ -589,6 +595,9 @@ model InventoryMovement {
   lot           String?
   expiresAt     DateTime?
   madeAt        DateTime?
+  // The case material was used for (kind "USED").
+  caseId        String?
+  case          Case?         @relation(fields: [caseId], references: [id], onDelete: SetNull)
   createdById   String?
   createdBy     User?         @relation("InventoryMovements", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt     DateTime      @default(now())

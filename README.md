@@ -269,18 +269,25 @@ the totals. Materials no longer carry extra fees or deductions.
 
 ## Inventory
 
-**Inventory** (`/inventory`, permission "Inventory") lists materials in stock: name, type,
-colour, size, quantity, an optional minimum and the manufacturer's barcode/QR code. A
-USB/Bluetooth scanner types the code and Enter into the scan box (which keeps focus):
-a known code opens the item, ready for **Add received stock**; an unknown one offers to
-add the item with the code filled in. Medical-device codes (UDI) are read (`src/lib/udi.ts`):
-HIBC (`+EDDIG8440051/$lot/16Dmade/14Dexpiry`) and GS1 (`(01)GTIN(17)expiry(10)lot`).
-Items are matched on the product part (maker + REF / GTIN), so every box of a product
-is recognised; each box's lot, expiry and manufacture date fill in and are saved with
-the stock received. A scanner set to a German keyboard ("]" for "+", "&" for "/") is
-corrected automatically. Quantity changes are kept as history (received,
-or a correction from the item's details). Items at or below their minimum show first in
-red, and reaching it notifies everyone with the Inventory permission.
+**Inventory** (`/inventory`) lists materials in stock: name, type, colour, size, scaling
+factor, quantity, an optional minimum and the system's own code (`INV00001`, ...).
+Each item has a printable **QR label** (`/inventory/<id>/label`, 60 x 40 mm) to stick on
+the box; a scanner reading it into the scan box opens the item. Codes are letters and
+digits only, so scanners set to any keyboard layout read them.
+
+Blocks/discs have **units per block** (e.g. 25): their stock is counted in units,
+received in whole blocks, and shown as "2 blocks + 12 units". Plain items count pieces.
+
+- **Permission "Inventory: manage items"** (`page.inventory`, Lab Leader): add/edit
+  items, receive stock, correct counts, print labels.
+- **Permission "Inventory: see stock and take materials"** (`inventory.use`, given to
+  the Milling role): sees stock, and on a case's **Materials used** box picks (or scans)
+  the material and enters the units used; it's taken off stock at once. "This finished
+  the block" also removes what was left of that block. Uses can be undone.
+
+Every change is kept as history (received, used for a case, block finished,
+correction). Items at or below their minimum show first in red, and reaching it
+notifies the people who manage the inventory.
 
 ## Payments
 
