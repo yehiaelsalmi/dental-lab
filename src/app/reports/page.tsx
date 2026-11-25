@@ -24,6 +24,7 @@ import {
   monthLabel,
   monthStart,
   nextMonthStart,
+  overheadsAllTime,
   overheadsForMonth,
 } from "@/lib/overheads";
 import { prisma } from "@/lib/prisma";
@@ -76,6 +77,7 @@ export default async function ReportsPage({
   );
   const customFields = await activeFields();
   const overheads = month ? await overheadsForMonth(month) : null;
+  const overheadsAll = month ? null : await overheadsAllTime();
   const totals = computeTotals(cases);
   const breakdowns = allBreakdowns(cases);
 
@@ -168,6 +170,40 @@ export default async function ReportsPage({
               {overheads.expenses.length + overheads.salaries.length === 0 && (
                 <li className="px-4 py-4 text-center text-slate-400">None for this month.</li>
               )}
+            </ul>
+          </div>
+        </section>
+      )}
+
+      {overheadsAll && (
+        <section className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr]">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+            <Stat label="Case profit" value={totals.profit} icon={<TrendingUp size={16} />} />
+            <Stat label="Expenses" value={-overheadsAll.expenseTotal} icon={<Banknote size={16} />} />
+            <Stat label="Salaries" value={-overheadsAll.salaryTotal} icon={<Users size={16} />} />
+            <Stat
+              icon={<Wallet size={16} />}
+              label="Net profit"
+              value={totals.profit - overheadsAll.expenseTotal - overheadsAll.salaryTotal}
+              strong
+            />
+          </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+              Expenses and salaries by month
+            </div>
+            <ul className="max-h-64 divide-y divide-slate-100 overflow-y-auto">
+              {[...overheadsAll.months].reverse().map((m) => (
+                <li key={m.key} className="flex items-center justify-between gap-3 px-4 py-2">
+                  <Link href={`/reports?month=${m.key}`} className="font-medium text-slate-700 hover:text-brand">
+                    {monthLabel(m.key)}
+                  </Link>
+                  <span className="text-right text-xs text-slate-500">
+                    Expenses <span className="font-medium text-slate-900">{fmt(m.expenseTotal)}</span>
+                    {" · "}Salaries <span className="font-medium text-slate-900">{fmt(m.salaryTotal)}</span>
+                  </span>
+                </li>
+              ))}
             </ul>
           </div>
         </section>

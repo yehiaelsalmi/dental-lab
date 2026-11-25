@@ -65,3 +65,35 @@ export async function overheadsForMonth(key: string): Promise<Overheads> {
     salaryTotal: salaries.reduce((sum, s) => sum + s.amount, 0),
   };
 }
+
+export type OverheadsAllTime = {
+  months: { key: string; expenseTotal: number; salaryTotal: number }[];
+  expenseTotal: number;
+  salaryTotal: number;
+};
+
+// Every month's expenses and salaries added up, from the lab's first month
+// with a delivered case or an expense up to this month.
+export async function overheadsAllTime(): Promise<OverheadsAllTime> {
+  const [firstCase, firstExpense] = await Promise.all([
+    prisma.case.findFirst({ where: { deliveredAt: { not: null } }, orderBy: { deliveredAt: "asc" }, select: { deliveredAt: true } }),
+    prisma.expense.findFirst({ orderBy: { month: "asc" }, select: { month: true } }),
+  ]);
+  const current = currentMonthKey();
+  const starts = [firstCase?.deliveredAt, firstExpense?.month].filter((d): d is Date => !!d).map((d) => d.toISOString().slice(0, 7));
+  const first = starts.length ? starts.sort()[0] : current;
+
+  const keys: string[] = [];
+  for (let key = first; key <= current; key = nextMonthStart(key).toISOString().slice(0, 7)) keys.push(key);
+  const months = await Promise.all(
+    keys.map(async (key) => {
+      const o = await overheadsForMonth(key);
+      return { key, expenseTotal: o.expenseTotal, salaryTotal: o.salaryTotal };
+    })
+  );
+  return {
+    months,
+    expenseTotal: months.reduce((sum, m) => sum + m.expenseTotal, 0),
+    salaryTotal: months.reduce((sum, m) => sum + m.salaryTotal, 0),
+  };
+}
