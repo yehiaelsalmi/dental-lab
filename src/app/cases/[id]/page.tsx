@@ -207,7 +207,7 @@ export default async function CaseDetailPage({
       : [];
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-10">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
       <Link
         href="/cases"
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900"
@@ -216,34 +216,55 @@ export default async function CaseDetailPage({
         Back to cases
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="break-words text-2xl font-semibold text-slate-900">{caseRecord.patientName}</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {caseRecord.doctor.name}
-            {caseRecord.doctor.phone && (
-              <>
-                {" · "}
-                <a href={`tel:${caseRecord.doctor.phone.replace(/[^\d+]/g, "")}`} className="font-medium text-brand hover:text-brand-hover">
-                  {caseRecord.doctor.phone}
-                </a>
-              </>
-            )}
-          </p>
-          {caseRecord.doctor.address && <p className="text-xs text-slate-400">{caseRecord.doctor.address}</p>}
-        </div>
-        <div className="flex items-center gap-3">
-          {can(access, "case.edit") && (
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="mb-2">
+              <StatusBadge status={status} />
+            </div>
+            <h1 className="break-words text-2xl font-semibold text-slate-900 sm:text-3xl">{caseRecord.patientName}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              <span className="font-medium text-slate-700">{caseRecord.doctor.name}</span>
+              {caseRecord.doctor.phone && (
+                <>
+                  {" · "}
+                  <a href={`tel:${caseRecord.doctor.phone.replace(/[^\d+]/g, "")}`} className="font-medium text-brand hover:text-brand-hover">
+                    {caseRecord.doctor.phone}
+                  </a>
+                </>
+              )}
+              {caseRecord.doctor.address && <span className="text-slate-400"> · {caseRecord.doctor.address}</span>}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <Link
-              href={`/cases/${caseRecord.id}/edit`}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              href={`/cases/${caseRecord.id}/print`}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              <Pencil size={14} />
-              Edit
+              <Printer size={14} />
+              Case sheet
             </Link>
-          )}
-          <StatusBadge status={status} />
+            {can(access, "case.edit") && (
+              <Link
+                href={`/cases/${caseRecord.id}/edit`}
+                className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+              >
+                <Pencil size={14} />
+                Edit
+              </Link>
+            )}
+          </div>
         </div>
+        <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-sm sm:grid-cols-4">
+          <Fact
+            label="Due"
+            value={caseRecord.dueDate ? formatDate(caseRecord.dueDate) : "-"}
+            tone={!caseRecord.deliveredAt && isPastDue(caseRecord.dueDate) ? "alert" : undefined}
+          />
+          <Fact label="Units (upper / lower)" value={`${caseRecord.unitsUpper ?? "-"} / ${caseRecord.unitsLower ?? "-"}`} />
+          <Fact label="System · Shade" value={`${caseRecord.system ?? "-"} · ${caseRecord.shade ?? "-"}`} />
+          <Fact label="Entered" value={formatDate(caseRecord.entryDate)} />
+        </dl>
       </div>
 
       {error && (
@@ -261,6 +282,8 @@ export default async function CaseDetailPage({
         />
       </section>
 
+      <div className="grid grid-cols-1 gap-x-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
       {(canReportProblem || caseRecord.problems.length > 0) && (
         <section
           className={`mb-6 rounded-xl border p-5 ${openProblems > 0 ? "border-rose-200 bg-rose-50/40" : "border-slate-200 bg-white"}`}
@@ -396,248 +419,6 @@ export default async function CaseDetailPage({
               </button>
             </form>
           )}
-        </section>
-      )}
-
-      <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm">
-        <Info label="Units (Upper / Lower)" value={`${caseRecord.unitsUpper ?? "-"} / ${caseRecord.unitsLower ?? "-"}`} />
-        <Info label="Ibar designer" value={caseRecord.ibarDesigner?.name ?? "-"} />
-        <Info label="System" value={caseRecord.system ?? "-"} />
-        <Info label="Shade" value={caseRecord.shade ?? "-"} />
-        <Info label="Entry date" value={formatDate(caseRecord.entryDate)} />
-        <Info label="Due date" value={caseRecord.dueDate ? formatDate(caseRecord.dueDate) : "-"} />
-        <Info label="Created by" value={caseRecord.createdBy.name} />
-        {hasIbar && (
-          <Info
-            label="Designer before ibar"
-            value={caseRecord.firstDesigner?.name ?? "Unassigned"}
-          />
-        )}
-        <Info
-          label={hasIbar ? "Designer after ibar" : "Designer"}
-          value={caseRecord.assignedDesigner?.name ?? "Unassigned"}
-        />
-        <Info label="Ceramist" value={caseRecord.ceramist?.name ?? "-"} />
-        <Info label="Matching" value={caseRecord.matchingBy ?? "-"} />
-        {caseRecord.assignments.map((a) => (
-          <Info key={a.id} label={a.role.name} value={a.user.name} />
-        ))}
-        <Info
-          label="Photogrammetry"
-          value={
-            !caseRecord.needsPhotogrammetry
-              ? "Not needed"
-              : caseRecord.photogrammetryDoneAt
-                ? `Done ${formatDate(caseRecord.photogrammetryDoneAt)}`
-                : "Pending"
-          }
-        />
-        {caseRecord.notes && <Info label="Notes" value={caseRecord.notes} full />}
-        {caseRecord.driveFolderUrl && !viaApp && (
-          <div className="col-span-2 border-t border-slate-100 pt-4">
-            <a
-              href={caseRecord.driveFolderUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover"
-            >
-              <FolderOpen size={15} />
-              Open case folder in Google Drive
-            </a>
-          </div>
-        )}
-      </section>
-
-      {caseRecord.fieldValues.length > 0 && (
-        <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm">
-          <h2 className="col-span-2 text-sm font-semibold text-slate-900">More details</h2>
-          {caseRecord.fieldValues.map((v) => (
-            <Info
-              key={v.id}
-              label={v.field.label}
-              value={formatFieldValue(v.field.type, v.value)}
-              full={v.field.type === "LONGTEXT"}
-            />
-          ))}
-        </section>
-      )}
-
-      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Materials</h2>
-        {caseRecord.materials.length === 0 ? (
-          <p className="text-sm text-slate-400">No materials recorded.</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-slate-100 text-sm">
-            {caseRecord.materials.map((l) => (
-              <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span className="text-slate-800">
-                  <span className="mr-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
-                    {l.arch === "UPPER" ? "Upper" : "Lower"}
-                  </span>
-                  {l.material.name}
-                  {l.metalType && <span className="text-slate-500"> · {l.metalType.name}</span>}
-                </span>
-                <span className="font-medium text-slate-900">
-                  {l.units} unit{l.units === 1 ? "" : "s"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {myEarnings.length > 0 && (
-        <section className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 text-sm">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Your earnings on this case</h2>
-          <ul className="flex flex-col gap-2">
-            {myEarnings.map((e) => (
-              <li key={e.label} className="flex items-center justify-between gap-3">
-                <span className="text-slate-700">
-                  {e.label}{" "}
-                  <span className={e.done ? "text-emerald-700" : "text-slate-400"}>
-                    ({e.done ? "done" : "pending"})
-                  </span>
-                </span>
-                <span className="font-semibold text-slate-900">{formatEGP(e.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {(can(access, "money.adjust") || can(access, "money.viewAll")) && (
-        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="mb-1 text-sm font-semibold text-slate-900">Extra fees &amp; deductions</h2>
-          <p className="mb-3 text-xs text-slate-500">
-            Added to or taken off the price to the doctor and shown on the invoice, e.g. a rush order
-            or a discount for a remake.
-          </p>
-          {caseRecord.adjustments.length === 0 ? (
-            <p className="mb-3 text-sm text-slate-400">None.</p>
-          ) : (
-            <ul className="mb-3 flex flex-col divide-y divide-slate-100 text-sm">
-              {caseRecord.adjustments.map((a) => (
-                <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-slate-800">
-                      <span className={a.kind === "DEDUCTION" ? "font-semibold text-rose-700" : "font-semibold text-emerald-700"}>
-                        {a.kind === "DEDUCTION" ? "−" : "+"}
-                        {formatEGP(a.amount)}
-                      </span>{" "}
-                      {a.reason}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {ADJUSTMENT_KINDS[a.kind as AdjustmentKind] ?? a.kind}
-                      {a.createdBy ? ` · added by ${a.createdBy.name}` : ""} · {formatDateTime(a.createdAt)}
-                    </p>
-                  </div>
-                  {can(access, "money.adjust") && (
-                    <form action={removeCaseAdjustmentAction}>
-                      <input type="hidden" name="caseId" value={caseRecord.id} />
-                      <input type="hidden" name="adjustmentId" value={a.id} />
-                      <ConfirmSubmitButton
-                        message={`Remove "${a.reason}" (${formatEGP(a.amount)}) from this case?`}
-                        className="p-1.5 text-slate-400 hover:text-rose-600"
-                      >
-                        <Trash2 size={15} />
-                      </ConfirmSubmitButton>
-                    </form>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {can(access, "money.adjust") && (
-            <form action={addCaseAdjustmentAction} className="grid grid-cols-1 gap-2 sm:grid-cols-[130px_120px_1fr_auto]">
-              <input type="hidden" name="caseId" value={caseRecord.id} />
-              <select name="kind" defaultValue="FEE" aria-label="Type" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
-                <option value="FEE">Extra fee</option>
-                <option value="DEDUCTION">Deduction</option>
-              </select>
-              <input name="amount" type="number" min={1} step="0.01" required placeholder="EGP" aria-label="Amount" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-              <input name="reason" required maxLength={120} placeholder="Reason, e.g. Remake discount" aria-label="Reason" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-              <button type="submit" className="flex items-center justify-center gap-1 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                <Plus size={14} />
-                Add
-              </button>
-            </form>
-          )}
-          <p className="mt-3 text-sm text-slate-700">
-            Price to the doctor: <span className="font-semibold text-slate-900">{formatEGP(caseRecord.totalPrice)}</span>
-          </p>
-        </section>
-      )}
-
-      {can(access, "money.viewAll") && (
-        <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-6 text-sm sm:grid-cols-3">
-          <Money label="Price to doctor" value={caseRecord.totalPrice} />
-          <Money label="Extra fees (included)" value={caseRecord.extraFee} />
-          <Money label="Deductions (included)" value={caseRecord.deduction} />
-          <Money label="Ceramist fee" value={caseRecord.ceramistFee} />
-          {hasIbar && (
-            <Money label="Designer fee (before ibar)" value={caseRecord.firstDesignerFee} />
-          )}
-          <Money
-            label={hasIbar ? "Designer fee (after ibar)" : "Designer fee"}
-            value={caseRecord.designerFee}
-          />
-          <Money label="Ibar fee" value={caseRecord.ibarFee} />
-          <Money label="Metal cost" value={caseRecord.metalCost} />
-          {caseRecord.assignments.map((a) => (
-            <Money key={a.id} label={`${a.role.name} fee (${a.user.name})`} value={a.fee} />
-          ))}
-          <Money label="Photogrammetry fee" value={caseRecord.photogrammetryCost} />
-          <Money
-            label="Profit"
-            value={
-              caseRecord.totalPrice == null
-                ? null
-                : caseRecord.totalPrice -
-                  (caseRecord.ceramistFee ?? 0) -
-                  (caseRecord.designerFee ?? 0) -
-                  (caseRecord.firstDesignerFee ?? 0) -
-                  (caseRecord.ibarFee ?? 0) -
-                  (caseRecord.metalCost ?? 0) -
-                  (caseRecord.photogrammetryCost ?? 0) -
-                  caseRecord.assignments.reduce((sum, a) => sum + (a.fee ?? 0), 0)
-            }
-            emphasize
-          />
-        </section>
-      )}
-
-      <section className="mb-6 flex items-center gap-5 rounded-xl border border-slate-200 bg-white p-5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qrDataUrl} alt="Case QR code" width={96} height={96} className="rounded-md" />
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Case QR code</h2>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Scan it to open this case. Print the case sheet (it has this QR code) and keep it
-            with the physical work.
-          </p>
-          <Link
-            href={`/cases/${caseRecord.id}/print`}
-            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover"
-          >
-            <Printer size={15} />
-            Print case sheet
-          </Link>
-        </div>
-      </section>
-
-      {caseRecord.units.length > 0 && (
-        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Unit codes</h2>
-          <div className="flex flex-wrap gap-2">
-            {caseRecord.units.map((u) => (
-              <span
-                key={u.id}
-                className="rounded-md bg-slate-100 px-2.5 py-1 text-sm font-medium text-slate-700"
-              >
-                {u.code}
-              </span>
-            ))}
-          </div>
         </section>
       )}
 
@@ -794,14 +575,14 @@ export default async function CaseDetailPage({
       )}
 
       {(canUseStock || caseRecord.inventoryUses.length > 0) && (
-        <section className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50/30 p-5">
+        <section className="mb-6 rounded-xl border border-brand/25 bg-brand-soft/50 p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Materials used</h2>
           <p className="mb-3 text-xs text-slate-500">
             Scan the block you milled from (or pick it) and enter how many units you milled. Pieces are taken off the stock straight away.
           </p>
           {used && <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Taken from stock.</p>}
           {caseRecord.inventoryUses.length > 0 && (
-            <ul className="mb-3 flex flex-col divide-y divide-indigo-100 text-sm">
+            <ul className="mb-3 flex flex-col divide-y divide-brand/10 text-sm">
               {caseRecord.inventoryUses.map((u) => (
                 <li key={u.id} className="flex items-center justify-between gap-3 py-2">
                   <div className="min-w-0">
@@ -867,11 +648,11 @@ export default async function CaseDetailPage({
                 Or scan the block&apos;s label here
                 <input name="code" data-scan-target autoComplete="off" placeholder="BLK..." className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900" />
               </label>
-              <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+              <button type="submit" className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover">
                 Take from stock
               </button>
               <label className="flex items-center gap-2 text-xs text-slate-600 sm:col-span-4">
-                <input type="checkbox" name="blockDone" className="h-4 w-4 accent-indigo-600" />
+                <input type="checkbox" name="blockDone" className="h-4 w-4 accent-brand" />
                 This finished the block (it&apos;s taken out of stock)
               </label>
             </form>
@@ -1357,6 +1138,254 @@ export default async function CaseDetailPage({
           </ul>
         </section>
       )}
+        </div>
+        <aside className="min-w-0 lg:col-start-2 lg:row-start-1">
+      <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm">
+        <h2 className="col-span-2 text-sm font-semibold text-slate-900">Case details</h2>
+        <Info label="Units (Upper / Lower)" value={`${caseRecord.unitsUpper ?? "-"} / ${caseRecord.unitsLower ?? "-"}`} />
+        <Info label="Ibar designer" value={caseRecord.ibarDesigner?.name ?? "-"} />
+        <Info label="System" value={caseRecord.system ?? "-"} />
+        <Info label="Shade" value={caseRecord.shade ?? "-"} />
+        <Info label="Entry date" value={formatDate(caseRecord.entryDate)} />
+        <Info label="Due date" value={caseRecord.dueDate ? formatDate(caseRecord.dueDate) : "-"} />
+        <Info label="Created by" value={caseRecord.createdBy.name} />
+        {hasIbar && (
+          <Info
+            label="Designer before ibar"
+            value={caseRecord.firstDesigner?.name ?? "Unassigned"}
+          />
+        )}
+        <Info
+          label={hasIbar ? "Designer after ibar" : "Designer"}
+          value={caseRecord.assignedDesigner?.name ?? "Unassigned"}
+        />
+        <Info label="Ceramist" value={caseRecord.ceramist?.name ?? "-"} />
+        <Info label="Matching" value={caseRecord.matchingBy ?? "-"} />
+        {caseRecord.assignments.map((a) => (
+          <Info key={a.id} label={a.role.name} value={a.user.name} />
+        ))}
+        <Info
+          label="Photogrammetry"
+          value={
+            !caseRecord.needsPhotogrammetry
+              ? "Not needed"
+              : caseRecord.photogrammetryDoneAt
+                ? `Done ${formatDate(caseRecord.photogrammetryDoneAt)}`
+                : "Pending"
+          }
+        />
+        {caseRecord.notes && <Info label="Notes" value={caseRecord.notes} full />}
+        {caseRecord.driveFolderUrl && !viaApp && (
+          <div className="col-span-2 border-t border-slate-100 pt-4">
+            <a
+              href={caseRecord.driveFolderUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover"
+            >
+              <FolderOpen size={15} />
+              Open case folder in Google Drive
+            </a>
+          </div>
+        )}
+      </section>
+
+      {caseRecord.fieldValues.length > 0 && (
+        <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm">
+          <h2 className="col-span-2 text-sm font-semibold text-slate-900">More details</h2>
+          {caseRecord.fieldValues.map((v) => (
+            <Info
+              key={v.id}
+              label={v.field.label}
+              value={formatFieldValue(v.field.type, v.value)}
+              full={v.field.type === "LONGTEXT"}
+            />
+          ))}
+        </section>
+      )}
+
+      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Materials</h2>
+        {caseRecord.materials.length === 0 ? (
+          <p className="text-sm text-slate-400">No materials recorded.</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-slate-100 text-sm">
+            {caseRecord.materials.map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="text-slate-800">
+                  <span className="mr-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
+                    {l.arch === "UPPER" ? "Upper" : "Lower"}
+                  </span>
+                  {l.material.name}
+                  {l.metalType && <span className="text-slate-500"> · {l.metalType.name}</span>}
+                </span>
+                <span className="font-medium text-slate-900">
+                  {l.units} unit{l.units === 1 ? "" : "s"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {myEarnings.length > 0 && (
+        <section className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 text-sm">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Your earnings on this case</h2>
+          <ul className="flex flex-col gap-2">
+            {myEarnings.map((e) => (
+              <li key={e.label} className="flex items-center justify-between gap-3">
+                <span className="text-slate-700">
+                  {e.label}{" "}
+                  <span className={e.done ? "text-emerald-700" : "text-slate-400"}>
+                    ({e.done ? "done" : "pending"})
+                  </span>
+                </span>
+                <span className="font-semibold text-slate-900">{formatEGP(e.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {(can(access, "money.adjust") || can(access, "money.viewAll")) && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">Extra fees &amp; deductions</h2>
+          <p className="mb-3 text-xs text-slate-500">
+            Added to or taken off the price to the doctor and shown on the invoice, e.g. a rush order
+            or a discount for a remake.
+          </p>
+          {caseRecord.adjustments.length === 0 ? (
+            <p className="mb-3 text-sm text-slate-400">None.</p>
+          ) : (
+            <ul className="mb-3 flex flex-col divide-y divide-slate-100 text-sm">
+              {caseRecord.adjustments.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-slate-800">
+                      <span className={a.kind === "DEDUCTION" ? "font-semibold text-rose-700" : "font-semibold text-emerald-700"}>
+                        {a.kind === "DEDUCTION" ? "−" : "+"}
+                        {formatEGP(a.amount)}
+                      </span>{" "}
+                      {a.reason}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {ADJUSTMENT_KINDS[a.kind as AdjustmentKind] ?? a.kind}
+                      {a.createdBy ? ` · added by ${a.createdBy.name}` : ""} · {formatDateTime(a.createdAt)}
+                    </p>
+                  </div>
+                  {can(access, "money.adjust") && (
+                    <form action={removeCaseAdjustmentAction}>
+                      <input type="hidden" name="caseId" value={caseRecord.id} />
+                      <input type="hidden" name="adjustmentId" value={a.id} />
+                      <ConfirmSubmitButton
+                        message={`Remove "${a.reason}" (${formatEGP(a.amount)}) from this case?`}
+                        className="p-1.5 text-slate-400 hover:text-rose-600"
+                      >
+                        <Trash2 size={15} />
+                      </ConfirmSubmitButton>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {can(access, "money.adjust") && (
+            <form action={addCaseAdjustmentAction} className="grid grid-cols-2 gap-2">
+              <input type="hidden" name="caseId" value={caseRecord.id} />
+              <select name="kind" defaultValue="FEE" aria-label="Type" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
+                <option value="FEE">Extra fee</option>
+                <option value="DEDUCTION">Deduction</option>
+              </select>
+              <input name="amount" type="number" min={1} step="0.01" required placeholder="EGP" aria-label="Amount" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+              <input name="reason" required maxLength={120} placeholder="Reason, e.g. Remake discount" aria-label="Reason" className="col-span-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+              <button type="submit" className="col-span-2 flex items-center justify-center gap-1 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                <Plus size={14} />
+                Add
+              </button>
+            </form>
+          )}
+          <p className="mt-3 text-sm text-slate-700">
+            Price to the doctor: <span className="font-semibold text-slate-900">{formatEGP(caseRecord.totalPrice)}</span>
+          </p>
+        </section>
+      )}
+
+      {can(access, "money.viewAll") && (
+        <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-5 text-sm">
+          <h2 className="col-span-2 text-sm font-semibold text-slate-900">Money</h2>
+          <Money label="Price to doctor" value={caseRecord.totalPrice} />
+          <Money label="Extra fees (included)" value={caseRecord.extraFee} />
+          <Money label="Deductions (included)" value={caseRecord.deduction} />
+          <Money label="Ceramist fee" value={caseRecord.ceramistFee} />
+          {hasIbar && (
+            <Money label="Designer fee (before ibar)" value={caseRecord.firstDesignerFee} />
+          )}
+          <Money
+            label={hasIbar ? "Designer fee (after ibar)" : "Designer fee"}
+            value={caseRecord.designerFee}
+          />
+          <Money label="Ibar fee" value={caseRecord.ibarFee} />
+          <Money label="Metal cost" value={caseRecord.metalCost} />
+          {caseRecord.assignments.map((a) => (
+            <Money key={a.id} label={`${a.role.name} fee (${a.user.name})`} value={a.fee} />
+          ))}
+          <Money label="Photogrammetry fee" value={caseRecord.photogrammetryCost} />
+          <Money
+            label="Profit"
+            value={
+              caseRecord.totalPrice == null
+                ? null
+                : caseRecord.totalPrice -
+                  (caseRecord.ceramistFee ?? 0) -
+                  (caseRecord.designerFee ?? 0) -
+                  (caseRecord.firstDesignerFee ?? 0) -
+                  (caseRecord.ibarFee ?? 0) -
+                  (caseRecord.metalCost ?? 0) -
+                  (caseRecord.photogrammetryCost ?? 0) -
+                  caseRecord.assignments.reduce((sum, a) => sum + (a.fee ?? 0), 0)
+            }
+            emphasize
+          />
+        </section>
+      )}
+
+      <section className="mb-6 flex items-center gap-5 rounded-xl border border-slate-200 bg-white p-5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={qrDataUrl} alt="Case QR code" width={96} height={96} className="rounded-md" />
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Case QR code</h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Scan it to open this case. Print the case sheet (it has this QR code) and keep it
+            with the physical work.
+          </p>
+          <Link
+            href={`/cases/${caseRecord.id}/print`}
+            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover"
+          >
+            <Printer size={15} />
+            Print case sheet
+          </Link>
+        </div>
+      </section>
+
+      {caseRecord.units.length > 0 && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Unit codes</h2>
+          <div className="flex flex-wrap gap-2">
+            {caseRecord.units.map((u) => (
+              <span
+                key={u.id}
+                className="rounded-md bg-slate-100 px-2.5 py-1 text-sm font-medium text-slate-700"
+              >
+                {u.code}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+        </aside>
+      </div>
     </div>
   );
 }
@@ -1403,11 +1432,25 @@ function DesignerForm({
   );
 }
 
+// Due before today (a case due today isn't late yet).
+function isPastDue(due: Date | null): boolean {
+  return !!due && due.getTime() < Date.now() - 86_400_000;
+}
+
+function Fact({ label, value, tone }: { label: string; value: string; tone?: "alert" }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-medium uppercase tracking-wider text-slate-400">{label}</dt>
+      <dd className={`mt-0.5 truncate font-medium ${tone === "alert" ? "text-rose-600" : "text-slate-900"}`}>{value}</dd>
+    </div>
+  );
+}
+
 function Info({ label, value, full }: { label: string; value: string; full?: boolean }) {
   return (
     <div className={full ? "col-span-2" : undefined}>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 text-slate-800">{value}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-0.5 break-words text-slate-800">{value}</p>
     </div>
   );
 }

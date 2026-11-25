@@ -74,20 +74,25 @@ export async function Nav() {
     where: { userId: access.userId, read: false },
   });
 
-  const logo = (
-    <div className="flex min-w-0 items-center gap-2.5">
+  const logo = (dark: boolean) => (
+    <Link href="/cases" className="flex min-w-0 items-center gap-2.5">
       <LabMark lab={lab} size={36} />
-      <p className="min-w-0 truncate text-sm font-semibold leading-tight text-slate-900 md:whitespace-normal">
-        {lab.name}
-      </p>
-    </div>
+      <span className="min-w-0">
+        <span className={`block truncate text-sm font-semibold leading-tight md:whitespace-normal ${dark ? "text-white" : "text-slate-900"}`}>
+          {lab.name}
+        </span>
+        <span className={`block text-[11px] font-medium ${dark ? "text-teal-300/80" : "text-slate-400"}`}>Dental lab system</span>
+      </span>
+    </Link>
   );
 
-  const bell = (
+  const bell = (dark: boolean) => (
     <Link
       href="/notifications"
       aria-label="Notifications"
-      className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 md:h-8 md:w-8"
+      className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg md:h-8 md:w-8 ${
+        dark ? "text-slate-300 hover:bg-white/10 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+      }`}
     >
       <Bell size={18} />
       {unreadCount > 0 && (
@@ -99,16 +104,16 @@ export async function Nav() {
   );
 
   const account = (
-    <div className="border-t border-slate-100 p-3">
+    <div className="border-t border-white/10 p-3">
       <Link
         href="/account"
-        className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50"
+        className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/[0.06]"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-xs font-semibold text-teal-200 ring-1 ring-teal-400/30">
           {initials}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-slate-900">{name}</p>
+          <p className="truncate text-sm font-medium text-white">{name}</p>
           <p className="truncate text-xs text-slate-400">{email}</p>
         </div>
       </Link>
@@ -127,16 +132,16 @@ export async function Nav() {
             </div>
             {account}
           </MobileMenu>
-          {logo}
+          {logo(false)}
         </div>
-        {bell}
+        {bell(false)}
       </header>
 
       {/* Desktop: fixed sidebar. */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:flex print:hidden">
-        <div className="flex items-center justify-between gap-2.5 border-b border-slate-100 px-5 py-5">
-          {logo}
-          {bell}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-sidebar md:flex print:hidden">
+        <div className="flex items-center justify-between gap-2.5 border-b border-white/10 px-5 py-5">
+          {logo(true)}
+          {bell(true)}
         </div>
         <div className="flex-1 overflow-y-auto py-4">
           <SidebarNav show={show} team={team} />

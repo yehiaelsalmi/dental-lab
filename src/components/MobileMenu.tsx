@@ -33,13 +33,13 @@ export function MobileMenu({ children }: { children: React.ReactNode }) {
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-slate-900/40"
           />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col bg-white shadow-xl">
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col bg-sidebar shadow-xl">
             <div className="flex justify-end p-3">
               <button
                 type="button"
                 aria-label="Close menu"
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10"
               >
                 <X size={20} />
               </button>

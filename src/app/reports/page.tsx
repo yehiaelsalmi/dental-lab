@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, FileSpreadsheet, FileText } from "lucide-react";
+import { Banknote, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, TrendingUp, Users, Wallet } from "lucide-react";
 import { requirePermission } from "@/lib/access";
 import { formatEGP } from "@/lib/money";
 import {
@@ -135,10 +135,11 @@ export default async function ReportsPage({
       {overheads && (
         <section className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr]">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
-            <Stat label="Case profit" value={totals.profit} />
-            <Stat label="Expenses" value={-overheads.expenseTotal} />
-            <Stat label="Salaries" value={-overheads.salaryTotal} />
+            <Stat label="Case profit" value={totals.profit} icon={<TrendingUp size={16} />} />
+            <Stat label="Expenses" value={-overheads.expenseTotal} icon={<Banknote size={16} />} />
+            <Stat label="Salaries" value={-overheads.salaryTotal} icon={<Users size={16} />} />
             <Stat
+              icon={<Wallet size={16} />}
               label="Net profit"
               value={totals.profit - overheads.expenseTotal - overheads.salaryTotal}
               strong
@@ -392,12 +393,28 @@ export default async function ReportsPage({
   );
 }
 
-function Stat({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
+function Stat({ label, value, strong, icon }: { label: string; value: number; strong?: boolean; icon?: React.ReactNode }) {
+  const v = value === 0 ? 0 : value; // no "-0 EGP"
   return (
-    <div className={`rounded-xl border p-4 ${strong ? "border-brand/30 bg-brand-soft" : "border-slate-200 bg-white"}`}>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${value < 0 && !strong ? "text-rose-600" : "text-slate-900"}`}>
-        {fmt(value)}
+    <div
+      className={`rounded-xl border p-4 ${
+        strong ? "border-brand bg-brand text-white shadow-sm" : "border-slate-200 bg-white"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className={`text-[11px] font-semibold uppercase tracking-wider ${strong ? "text-teal-100" : "text-slate-500"}`}>{label}</p>
+        {icon && (
+          <span
+            className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+              strong ? "bg-white/15 text-white" : v < 0 ? "bg-rose-50 text-rose-600" : "bg-brand-soft text-brand"
+            }`}
+          >
+            {icon}
+          </span>
+        )}
+      </div>
+      <p className={`mt-2 text-xl font-semibold tabular-nums ${strong ? "text-white" : v < 0 ? "text-rose-600" : "text-slate-900"}`}>
+        {fmt(v)}
       </p>
     </div>
   );

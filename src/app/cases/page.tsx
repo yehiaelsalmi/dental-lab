@@ -5,7 +5,7 @@ import { can, caseVisibilityWhere, requireAccess } from "@/lib/access";
 import {
 } from "@/lib/constants";
 import { StatusBadge } from "@/components/StatusBadge";
-import { findStatus, getStatuses } from "@/lib/statuses";
+import { STATUS_COLORS, findStatus, getStatuses } from "@/lib/statuses";
 import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
 import { getCaseAlert } from "@/lib/caseAlerts";
 import { getLabSettings } from "@/lib/labSettings";
@@ -232,9 +232,9 @@ export default async function CasesPage({
         />
       </form>
 
-      <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
         {!hiddenCards.has("ACTIVE") && (
-          <CountCard
+          <CountChip
             href={withParams({ status: null, q: query })}
             active={!currentView}
             count={activeCount}
@@ -243,32 +243,21 @@ export default async function CasesPage({
           />
         )}
         {shownStatuses.map((status) => {
+          const info = findStatus(allStatuses, status);
           const active = status === activeStatus;
           return (
-            <Link
+            <CountChip
               key={status}
               href={withParams({ status: active ? null : status, q: query })}
-              className={`rounded-xl border p-4 transition-colors ${
-                active
-                  ? "border-brand bg-brand-soft"
-                  : "border-slate-200 bg-white hover:border-brand/40 hover:bg-slate-50"
-              }`}
-            >
-              <p
-                className={`text-2xl font-semibold ${active ? "text-brand" : "text-slate-900"}`}
-              >
-                {counts[status]}
-              </p>
-              <p
-                className={`mt-1 text-xs font-medium ${active ? "text-brand" : "text-slate-500"}`}
-              >
-                {findStatus(allStatuses, status).label}
-              </p>
-            </Link>
+              active={active}
+              count={counts[status]}
+              label={info.label}
+              dot={STATUS_COLORS[info.color].dot}
+            />
           );
         })}
         {!hiddenCards.has("ALL") && (
-          <CountCard
+          <CountChip
             href={withParams({ status: defaultAll ? null : "ALL", q: query })}
             active={showAll}
             count={matchingCases.length}
@@ -327,7 +316,7 @@ export default async function CasesPage({
       </p>
 
       {alertCount > 0 && (
-        <p className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
+        <p className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200/70 bg-white px-3 py-2.5 text-sm text-rose-700 shadow-[inset_3px_0_0_0_#f43f5e]">
           <TriangleAlert size={16} className="mt-0.5 shrink-0" />
           <span>
             {alertCount} case{alertCount === 1 ? " needs" : "s need"} attention:{" "}
@@ -351,7 +340,7 @@ export default async function CasesPage({
                 href={`/cases/${c.id}`}
                 className={`block rounded-xl border p-4 ${
                   alert
-                    ? "border-rose-300 bg-rose-50 active:bg-rose-100"
+                    ? "border-rose-200 bg-white shadow-[inset_3px_0_0_0_#f43f5e] active:bg-rose-50"
                     : "border-slate-200 bg-white active:bg-slate-50"
                 }`}
               >
@@ -393,7 +382,7 @@ export default async function CasesPage({
 
       <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white sm:block">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-5 py-3 font-medium">Patient</th>
               <th className="px-5 py-3 font-medium">Doctor</th>
@@ -410,7 +399,7 @@ export default async function CasesPage({
                   key={c.id}
                   className={`transition-colors ${
                     alert
-                      ? "bg-rose-50 shadow-[inset_4px_0_0_0_#f43f5e] hover:bg-rose-100"
+                      ? "bg-rose-50/50 shadow-[inset_3px_0_0_0_#f43f5e] hover:bg-rose-50"
                       : "hover:bg-slate-50"
                   }`}
                 >
@@ -492,32 +481,44 @@ function ProblemTag({ count }: { count: number }) {
   );
 }
 
-function CountCard({
+function CountChip({
   href,
   active,
   count,
   label,
   strong,
+  dot,
 }: {
   href: string;
   active: boolean;
   count: number;
   label: string;
   strong?: boolean;
+  dot?: string;
 }) {
+  const empty = count === 0 && !active;
   return (
     <Link
       href={href}
-      className={`rounded-xl border p-4 transition-colors ${
+      className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border py-1.5 pl-3 pr-1.5 text-sm font-medium transition-colors ${
         active
-          ? "border-brand bg-brand-soft"
+          ? "border-brand bg-brand text-white shadow-sm"
           : strong
-            ? "border-slate-300 bg-white hover:border-brand/40 hover:bg-slate-50"
-            : "border-slate-200 bg-white hover:border-brand/40 hover:bg-slate-50"
+            ? "border-slate-300 bg-white text-slate-900 hover:border-brand/50"
+            : empty
+              ? "border-slate-200 bg-white/60 text-slate-400 hover:border-slate-300 hover:text-slate-600"
+              : "border-slate-200 bg-white text-slate-700 hover:border-brand/50 hover:text-slate-900"
       }`}
     >
-      <p className={`text-2xl font-semibold ${active ? "text-brand" : "text-slate-900"}`}>{count}</p>
-      <p className={`mt-1 text-xs font-medium ${active ? "text-brand" : "text-slate-500"}`}>{label}</p>
+      {dot && <span className={`h-2 w-2 rounded-full ${active ? "bg-white" : dot} ${empty ? "opacity-40" : ""}`} />}
+      {label}
+      <span
+        className={`min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums ${
+          active ? "bg-white/20 text-white" : empty ? "bg-slate-100 text-slate-400" : "bg-slate-100 text-slate-700"
+        }`}
+      >
+        {count}
+      </span>
     </Link>
   );
 }
