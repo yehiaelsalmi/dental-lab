@@ -271,19 +271,22 @@ the totals. Materials no longer carry extra fees or deductions.
 
 **Inventory** (`/inventory`) lists materials in stock: name, type, colour, size, scaling
 factor, quantity, an optional minimum and the system's own code (`INV00001`, ...).
-Each item has a printable **QR label** (`/inventory/<id>/label`, 60 x 40 mm) to stick on
-the box; a scanner reading it into the scan box opens the item. Codes are letters and
-digits only, so scanners set to any keyboard layout read them.
-
-Blocks/discs have **units per block** (e.g. 25): their stock is counted in units,
-received in whole blocks, and shown as "2 blocks + 12 units". Plain items count pieces.
+Items marked **"Blocks / discs: each one gets its own QR label"** track every block
+separately: adding 10 makes 10 blocks (`BLK000001`, ...), each with its own 60 x 40 mm
+label (`/inventory/<id>/label?blocks=<ids>` or `?blocks=open`, one sticker per page).
+Stock is the number of open blocks. There is no fixed units-per-block: the miller
+records the units milled from each block, and the block page shows the running total.
+Other items have one label (`INV00001`, ...) and count pieces. Scanning any label into
+the scan box opens the item. Codes are letters and digits only, so scanners set to any
+keyboard layout read them. Ticking the box on an existing piece item turns its stock
+into that many labelled blocks.
 
 - **Permission "Inventory: manage items"** (`page.inventory`, Lab Leader): add/edit
-  items, receive stock, correct counts, print labels.
+  items, receive stock, correct piece counts, finish/reopen blocks, print labels.
 - **Permission "Inventory: see stock and take materials"** (`inventory.use`, given to
-  the Milling role): sees stock, and on a case's **Materials used** box picks (or scans)
-  the material and enters the units used; it's taken off stock at once. "This finished
-  the block" also removes what was left of that block. Uses can be undone.
+  the Milling role): sees stock, and on a case's **Materials used** box scans (or picks)
+  the block and enters the units milled; "This finished the block" takes the block out
+  of stock. Piece items are taken off stock at once. Uses can be undone.
 
 Every change is kept as history (received, used for a case, block finished,
 correction). Items at or below their minimum show first in red, and reaching it

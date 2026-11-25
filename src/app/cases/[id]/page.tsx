@@ -33,7 +33,7 @@ import {
 import { formatFieldValue } from "@/lib/customFields";
 import { caseChecklist } from "@/lib/checklists";
 import { problemStatuses } from "@/lib/problems";
-import { amountText, itemLabel, stockText } from "@/lib/inventory";
+import { itemLabel, stockText } from "@/lib/inventory";
 import { undoUse, useForCase } from "@/app/inventory/actions";
 import { ADJUSTMENT_KINDS, type AdjustmentKind } from "@/lib/adjustments";
 import { CASE_SUBFOLDERS, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
@@ -123,7 +123,7 @@ export default async function CaseDetailPage({
       inventoryUses: {
         where: { kind: { in: ["USED", "BLOCK_DONE"] } },
         orderBy: { createdAt: "desc" },
-        include: { item: true, createdBy: { select: { name: true } } },
+        include: { item: true, block: { select: { code: true } }, createdBy: { select: { name: true } } },
       },
       problems: {
         orderBy: { createdAt: "desc" },
@@ -170,7 +170,12 @@ export default async function CaseDetailPage({
   const canEditChecklist = can(access, "page.checklists");
   const canReportProblem = (await problemStatuses()).has(caseRecord.status);
   const canUseStock = can(access, "inventory.use");
-  const stock = canUseStock ? await prisma.inventoryItem.findMany({ orderBy: { name: "asc" } }) : [];
+  const stock = canUseStock
+    ? await prisma.inventoryItem.findMany({
+        orderBy: { name: "asc" },
+        include: { blocks: { where: { finishedAt: null }, orderBy: { code: "asc" } } },
+      })
+    : [];
   const openProblems = caseRecord.problems.filter((p) => !p.solvedAt).length;
   const statusName = findStatus(allStatuses, caseRecord.status).label;
 
@@ -792,7 +797,7 @@ export default async function CaseDetailPage({
         <section className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50/30 p-5">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Materials used</h2>
           <p className="mb-3 text-xs text-slate-500">
-            Material taken from the inventory for this case; it&apos;s taken off the stock straight away.
+            Scan the block you milled from (or pick it) and enter how many units you milled. Pieces are taken off the stock straight away.
           </p>
           {used && <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Taken from stock.</p>}
           {caseRecord.inventoryUses.length > 0 && (
@@ -801,7 +806,13 @@ export default async function CaseDetailPage({
                 <li key={u.id} className="flex items-center justify-between gap-3 py-2">
                   <div className="min-w-0">
                     <p className="text-slate-800">
-                      <strong>{amountText(u.item, -u.change)}</strong> {u.kind === "BLOCK_DONE" ? "left in the finished block of" : "of"} {itemLabel(u.item)}
+                      {u.kind === "BLOCK_DONE" ? (
+                        <>Block finished · </>
+                      ) : (
+                        <strong>{u.units != null ? `${u.units} units milled` : `${-u.change} used`} · </strong>
+                      )}
+                      {itemLabel(u.item)}
+                      {u.block && <span className="font-mono text-xs text-slate-500"> {u.block.code}</span>}
                       {u.note ? <span className="text-slate-500"> · {u.note}</span> : null}
                     </p>
                     <p className="text-xs text-slate-400">
@@ -813,7 +824,7 @@ export default async function CaseDetailPage({
                       <input type="hidden" name="caseId" value={caseRecord.id} />
                       <input type="hidden" name="movementId" value={u.id} />
                       <ConfirmSubmitButton
-                        message={`Undo this? ${amountText(u.item, -u.change)} of ${u.item.name} go back into stock.`}
+                        message={`Undo this use of ${u.item.name}?`}
                         className="text-xs font-medium text-slate-500 hover:text-rose-600"
                       >
                         Undo
@@ -828,30 +839,40 @@ export default async function CaseDetailPage({
             <form action={useForCase} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_90px_1fr_auto] sm:items-end">
               <input type="hidden" name="caseId" value={caseRecord.id} />
               <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-                Material (in stock)
-                <select name="itemId" defaultValue="" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
-                  <option value="">Pick, or scan its QR →</option>
-                  {stock.map((i) => (
-                    <option key={i.id} value={i.id} disabled={i.quantity === 0}>
-                      {itemLabel(i)} — {stockText(i)} in stock
-                    </option>
-                  ))}
+                Block / material
+                <select name="pick" defaultValue="" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
+                  <option value="">Pick, or scan its label →</option>
+                  {stock.map((i) =>
+                    i.trackBlocks ? (
+                      <optgroup key={i.id} label={`${itemLabel(i)} (${stockText(i)})`}>
+                        {i.blocks.map((b) => (
+                          <option key={b.id} value={`block:${b.id}`}>
+                            {b.code} · {b.unitsMilled ? `${b.unitsMilled} units milled so far` : "new"}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : (
+                      <option key={i.id} value={`item:${i.id}`} disabled={i.quantity === 0}>
+                        {itemLabel(i)} — {stockText(i)} in stock
+                      </option>
+                    )
+                  )}
                 </select>
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-                Units used
+                Units milled / pieces
                 <input name="quantity" type="number" min={1} step={1} defaultValue={1} required className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900" />
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-                Or scan the item&apos;s QR label here
-                <input name="code" autoComplete="off" placeholder="INV..." className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900" />
+                Or scan the block&apos;s label here
+                <input name="code" autoComplete="off" placeholder="BLK..." className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900" />
               </label>
               <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
                 Take from stock
               </button>
               <label className="flex items-center gap-2 text-xs text-slate-600 sm:col-span-4">
                 <input type="checkbox" name="blockDone" className="h-4 w-4 accent-indigo-600" />
-                This finished the block (what&apos;s left of it is taken off the stock)
+                This finished the block (it&apos;s taken out of stock)
               </label>
             </form>
           )}

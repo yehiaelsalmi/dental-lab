@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, requireVisibleCase } from "@/lib/access";
 import { notifyLowStock } from "@/lib/notifications";
-import { isLow, nextItemCode, normalizeCode } from "@/lib/inventory";
+import { createBlocks, isLow, nextItemCode, normalizeCode, recomputeQuantity } from "@/lib/inventory";
 
 function text(formData: FormData, key: string, max = 120): string | null {
   return String(formData.get(key) ?? "").trim().slice(0, max) || null;
@@ -19,14 +19,8 @@ function count(formData: FormData, key: string, label: string, back: string, opt
   return n;
 }
 
-function perBlock(formData: FormData): number | null {
-  const n = Number(String(formData.get("unitsPerBlock") ?? "").trim());
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
-
 function details(formData: FormData) {
   return {
-    unitsPerBlock: perBlock(formData),
     type: text(formData, "type"),
     colour: text(formData, "colour"),
     size: text(formData, "size"),
@@ -35,38 +29,38 @@ function details(formData: FormData) {
   };
 }
 
+type Stock = { id: string; name: string; quantity: number; minQuantity: number | null; trackBlocks: boolean };
+
 // Tells the inventory people once an item drops to its minimum.
-async function warnIfNowLow(
-  before: { quantity: number; minQuantity: number | null },
-  after: { id: string; name: string; quantity: number; minQuantity: number | null },
-  actorId: string
-) {
+async function warnIfNowLow(before: Stock, after: Stock, actorId: string) {
   if (isLow(after) && !isLow(before)) await notifyLowStock(after, actorId);
 }
+
+const blocksQuery = (blocks: { id: string }[]) => (blocks.length ? `&blocks=${blocks.map((b) => b.id).join(",")}` : "");
 
 export async function createItem(formData: FormData) {
   const session = await requirePermission("page.inventory");
   const back = "/inventory";
   const name = text(formData, "name");
   if (!name) redirect(`${back}?error=${encodeURIComponent("Give the item a name.")}`);
-  // For block items both are entered in blocks and stored in units.
-  const per = perBlock(formData) ?? 1;
-  const quantity = (count(formData, "quantity", "the quantity", back) ?? 0) * per;
-  const min = count(formData, "minQuantity", "the minimum", back, true);
+  const trackBlocks = formData.get("trackBlocks") === "on";
+  const quantity = count(formData, "quantity", "the quantity", back) ?? 0;
   const item = await prisma.inventoryItem.create({
     data: {
       name: name!,
       ...details(formData),
+      trackBlocks,
       code: await nextItemCode(),
       quantity,
-      minQuantity: min == null ? null : min * per,
+      minQuantity: count(formData, "minQuantity", "the minimum", back, true),
       movements: quantity
         ? { create: { kind: "RECEIVED", change: quantity, quantityAfter: quantity, note: "Starting stock", createdById: session.userId } }
         : undefined,
     },
   });
+  const blocks = trackBlocks && quantity ? await createBlocks(item.id, quantity) : [];
   revalidatePath("/inventory");
-  redirect(`/inventory/${item.id}?created=1`);
+  redirect(`/inventory/${item.id}?created=1${blocksQuery(blocks)}`);
 }
 
 export async function updateItem(formData: FormData) {
@@ -77,17 +71,17 @@ export async function updateItem(formData: FormData) {
   if (!item) redirect("/inventory");
   const name = text(formData, "name");
   if (!name) redirect(`${back}?error=${encodeURIComponent("Give the item a name.")}`);
-  const quantity = count(formData, "quantity", "the quantity", back)!;
-  const min = count(formData, "minQuantity", "the minimum", back, true);
-  const minQuantity = min == null ? null : min * (perBlock(formData) ?? 1);
+  const trackBlocks = formData.get("trackBlocks") === "on";
+  // Block items' stock comes from their blocks; pieces can be corrected here.
+  const quantity = trackBlocks ? item!.quantity : count(formData, "quantity", "the quantity", back)!;
   const updated = await prisma.inventoryItem.update({
     where: { id },
     data: {
       name: name!,
       ...details(formData),
+      trackBlocks,
       quantity,
-      minQuantity,
-      // A changed quantity is recorded as a correction.
+      minQuantity: count(formData, "minQuantity", "the minimum", back, true),
       ...(quantity !== item!.quantity
         ? {
             movements: {
@@ -103,29 +97,42 @@ export async function updateItem(formData: FormData) {
         : {}),
     },
   });
+  // Switched to blocks: the pieces already in stock become labelled blocks.
+  let blocks: { id: string }[] = [];
+  if (trackBlocks && !item!.trackBlocks) {
+    const existing = await prisma.inventoryBlock.count({ where: { itemId: id, finishedAt: null } });
+    if (existing === 0 && item!.quantity > 0) blocks = await createBlocks(id, item!.quantity);
+    await recomputeQuantity(id);
+  }
   await warnIfNowLow(item!, updated, session.userId);
   revalidatePath("/inventory");
   revalidatePath(back);
-  redirect(`${back}?saved=1`);
+  redirect(`${back}?saved=1${blocksQuery(blocks)}`);
 }
 
-// Stock that came in.
+// Stock that came in; block items get one new labelled block per block.
 export async function receiveStock(formData: FormData) {
   const session = await requirePermission("page.inventory");
   const id = String(formData.get("id"));
   const back = `/inventory/${id}`;
-  const entered = count(formData, "amount", "how many came in", back)!;
-  if (entered === 0) redirect(`${back}?error=${encodeURIComponent("Enter how many came in.")}`);
-  // Block items come in whole blocks.
-  const current = await prisma.inventoryItem.findUnique({ where: { id }, select: { unitsPerBlock: true } });
-  const amount = entered * (current?.unitsPerBlock ?? 1);
-  const updated = await prisma.inventoryItem.update({ where: { id }, data: { quantity: { increment: amount } } });
+  const amount = count(formData, "amount", "how many came in", back)!;
+  if (amount === 0) redirect(`${back}?error=${encodeURIComponent("Enter how many came in.")}`);
+  const item = await prisma.inventoryItem.findUnique({ where: { id } });
+  if (!item) redirect("/inventory");
+  let blocks: { id: string }[] = [];
+  let updated;
+  if (item!.trackBlocks) {
+    blocks = await createBlocks(id, amount);
+    updated = await recomputeQuantity(id);
+  } else {
+    updated = await prisma.inventoryItem.update({ where: { id }, data: { quantity: { increment: amount } } });
+  }
   await prisma.inventoryMovement.create({
     data: { itemId: id, kind: "RECEIVED", change: amount, quantityAfter: updated.quantity, note: text(formData, "note", 200), createdById: session.userId },
   });
   revalidatePath("/inventory");
   revalidatePath(back);
-  redirect(`${back}?received=${entered}`);
+  redirect(`${back}?received=${amount}${blocksQuery(blocks)}`);
 }
 
 export async function deleteItem(formData: FormData) {
@@ -135,8 +142,34 @@ export async function deleteItem(formData: FormData) {
   redirect("/inventory?deleted=1");
 }
 
-// Material taken from stock for a case (e.g. by the milling person). The
-// item is picked from the list or by scanning its QR label.
+// Finishes a block by hand (e.g. broken), or opens a finished one again.
+export async function toggleBlockFinished(formData: FormData) {
+  const session = await requirePermission("page.inventory");
+  const block = await prisma.inventoryBlock.findUnique({ where: { id: String(formData.get("blockId")) }, include: { item: true } });
+  if (!block) redirect("/inventory");
+  const finishing = !block!.finishedAt;
+  await prisma.inventoryBlock.update({ where: { id: block!.id }, data: { finishedAt: finishing ? new Date() : null } });
+  const updated = await recomputeQuantity(block!.itemId);
+  await prisma.inventoryMovement.create({
+    data: {
+      itemId: block!.itemId,
+      blockId: block!.id,
+      kind: finishing ? "BLOCK_DONE" : "CORRECTION",
+      change: finishing ? -1 : 1,
+      quantityAfter: updated.quantity,
+      note: finishing ? text(formData, "note", 200) ?? "Finished by hand" : "Opened again",
+      createdById: session.userId,
+    },
+  });
+  await warnIfNowLow(block!.item, updated, session.userId);
+  revalidatePath(`/inventory/${block!.itemId}`);
+  revalidatePath("/inventory");
+  redirect(`/inventory/${block!.itemId}`);
+}
+
+// Material used for a case (e.g. by the milling person). Blocks: the block
+// scanned or picked, with the units milled from it (the miller decides);
+// "finished the block" takes it out of stock. Pieces: the count used.
 export async function useForCase(formData: FormData) {
   const session = await requirePermission("inventory.use");
   const caseId = String(formData.get("caseId"));
@@ -144,76 +177,81 @@ export async function useForCase(formData: FormData) {
   const fail = (m: string): never => redirect(`${back}?error=${encodeURIComponent(m)}`);
   await requireVisibleCase(session, caseId);
 
-  const scanned = String(formData.get("code") ?? "").trim();
-  const item = scanned
-    ? await prisma.inventoryItem.findUnique({ where: { code: normalizeCode(scanned) } })
-    : await prisma.inventoryItem.findUnique({ where: { id: String(formData.get("itemId") ?? "") } });
-  if (!item) fail(scanned ? `No item has the code ${normalizeCode(scanned)}.` : "Pick the material.");
-  const qty = Number(formData.get("quantity"));
-  if (!Number.isInteger(qty) || qty < 1) fail("Enter how many units you used (1 or more).");
-
-  // Only take it if there's enough left (checked and taken in one step).
-  const taken = await prisma.inventoryItem.updateMany({
-    where: { id: item!.id, quantity: { gte: qty } },
-    data: { quantity: { decrement: qty } },
-  });
-  if (taken.count === 0) fail(`Only ${item!.quantity} ${item!.unitsPerBlock ? "units" : ""} of ${item!.name} left in stock.`);
-  let updated = await prisma.inventoryItem.findUniqueOrThrow({ where: { id: item!.id } });
-  await prisma.inventoryMovement.create({
-    data: {
-      itemId: item!.id,
-      kind: "USED",
-      change: -qty,
-      quantityAfter: updated.quantity,
-      caseId,
-      note: text(formData, "note", 200),
-      createdById: session.userId,
-    },
-  });
-  // Block finished: what was left of it is no longer usable.
-  const per = updated.unitsPerBlock;
-  const leftInBlock = per ? updated.quantity % per : 0;
-  if (formData.get("blockDone") === "on" && leftInBlock > 0) {
-    updated = await prisma.inventoryItem.update({ where: { id: item!.id }, data: { quantity: { decrement: leftInBlock } } });
-    await prisma.inventoryMovement.create({
-      data: {
-        itemId: item!.id,
-        kind: "BLOCK_DONE",
-        change: -leftInBlock,
-        quantityAfter: updated.quantity,
-        caseId,
-        note: "Rest of the block (finished)",
-        createdById: session.userId,
-      },
+  // What was scanned or picked: a block, or an item counted in pieces.
+  const scanned = normalizeCode(String(formData.get("code") ?? ""));
+  const picked = String(formData.get("pick") ?? "");
+  let block = null;
+  let item = null;
+  if (scanned.startsWith("BLK") || picked.startsWith("block:")) {
+    block = await prisma.inventoryBlock.findUnique({
+      where: scanned.startsWith("BLK") ? { code: scanned } : { id: picked.slice(6) },
+      include: { item: true },
     });
+    if (!block) fail(`No block has the code ${scanned}.`);
+    if (block!.finishedAt) fail(`Block ${block!.code} is already finished.`);
+    item = block!.item;
+  } else if (scanned) {
+    item = await prisma.inventoryItem.findUnique({ where: { code: scanned } });
+    if (!item) fail(`No item has the code ${scanned}.`);
+    if (item!.trackBlocks) fail(`Scan the label on the block you milled from (not the ${item!.name} item label).`);
+  } else if (picked.startsWith("item:")) {
+    item = await prisma.inventoryItem.findUnique({ where: { id: picked.slice(5) } });
   }
-  await warnIfNowLow(item!, updated, session.userId);
+  if (!item) fail("Pick the material, or scan its label.");
+
+  const qty = Number(formData.get("quantity"));
+  if (!Number.isInteger(qty) || qty < 1) fail(block ? "Enter how many units you milled (1 or more)." : "Enter how many you used (1 or more).");
+  const note = text(formData, "note", 200);
+
+  if (block) {
+    await prisma.inventoryBlock.update({ where: { id: block.id }, data: { unitsMilled: { increment: qty } } });
+    await prisma.inventoryMovement.create({
+      data: { itemId: item!.id, blockId: block.id, kind: "USED", change: 0, units: qty, quantityAfter: item!.quantity, caseId, note, createdById: session.userId },
+    });
+    if (formData.get("blockDone") === "on") {
+      await prisma.inventoryBlock.update({ where: { id: block.id }, data: { finishedAt: new Date() } });
+      const updated = await recomputeQuantity(item!.id);
+      await prisma.inventoryMovement.create({
+        data: { itemId: item!.id, blockId: block.id, kind: "BLOCK_DONE", change: -1, quantityAfter: updated.quantity, caseId, createdById: session.userId },
+      });
+      await warnIfNowLow(item!, updated, session.userId);
+    }
+  } else {
+    // Only take pieces if there are enough left (checked and taken in one step).
+    const taken = await prisma.inventoryItem.updateMany({ where: { id: item!.id, quantity: { gte: qty } }, data: { quantity: { decrement: qty } } });
+    if (taken.count === 0) fail(`Only ${item!.quantity} of ${item!.name} left in stock.`);
+    const updated = await prisma.inventoryItem.findUniqueOrThrow({ where: { id: item!.id } });
+    await prisma.inventoryMovement.create({
+      data: { itemId: item!.id, kind: "USED", change: -qty, quantityAfter: updated.quantity, caseId, note, createdById: session.userId },
+    });
+    await warnIfNowLow(item!, updated, session.userId);
+  }
   revalidatePath(back);
   revalidatePath("/inventory");
   redirect(`${back}?used=1`);
 }
 
-// Undo a use entered by mistake: the quantity goes back into stock.
+// Undo a use entered by mistake (and the block finish entered with it).
 export async function undoUse(formData: FormData) {
   const session = await requirePermission("inventory.use");
   const caseId = String(formData.get("caseId"));
   await requireVisibleCase(session, caseId);
-  const use = await prisma.inventoryMovement.findFirst({
-    where: { id: String(formData.get("movementId")), caseId, kind: "USED" },
-  });
+  const use = await prisma.inventoryMovement.findFirst({ where: { id: String(formData.get("movementId")), caseId, kind: "USED" } });
   if (use) {
-    // A "block finished" entered with it (seconds later) is undone too.
-    const done = await prisma.inventoryMovement.findFirst({
-      where: {
-        itemId: use.itemId,
-        caseId,
-        kind: "BLOCK_DONE",
-        createdAt: { gte: use.createdAt, lte: new Date(use.createdAt.getTime() + 10_000) },
-      },
-    });
-    const back = -use.change - (done?.change ?? 0);
-    await prisma.inventoryItem.update({ where: { id: use.itemId }, data: { quantity: { increment: back } } });
-    await prisma.inventoryMovement.deleteMany({ where: { id: { in: [use.id, ...(done ? [done.id] : [])] } } });
+    if (use.blockId) {
+      const done = await prisma.inventoryMovement.findFirst({
+        where: { blockId: use.blockId, caseId, kind: "BLOCK_DONE", createdAt: { gte: use.createdAt, lte: new Date(use.createdAt.getTime() + 10_000) } },
+      });
+      await prisma.inventoryBlock.update({
+        where: { id: use.blockId },
+        data: { unitsMilled: { decrement: use.units ?? 0 }, ...(done ? { finishedAt: null } : {}) },
+      });
+      await prisma.inventoryMovement.deleteMany({ where: { id: { in: [use.id, ...(done ? [done.id] : [])] } } });
+      await recomputeQuantity(use.itemId);
+    } else {
+      await prisma.inventoryItem.update({ where: { id: use.itemId }, data: { quantity: { increment: -use.change } } });
+      await prisma.inventoryMovement.delete({ where: { id: use.id } });
+    }
   }
   revalidatePath(`/cases/${caseId}`);
   revalidatePath("/inventory");

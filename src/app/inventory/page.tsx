@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Printer, TriangleAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { can, requireAccess } from "@/lib/access";
-import { canSeeInventory, isLow, minText, normalizeCode, stockText } from "@/lib/inventory";
+import { canSeeInventory, isLow, normalizeCode, stockText } from "@/lib/inventory";
 import { ScanBox } from "@/components/ScanBox";
 import { createItem } from "./actions";
 
@@ -21,9 +21,12 @@ export default async function InventoryPage({
   const { scan: scanParam, error, deleted } = await searchParams;
   const scan = (scanParam ?? "").trim();
 
-  // A scanned QR label opens its item straight away.
+  // A scanned QR label (item or block) opens its item straight away.
   if (scan) {
-    const byCode = await prisma.inventoryItem.findUnique({ where: { code: normalizeCode(scan) } });
+    const code = normalizeCode(scan);
+    const block = code.startsWith("BLK") ? await prisma.inventoryBlock.findUnique({ where: { code } }) : null;
+    if (block) redirect(`/inventory/${block.itemId}?scanned=1&block=${block.id}`);
+    const byCode = await prisma.inventoryItem.findUnique({ where: { code } });
     if (byCode) redirect(`/inventory/${byCode.id}?scanned=1`);
   }
 
@@ -40,7 +43,7 @@ export default async function InventoryPage({
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Inventory</h1>
       <p className="mb-6 text-sm text-slate-500">
-        Materials in stock. Each item has its own QR label: scan it to open the item.
+        Materials in stock. Every block / disc has its own QR label (other items have one per item): scan it to open it.
       </p>
 
       <div className="mb-6">
@@ -85,9 +88,8 @@ export default async function InventoryPage({
                   <td className="px-4 py-2.5 text-slate-600">{i.scalingFactor ?? "-"}</td>
                   <td className={`px-4 py-2.5 text-right font-semibold ${low ? "text-rose-700" : "text-slate-900"}`}>
                     {stockText(i)}
-                    {i.unitsPerBlock && <span className="block text-xs font-normal text-slate-400">{i.quantity} units</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-slate-500">{minText(i)}</td>
+                  <td className="px-4 py-2.5 text-right text-slate-500">{i.minQuantity ?? "-"}</td>
                   <td className="px-4 py-2.5">
                     <span className="font-mono text-xs text-slate-500">{i.code ?? "-"}</span>
                     {manage && (
@@ -140,9 +142,9 @@ export default async function InventoryPage({
               Scaling factor
               <input name="scalingFactor" maxLength={40} placeholder="e.g. 1.234" className={INPUT} />
             </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
-              Units per block (blocks/discs)
-              <input name="unitsPerBlock" type="number" min={1} step={1} placeholder="e.g. 25 · empty for pieces" className={INPUT} />
+            <label className="flex items-center gap-2 self-end rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600">
+              <input type="checkbox" name="trackBlocks" defaultChecked className="h-4 w-4 accent-brand" />
+              Blocks / discs: each one gets its own QR label
             </label>
             <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
               Quantity in stock (blocks / pieces)
