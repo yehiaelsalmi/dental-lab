@@ -28,8 +28,8 @@ export default async function InventoryLabelPage({
       })
     : [];
   const labels = blocks.length
-    ? blocks.map((b) => ({ key: b.id, code: b.code }))
-    : [{ key: item.id, code: item.code }];
+    ? blocks.map((b) => ({ key: b.id, code: b.code, name: b.name?.trim() || null }))
+    : [{ key: item.id, code: item.code, name: null }];
   const qrs = await Promise.all(labels.map((l) => QRCode.toDataURL(l.code, { margin: 1, width: 400, errorCorrectionLevel: "M" })));
 
   return (
@@ -58,6 +58,11 @@ export default async function InventoryLabelPage({
               <p className="break-words font-bold" style={{ fontSize: "9pt" }}>
                 {item.name}
               </p>
+              {l.name && (
+                <p className="break-words font-semibold" style={{ fontSize: "8pt" }}>
+                  {l.name}
+                </p>
+              )}
               {item.type && <p>{item.type}</p>}
               {item.colour && <p>Colour: {item.colour}</p>}
               {item.size && <p>Size: {item.size}</p>}

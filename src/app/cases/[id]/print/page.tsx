@@ -7,7 +7,6 @@ import { canViewCase, requireAccess } from "@/lib/access";
 import { caseUrl } from "@/lib/email";
 import { getLabSettings } from "@/lib/labSettings";
 import { formatFieldValue } from "@/lib/customFields";
-import { statusLabel } from "@/lib/statuses";
 import { LabMark } from "@/components/LabMark";
 import { PrintButton } from "@/components/PrintButton";
 import { FitToPage } from "@/components/FitToPage";
@@ -35,9 +34,8 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
   });
   if (!caseRecord || !canViewCase(access, caseRecord)) notFound();
 
-  const [lab, status, qrDataUrl] = await Promise.all([
+  const [lab, qrDataUrl] = await Promise.all([
     getLabSettings(),
-    statusLabel(caseRecord.status),
     QRCode.toDataURL(caseUrl(caseRecord.id), { margin: 1, width: 320 }),
   ]);
   const date = (d: Date | null) => (d ? formatDate(d) : "-");
@@ -45,7 +43,6 @@ export default async function CasePrintPage({ params }: { params: Promise<{ id: 
 
   const details: [string, string][] = [
     ["Doctor", caseRecord.doctor.name],
-    ["Status", status],
     ["Entry date", date(caseRecord.entryDate)],
     ["Due date", date(caseRecord.dueDate)],
     ["Units (upper / lower)", `${caseRecord.unitsUpper ?? "-"} / ${caseRecord.unitsLower ?? "-"}`],

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, requireVisibleCase } from "@/lib/access";
 import { notifyLowStock } from "@/lib/notifications";
-import { createBlocks, isLow, nextItemCode, normalizeCode, recomputeQuantity } from "@/lib/inventory";
+import { blockLabel, createBlocks, isLow, nextItemCode, normalizeCode, recomputeQuantity } from "@/lib/inventory";
 
 function text(formData: FormData, key: string, max = 120): string | null {
   return String(formData.get(key) ?? "").trim().slice(0, max) || null;
@@ -16,6 +16,15 @@ function count(formData: FormData, key: string, label: string, back: string, opt
   if (raw === "" && optional) return null;
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 0) redirect(`${back}?error=${encodeURIComponent(`Enter ${label} as a whole number (0 or more).`)}`);
+  return n;
+}
+
+// Price per block / piece; empty means none. Bad input sends the user back.
+function price(formData: FormData, back: string): number | null {
+  const raw = String(formData.get("price") ?? "").trim().replace(/,/g, "");
+  if (raw === "") return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) redirect(`${back}?error=${encodeURIComponent("Enter the price as a number (0 or more).")}`);
   return n;
 }
 
@@ -49,6 +58,7 @@ export async function createItem(formData: FormData) {
     data: {
       name: name!,
       ...details(formData),
+      price: price(formData, back),
       trackBlocks,
       code: await nextItemCode(),
       quantity,
@@ -79,6 +89,7 @@ export async function updateItem(formData: FormData) {
     data: {
       name: name!,
       ...details(formData),
+      price: price(formData, back),
       trackBlocks,
       quantity,
       minQuantity: count(formData, "minQuantity", "the minimum", back, true),
@@ -142,6 +153,16 @@ export async function deleteItem(formData: FormData) {
   redirect("/inventory?deleted=1");
 }
 
+// The lab leader names a block anything (empty puts the code back).
+export async function renameBlock(formData: FormData) {
+  await requirePermission("page.inventory");
+  const block = await prisma.inventoryBlock.findUnique({ where: { id: String(formData.get("blockId")) } });
+  if (!block) redirect("/inventory");
+  await prisma.inventoryBlock.update({ where: { id: block!.id }, data: { name: text(formData, "name", 80) } });
+  revalidatePath(`/inventory/${block!.itemId}`);
+  redirect(`/inventory/${block!.itemId}?renamed=1`);
+}
+
 // Finishes a block by hand (e.g. broken), or opens a finished one again.
 export async function toggleBlockFinished(formData: FormData) {
   const session = await requirePermission("page.inventory");
@@ -188,7 +209,7 @@ export async function useForCase(formData: FormData) {
       include: { item: true },
     });
     if (!block) fail(`No block has the code ${scanned}.`);
-    if (block!.finishedAt) fail(`Block ${block!.code} is already finished.`);
+    if (block!.finishedAt) fail(`Block ${blockLabel(block!)} is already finished.`);
     item = block!.item;
   } else if (scanned) {
     item = await prisma.inventoryItem.findUnique({ where: { code: scanned } });

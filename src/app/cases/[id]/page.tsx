@@ -33,7 +33,7 @@ import {
 import { formatFieldValue } from "@/lib/customFields";
 import { caseChecklist } from "@/lib/checklists";
 import { problemStatuses } from "@/lib/problems";
-import { itemLabel, stockText } from "@/lib/inventory";
+import { blockLabel, itemLabel, stockText } from "@/lib/inventory";
 import { undoUse, useForCase } from "@/app/inventory/actions";
 import { ADJUSTMENT_KINDS, type AdjustmentKind } from "@/lib/adjustments";
 import { CASE_SUBFOLDERS, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
@@ -123,7 +123,7 @@ export default async function CaseDetailPage({
       inventoryUses: {
         where: { kind: { in: ["USED", "BLOCK_DONE"] } },
         orderBy: { createdAt: "desc" },
-        include: { item: true, block: { select: { code: true } }, createdBy: { select: { name: true } } },
+        include: { item: true, block: { select: { code: true, name: true } }, createdBy: { select: { name: true } } },
       },
       problems: {
         orderBy: { createdAt: "desc" },
@@ -812,7 +812,7 @@ export default async function CaseDetailPage({
                         <strong>{u.units != null ? `${u.units} units milled` : `${-u.change} used`} · </strong>
                       )}
                       {itemLabel(u.item)}
-                      {u.block && <span className="font-mono text-xs text-slate-500"> {u.block.code}</span>}
+                      {u.block && <span className="text-xs text-slate-500"> {blockLabel(u.block)}</span>}
                       {u.note ? <span className="text-slate-500"> · {u.note}</span> : null}
                     </p>
                     <p className="text-xs text-slate-400">
@@ -847,7 +847,7 @@ export default async function CaseDetailPage({
                       <optgroup key={i.id} label={`${itemLabel(i)} (${stockText(i)})`}>
                         {i.blocks.map((b) => (
                           <option key={b.id} value={`block:${b.id}`}>
-                            {b.code} · {b.unitsMilled ? `${b.unitsMilled} units milled so far` : "new"}
+                            {blockLabel(b)}{b.name ? ` (${b.code})` : ""} · {b.unitsMilled ? `${b.unitsMilled} units milled so far` : "new"}
                           </option>
                         ))}
                       </optgroup>

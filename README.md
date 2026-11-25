@@ -281,6 +281,11 @@ the scan box opens the item. Codes are letters and digits only, so scanners set 
 keyboard layout read them. Ticking the box on an existing piece item turns its stock
 into that many labelled blocks.
 
+Each item has an optional **price** per block / piece (EGP); the list shows the total
+stock value. Only people who manage the inventory see prices (not the miller). The lab
+leader can **rename any block** (e.g. "Disc A"); the name shows instead of the code on
+screens and on its label, while the QR keeps the code so scanning still works.
+
 - **Permission "Inventory: manage items"** (`page.inventory`, Lab Leader): add/edit
   items, receive stock, correct piece counts, finish/reopen blocks, print labels.
 - **Permission "Inventory: see stock and take materials"** (`inventory.use`, given to

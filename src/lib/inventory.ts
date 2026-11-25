@@ -50,3 +50,8 @@ export function itemLabel(i: { name: string; colour: string | null; size: string
 export function stockText(i: { quantity: number; trackBlocks: boolean }): string {
   return i.trackBlocks ? `${i.quantity} block${i.quantity === 1 ? "" : "s"}` : String(i.quantity);
 }
+
+// What a block is called on screen: the name the lab leader gave it, or its code.
+export function blockLabel(b: { name?: string | null; code: string }): string {
+  return b.name?.trim() || b.code;
+}

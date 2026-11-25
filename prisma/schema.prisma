@@ -569,6 +569,8 @@ model InventoryItem {
   // No longer shown (was the maker's product number from UDI barcodes).
   ref         String?
   scalingFactor String?
+  // Price per block / piece (EGP). Only people who manage the inventory see it.
+  price         Float?
   // Blocks/discs: each physical block gets its own QR label and record
   // (InventoryBlock); quantity / minQuantity then count open blocks.
   trackBlocks Boolean @default(false)
@@ -619,6 +621,8 @@ model InventoryBlock {
   itemId     String
   item       InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   code       String    @unique
+  // Optional name the lab leader gives the block; shown instead of the code.
+  name       String?
   // Units milled from it so far (the miller decides how many it gives).
   unitsMilled Int      @default(0)
   finishedAt DateTime?

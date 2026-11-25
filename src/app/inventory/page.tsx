@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Printer, TriangleAlert } from "lucide-react";
+import { formatEGP } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { can, requireAccess } from "@/lib/access";
 import { canSeeInventory, isLow, normalizeCode, stockText } from "@/lib/inventory";
@@ -31,6 +32,7 @@ export default async function InventoryPage({
   }
 
   const all = await prisma.inventoryItem.findMany({ orderBy: { name: "asc" } });
+  const stockValue = all.reduce((sum, i) => sum + (i.price ?? 0) * i.quantity, 0);
   const needle = scan.toLowerCase();
   const matches = needle
     ? all.filter((i) => [i.name, i.type, i.colour, i.size, i.code].some((v) => v?.toLowerCase().includes(needle)))
@@ -58,6 +60,12 @@ export default async function InventoryPage({
         </p>
       )}
 
+      {manage && stockValue > 0 && (
+        <p className="mb-3 text-sm text-slate-600">
+          Stock value: <span className="font-semibold text-slate-900">{formatEGP(stockValue)}</span>
+        </p>
+      )}
+
       <section className="mb-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -69,6 +77,7 @@ export default async function InventoryPage({
               <th className="px-4 py-3 font-medium">Scaling factor</th>
               <th className="px-4 py-3 text-right font-medium">In stock</th>
               <th className="px-4 py-3 text-right font-medium">Minimum</th>
+              {manage && <th className="px-4 py-3 text-right font-medium">Price</th>}
               <th className="px-4 py-3 font-medium">Code</th>
             </tr>
           </thead>
@@ -90,6 +99,7 @@ export default async function InventoryPage({
                     {stockText(i)}
                   </td>
                   <td className="px-4 py-2.5 text-right text-slate-500">{i.minQuantity ?? "-"}</td>
+                  {manage && <td className="px-4 py-2.5 text-right text-slate-600">{formatEGP(i.price)}</td>}
                   <td className="px-4 py-2.5">
                     <span className="font-mono text-xs text-slate-500">{i.code ?? "-"}</span>
                     {manage && (
@@ -103,7 +113,7 @@ export default async function InventoryPage({
             })}
             {items.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={manage ? 9 : 8} className="px-4 py-10 text-center text-slate-400">
                   {scan ? "Nothing matches." : manage ? "No items yet. Add the first one below." : "No items yet."}
                 </td>
               </tr>
@@ -153,6 +163,10 @@ export default async function InventoryPage({
             <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
               Minimum (blocks / pieces)
               <input name="minQuantity" type="number" min={0} step={1} placeholder="Optional" className={INPUT} />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+              Price per block / piece (EGP)
+              <input name="price" inputMode="decimal" placeholder="Optional" className={INPUT} />
             </label>
             <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
               Notes (optional)
