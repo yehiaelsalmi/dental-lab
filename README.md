@@ -138,7 +138,7 @@ for example `30,000 EGP`; the formatter is `formatEGP` in `src/lib/money.ts`.
 
 Every case has a **QR code** on its page that opens the case when scanned, with
 a printable **case sheet**
-(`/cases/<id>/print`, an A6 card: patient, doctor, dates, status, team, materials,
+(`/cases/<id>/print`, an A6 card: patient, doctor, dates, team, materials,
 unit codes, custom fields, notes and the QR code, without prices; empty details are
 left out so it fits one page). The code encodes `APP_URL` (falling
 back to `NEXTAUTH_URL`), so it only works from a phone once the app is served
