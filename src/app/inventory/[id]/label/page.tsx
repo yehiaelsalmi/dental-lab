@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
 import { PrintButton } from "@/components/PrintButton";
 
-// 60 x 40 mm stickers: one per block (?blocks=id,id or ?blocks=open), or the
+// 25 x 38 mm stickers: one per block (?blocks=id,id or ?blocks=open), or the
 // item's own label. Each QR holds the code the scanner types.
 export default async function InventoryLabelPage({
   params,
@@ -34,8 +34,8 @@ export default async function InventoryLabelPage({
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-10 print:p-0">
-      <style>{`@page { size: 60mm 40mm; margin: 0; } @media print { html, body { background: #fff; } .sticker { break-after: page; } }`}</style>
-      <div className="mx-auto mb-4 flex items-center justify-between print:hidden" style={{ width: "60mm" }}>
+      <style>{`@page { size: 25mm 38mm; margin: 0; } @media print { html, body { background: #fff; } .sticker { break-after: page; } }`}</style>
+      <div className="mx-auto mb-4 flex items-center justify-between gap-4 print:hidden" style={{ width: "60mm" }}>
         <Link href={`/inventory/${item.id}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900">
           <ArrowLeft size={15} />
           Back
@@ -43,33 +43,25 @@ export default async function InventoryLabelPage({
         <PrintButton />
       </div>
       <p className="mb-3 text-center text-xs text-slate-500 print:hidden">
-        {labels.length} label{labels.length === 1 ? "" : "s"}
+        {labels.length} label{labels.length === 1 ? "" : "s"} · 25 x 38 mm
       </p>
       <div className="flex flex-col items-center gap-3 print:gap-0">
         {labels.map((l, i) => (
           <div
             key={l.key}
-            className="sticker flex items-center gap-2 overflow-hidden bg-white text-slate-900 ring-1 ring-slate-300 print:ring-0"
-            style={{ width: "60mm", height: "40mm", padding: "2.5mm" }}
+            className="sticker flex flex-col items-center overflow-hidden bg-white text-center text-slate-900 ring-1 ring-slate-300 print:ring-0"
+            style={{ width: "25mm", height: "38mm", padding: "1.5mm" }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrs[i]} alt="QR code" style={{ width: "30mm", height: "30mm" }} className="shrink-0" />
-            <div className="min-w-0" style={{ fontSize: "7pt", lineHeight: 1.25 }}>
-              <p className="break-words font-bold" style={{ fontSize: "9pt" }}>
+            <img src={qrs[i]} alt="QR code" style={{ width: "21mm", height: "21mm" }} className="shrink-0" />
+            <div className="w-full min-w-0 overflow-hidden" style={{ fontSize: "5.5pt", lineHeight: 1.15 }}>
+              <p className="truncate font-bold" style={{ fontSize: "6.5pt" }}>
                 {item.name}
               </p>
-              {l.name && (
-                <p className="break-words font-semibold" style={{ fontSize: "8pt" }}>
-                  {l.name}
-                </p>
-              )}
-              {item.type && <p>{item.type}</p>}
-              {item.colour && <p>Colour: {item.colour}</p>}
-              {item.size && <p>Size: {item.size}</p>}
-              {item.scalingFactor && <p>Scaling: {item.scalingFactor}</p>}
-              <p className="mt-0.5 font-mono font-semibold" style={{ fontSize: "7.5pt" }}>
-                {l.code}
-              </p>
+              {l.name && <p className="truncate font-semibold">{l.name}</p>}
+              <p className="truncate">{[item.colour, item.size].filter(Boolean).join(" · ")}</p>
+              {item.scalingFactor && <p className="truncate">SF {item.scalingFactor}</p>}
+              <p className="truncate font-mono font-semibold">{l.code}</p>
             </div>
           </div>
         ))}
