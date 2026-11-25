@@ -272,7 +272,7 @@ the totals. Materials no longer carry extra fees or deductions.
 **Inventory** (`/inventory`) lists materials in stock: name, type, colour, size, scaling
 factor, quantity, an optional minimum and the system's own code (`INV00001`, ...).
 Items marked **"Blocks / discs: each one gets its own QR label"** track every block
-separately: adding 10 makes 10 blocks (`BLK000001`, ...), each with its own 25 x 38 mm
+separately: adding 10 makes 10 blocks (`BLK000001`, ...), each with its own 38 x 25 mm
 label (`/inventory/<id>/label?blocks=<ids>` or `?blocks=open`, one sticker per page).
 Stock is the number of open blocks. There is no fixed units-per-block: the miller
 records the units milled from each block, and the block page shows the running total.
