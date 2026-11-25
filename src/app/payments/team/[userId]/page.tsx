@@ -43,7 +43,7 @@ export default async function StaffPaymentsPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-8 sm:py-10">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
       <Link href="/payments?tab=team" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900">
         <ArrowLeft size={15} />
         Payments
@@ -68,7 +68,7 @@ export default async function StaffPaymentsPage({
 
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Add a payment</h2>
-        <form action={addStaffPayment} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[120px_140px_150px_190px_1fr_auto] lg:items-end">
+        <form action={addStaffPayment} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.7fr)_minmax(0,1.2fr)_minmax(0,1.5fr)_auto] lg:items-end [&_input]:w-full [&_input]:min-w-0 [&_select]:w-full [&_select]:min-w-0">
           <input type="hidden" name="userId" value={userId} />
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
             Amount (EGP)
