@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Nav } from "@/components/Nav";
 import { UploadManagerProvider } from "@/components/UploadManager";
+import { GlobalScanner } from "@/components/GlobalScanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-background md:flex-row">
         <UploadManagerProvider>
+          <GlobalScanner />
           <Nav />
           <main className="min-w-0 flex-1">{children}</main>
         </UploadManagerProvider>

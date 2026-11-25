@@ -281,6 +281,11 @@ the scan box opens the item. Codes are letters and digits only, so scanners set 
 keyboard layout read them. Ticking the box on an existing piece item turns its stock
 into that many labelled blocks.
 
+**Scan from anywhere:** a scan (a fast burst of keys ending in Enter) on any page, when no
+text box has focus, opens what was scanned via `/scan`: inventory labels open the item,
+case sheet QRs open the case (even when a scanner on another keyboard layout garbles the
+link or swaps y/z). On a case page, a block scan fills the Materials used box instead.
+
 Each item has an optional **price** per block / piece (EGP); the list shows the total
 stock value. Only people who manage the inventory see prices (not the miller). The lab
 leader can **rename any block** (e.g. "Disc A"); the name shows instead of the code on

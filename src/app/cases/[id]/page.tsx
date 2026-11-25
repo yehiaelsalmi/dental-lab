@@ -865,7 +865,7 @@ export default async function CaseDetailPage({
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
                 Or scan the block&apos;s label here
-                <input name="code" autoComplete="off" placeholder="BLK..." className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900" />
+                <input name="code" data-scan-target autoComplete="off" placeholder="BLK..." className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900" />
               </label>
               <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
                 Take from stock
