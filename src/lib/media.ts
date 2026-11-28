@@ -33,6 +33,9 @@ const TYPES: Record<string, { kind: "PHOTO" | "VOICE"; ext: string }> = {
   "audio/x-m4a": { kind: "VOICE", ext: "m4a" },
   "audio/aac": { kind: "VOICE", ext: "aac" },
   "audio/mpeg": { kind: "VOICE", ext: "mp3" },
+  "audio/mp3": { kind: "VOICE", ext: "mp3" },
+  "audio/opus": { kind: "VOICE", ext: "ogg" },
+  "audio/x-aac": { kind: "VOICE", ext: "aac" },
   "audio/wav": { kind: "VOICE", ext: "wav" },
   "audio/x-wav": { kind: "VOICE", ext: "wav" },
 };
