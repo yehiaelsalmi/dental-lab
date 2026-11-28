@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Inbox, Search, X, TriangleAlert } from "lucide-react";
+import { Plus, Inbox, Search, X, TriangleAlert, Layers } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { can, caseVisibilityWhere, requireAccess } from "@/lib/access";
 import {
@@ -23,12 +23,16 @@ const SORT_OPTIONS = [
 type SortKey = (typeof SORT_OPTIONS)[number]["value"];
 const DEFAULT_SORT: SortKey = "newest";
 
+// Full arch cases: a material line priced above this per unit.
+const FULL_ARCH_MIN_UNIT_PRICE = 800;
+
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; sort?: string; error?: string; ceramist?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; sort?: string; error?: string; ceramist?: string; arch?: string }>;
 }) {
-  const { status: statusParam, q, sort: sortParam, error, ceramist: ceramistParam } = await searchParams;
+  const { status: statusParam, q, sort: sortParam, error, ceramist: ceramistParam, arch } = await searchParams;
+  const fullArchOnly = arch === "full";
   const query = (q ?? "").trim();
   const sort: SortKey = SORT_OPTIONS.some((o) => o.value === sortParam)
     ? (sortParam as SortKey)
@@ -55,19 +59,20 @@ export default async function CasesPage({
       doctor: true,
       ceramist: { select: { id: true, name: true } },
       problems: { where: { solvedAt: null }, select: { id: true } },
+      materials: { select: { pricePerUnit: true, material: { select: { pricePerUnit: true } } } },
     },
     orderBy: { createdAt: "desc" },
   });
+  const isFullArch = (c: (typeof cases)[number]) =>
+    c.materials.some((m) => (m.pricePerUnit ?? m.material.pricePerUnit) > FULL_ARCH_MIN_UNIT_PRICE);
 
   // Matches anywhere in the patient or doctor name, ignoring case.
   const needle = query.toLowerCase();
-  const matchingCases = needle
-    ? cases.filter(
-        (c) =>
-          c.patientName.toLowerCase().includes(needle) ||
-          c.doctor.name.toLowerCase().includes(needle),
-      )
-    : cases;
+  const matchingCases = cases.filter(
+    (c) =>
+      (!needle || c.patientName.toLowerCase().includes(needle) || c.doctor.name.toLowerCase().includes(needle)) &&
+      (!fullArchOnly || isFullArch(c))
+  );
 
   const counts: Record<string, number> = Object.fromEntries(
     allStatuses.map((s) => [s.key, matchingCases.filter((c) => c.status === s.key).length]),
@@ -137,11 +142,12 @@ export default async function CasesPage({
   const alertCount = visibleCases.filter((c) => alerts.get(c.id)).length;
 
   const currentView = activeStatus ?? (statusParam === "ALL" ? "ALL" : null);
-  const withParams = (params: { status?: string | null; q?: string }) => {
+  const withParams = (params: { status?: string | null; q?: string; fullArch?: boolean }) => {
     const search = new URLSearchParams();
     if (params.status) search.set("status", params.status);
     if (params.q) search.set("q", params.q);
     if (sort !== DEFAULT_SORT) search.set("sort", sort);
+    if (params.fullArch ?? fullArchOnly) search.set("arch", "full");
     const qs = search.toString();
     return qs ? `/cases?${qs}` : "/cases";
   };
@@ -180,6 +186,7 @@ export default async function CasesPage({
 
       <form action="/cases" className="mb-4 flex flex-col gap-2 sm:flex-row">
         {currentView && <input type="hidden" name="status" value={currentView} />}
+        {fullArchOnly && <input type="hidden" name="arch" value="full" />}
         <div className="flex flex-1 gap-2">
           <div className="relative flex-1">
             <Search
@@ -231,6 +238,25 @@ export default async function CasesPage({
           className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
         />
       </form>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Link
+          href={withParams({ status: currentView, q: query, fullArch: !fullArchOnly })}
+          aria-pressed={fullArchOnly}
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+            fullArchOnly
+              ? "border-amber-500 bg-amber-50 text-amber-800"
+              : "border-slate-300 bg-white text-slate-600 hover:border-amber-400 hover:text-slate-900"
+          }`}
+        >
+          <Layers size={15} className={fullArchOnly ? "text-amber-600" : "text-slate-400"} />
+          Full arch only
+          {fullArchOnly && <X size={14} className="text-amber-700" />}
+        </Link>
+        {fullArchOnly && (
+          <span className="text-xs text-slate-500">Cases with a unit priced above {FULL_ARCH_MIN_UNIT_PRICE} EGP</span>
+        )}
+      </div>
 
       <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
         {!hiddenCards.has("ACTIVE") && (
@@ -359,6 +385,7 @@ export default async function CasesPage({
                 <p className="mt-1 text-sm text-slate-500">{c.doctor.name}</p>
               {c.needsPhotogrammetry && <PhotogrammetryTag done={!!c.photogrammetryDoneAt} />}
               {c.problems.length > 0 && <ProblemTag count={c.problems.length} />}
+              {isFullArch(c) && <FullArchTag />}
                 <p className="mt-2 text-xs text-slate-400">
                   {showCeramist ? `Ceramist: ${c.ceramist?.name ?? "none yet"}` : (isBeforeIbar(c) ? c.firstDesigner : c.assignedDesigner)?.name ?? "Unassigned"}
                   {c.dueDate
@@ -417,6 +444,7 @@ export default async function CasesPage({
                       </p>
                     )}
                     {c.problems.length > 0 && <ProblemTag count={c.problems.length} />}
+                    {isFullArch(c) && <FullArchTag />}
                   </td>
                   <td className="px-5 py-4 text-slate-500">
                   {c.doctor.name}
@@ -468,6 +496,15 @@ function PhotogrammetryTag({ done }: { done: boolean }) {
       }`}
     >
       {done ? "Photogrammetry done" : "Photogrammetry pending"}
+    </span>
+  );
+}
+
+function FullArchTag() {
+  return (
+    <span className="mt-1.5 flex w-fit items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
+      <Layers size={11} />
+      Full arch
     </span>
   );
 }

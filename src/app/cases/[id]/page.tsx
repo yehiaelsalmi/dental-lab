@@ -15,6 +15,8 @@ import {
   Upload,
   TriangleAlert,
   Plus,
+  Mic,
+  Images,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { caseUrl } from "@/lib/email";
@@ -34,6 +36,8 @@ import { formatFieldValue } from "@/lib/customFields";
 import { caseChecklist } from "@/lib/checklists";
 import { problemStatuses } from "@/lib/problems";
 import { blockLabel, itemLabel, stockText } from "@/lib/inventory";
+import { CaseMediaAdder } from "@/components/CaseMediaAdder";
+import { durationText } from "@/lib/media";
 import { undoUse, useForCase } from "@/app/inventory/actions";
 import { ADJUSTMENT_KINDS, type AdjustmentKind } from "@/lib/adjustments";
 import { CASE_SUBFOLDERS, uploadSubfolder, type CaseSubfolder } from "@/lib/caseFolders";
@@ -80,6 +84,7 @@ import {
   toggleProblemSolvedAction,
   removeCaseAdjustmentAction,
   deleteCaseFileAction,
+  deleteCaseMediaAction,
 } from "./actions";
 
 import { formatDate, formatDateTime } from "@/lib/dates";
@@ -113,6 +118,7 @@ export default async function CaseDetailPage({
       },
       materials: { orderBy: { createdAt: "asc" }, include: { material: true, metalType: true } },
       units: { orderBy: { createdAt: "asc" } },
+      media: { orderBy: { createdAt: "desc" }, include: { createdBy: { select: { name: true } } } },
       files: {
         where: { deletedAt: null },
         orderBy: { createdAt: "asc" },
@@ -1029,6 +1035,90 @@ export default async function CaseDetailPage({
             Only changes the status. The usual automatic steps (like review emails) don&apos;t run;
             roles set to be notified for the new status are told.
           </p>
+        </section>
+      )}
+
+      {(can(access, "case.media") || caseRecord.media.length > 0) && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <Images size={15} className="text-brand" />
+            Photos &amp; voice notes
+          </h2>
+          <p className="mb-3 text-xs text-slate-500">Kept in the system (not in Drive). Everyone who can see this case can view and play them.</p>
+          {can(access, "case.media") && (
+            <div className="mb-4">
+              <CaseMediaAdder caseId={caseRecord.id} />
+            </div>
+          )}
+          {caseRecord.media.length === 0 ? (
+            <p className="text-sm text-slate-400">No photos or voice notes yet.</p>
+          ) : (
+            <>
+              {caseRecord.media.some((m) => m.kind === "PHOTO") && (
+                <ul className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-5">
+                  {caseRecord.media
+                    .filter((m) => m.kind === "PHOTO")
+                    .map((m) => (
+                      <li key={m.id} className="group relative">
+                        <a href={`/api/media/${m.id}`} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`/api/media/${m.id}`}
+                            alt={`Photo added ${formatDateTime(m.createdAt)}`}
+                            loading="lazy"
+                            className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
+                          />
+                        </a>
+                        <p className="mt-1 truncate text-[11px] text-slate-400">
+                          {m.createdBy?.name ?? "Someone"} · {formatDateTime(m.createdAt)}
+                        </p>
+                        {(m.createdById === userId || can(access, "case.deleteFiles")) && (
+                          <form action={deleteCaseMediaAction} className="absolute right-1 top-1">
+                            <input type="hidden" name="caseId" value={caseRecord.id} />
+                            <input type="hidden" name="mediaId" value={m.id} />
+                            <ConfirmSubmitButton
+                              message="Delete this photo?"
+                              className="rounded-md bg-white/90 p-1 text-slate-500 shadow-sm hover:text-rose-600"
+                            >
+                              <Trash2 size={13} />
+                            </ConfirmSubmitButton>
+                          </form>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              )}
+              {caseRecord.media.some((m) => m.kind === "VOICE") && (
+                <ul className="flex flex-col gap-2">
+                  {caseRecord.media
+                    .filter((m) => m.kind === "VOICE")
+                    .map((m) => (
+                      <li key={m.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-2">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                          <Mic size={15} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <audio src={`/api/media/${m.id}`} controls preload="metadata" className="h-9 w-full" />
+                          <p className="mt-0.5 text-[11px] text-slate-400">
+                            {m.createdBy?.name ?? "Someone"} · {formatDateTime(m.createdAt)}
+                            {m.durationSec ? ` · ${durationText(m.durationSec)}` : ""}
+                          </p>
+                        </div>
+                        {(m.createdById === userId || can(access, "case.deleteFiles")) && (
+                          <form action={deleteCaseMediaAction}>
+                            <input type="hidden" name="caseId" value={caseRecord.id} />
+                            <input type="hidden" name="mediaId" value={m.id} />
+                            <ConfirmSubmitButton message="Delete this voice note?" className="p-1.5 text-slate-400 hover:text-rose-600">
+                              <Trash2 size={14} />
+                            </ConfirmSubmitButton>
+                          </form>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </>
+          )}
         </section>
       )}
 

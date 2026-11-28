@@ -43,3 +43,6 @@ next-env.d.ts
 # local sqlite database
 /prisma/*.db
 /prisma/*.db-journal
+
+# photos and voice notes saved by the app (MEDIA_DIR in production)
+/media-files/

@@ -14,44 +14,45 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String    @unique
   // WhatsApp number for notifications (e.g. 01012345678).
   phone        String?
   passwordHash String
   roleId       String
-  role         Role     @relation(fields: [roleId], references: [id])
-  active       Boolean  @default(true)
+  role         Role      @relation(fields: [roleId], references: [id])
+  active       Boolean   @default(true)
   // Set when a user with history is deleted: they can't sign in and are hidden
   // from the Users page, but their name stays on past cases.
   deletedAt    DateTime?
   // Fixed monthly salary (EGP); counted in the monthly report and shown on
   // their own earnings page.
   baseSalary   Float?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
-  casesCreated  Case[]         @relation("CreatedBy")
-  casesAssigned Case[]         @relation("AssignedDesigner")
-  casesFirstDesigned Case[]    @relation("FirstDesigner")
-  casesAsCeramist    Case[]    @relation("CaseCeramist")
-  caseAssignments    CaseAssignment[]
-  workSubmitted      WorkSubmission[] @relation("WorkUploader")
-  workReviewed       WorkSubmission[] @relation("WorkReviewer")
-  checklistTicks     CaseChecklistItem[]
-  photogrammetryDone Case[]    @relation("PhotogrammetryDoneBy")
-  filesUploaded CaseFile[]
-  reviews       CaseReview[]
-  notifications Notification[]
-  invoices      Invoice[]
-  doctorPaymentsRecorded DoctorPayment[] @relation("DoctorPaymentsRecorded")
-  staffPayments          StaffPayment[]  @relation("StaffPaymentsReceived")
-  staffPaymentsRecorded  StaffPayment[]  @relation("StaffPaymentsRecorded")
-  adjustmentsAdded       CaseAdjustment[] @relation("CaseAdjustmentsAdded")
-  problemsReported       CaseProblem[]    @relation("ProblemsReported")
-  problemsSolved         CaseProblem[]    @relation("ProblemsSolved")
-  printsRecorded         PrintRecord[]    @relation("PrintsRecorded")
+  casesCreated           Case[]              @relation("CreatedBy")
+  casesAssigned          Case[]              @relation("AssignedDesigner")
+  casesFirstDesigned     Case[]              @relation("FirstDesigner")
+  casesAsCeramist        Case[]              @relation("CaseCeramist")
+  caseAssignments        CaseAssignment[]
+  workSubmitted          WorkSubmission[]    @relation("WorkUploader")
+  workReviewed           WorkSubmission[]    @relation("WorkReviewer")
+  checklistTicks         CaseChecklistItem[]
+  photogrammetryDone     Case[]              @relation("PhotogrammetryDoneBy")
+  filesUploaded          CaseFile[]
+  reviews                CaseReview[]
+  notifications          Notification[]
+  invoices               Invoice[]
+  doctorPaymentsRecorded DoctorPayment[]     @relation("DoctorPaymentsRecorded")
+  staffPayments          StaffPayment[]      @relation("StaffPaymentsReceived")
+  staffPaymentsRecorded  StaffPayment[]      @relation("StaffPaymentsRecorded")
+  adjustmentsAdded       CaseAdjustment[]    @relation("CaseAdjustmentsAdded")
+  problemsReported       CaseProblem[]       @relation("ProblemsReported")
+  problemsSolved         CaseProblem[]       @relation("ProblemsSolved")
+  printsRecorded         PrintRecord[]       @relation("PrintsRecorded")
   inventoryMovements     InventoryMovement[] @relation("InventoryMovements")
+  caseMediaAdded         CaseMedia[]         @relation("CaseMediaAdded")
 }
 
 model Doctor {
@@ -100,23 +101,23 @@ model IbarDesigner {
 // locked onto the case at the moment each fee is actually incurred, so
 // later rate changes never retroactively change past cases.
 model Material {
-  id                  String   @id @default(cuid())
-  name                String   @unique
-  pricePerUnit        Float
-  ceramistFeePerUnit  Float
-  designerFeePerUnit  Float
+  id                        String   @id @default(cuid())
+  name                      String   @unique
+  pricePerUnit              Float
+  ceramistFeePerUnit        Float
+  designerFeePerUnit        Float
   // What the person assigned to the Matching role earns per unit.
-  matchingFeePerUnit  Float?
+  matchingFeePerUnit        Float?
   // What the person assigned to the Milling role earns per unit.
-  millingFeePerUnit   Float?
-  ibarFeePerUnit      Float?
+  millingFeePerUnit         Float?
+  ibarFeePerUnit            Float?
   // Flat amounts per case, added to / taken off the price billed to the doctor.
-  extraFee            Float?
-  deduction           Float?
+  extraFee                  Float?
+  deduction                 Float?
   // Optional costs to the lab per unit; taken off profit, not billed.
   millingCostPerUnit        Float?
   photogrammetryCostPerUnit Float?
-  createdAt           DateTime @default(now())
+  createdAt                 DateTime @default(now())
 
   caseLines CaseMaterial[]
 }
@@ -131,37 +132,37 @@ model MetalType {
 }
 
 model Case {
-  id             String    @id @default(cuid())
-  patientName    String
+  id                     String    @id @default(cuid())
+  patientName            String
   // Totals of the material lines per arch (kept for lists, reports, invoices).
-  unitsUpper     Int?
-  unitsLower     Int?
-  system         String?
-  shade          String?
-  status         String    @default("READY_FOR_DESIGN")
+  unitsUpper             Int?
+  unitsLower             Int?
+  system                 String?
+  shade                  String?
+  status                 String    @default("READY_FOR_DESIGN")
   // When the case was marked delivered. Its money (reports, invoices, doctor
   // balance, team earnings) only counts from then, in that month.
-  deliveredAt    DateTime?
+  deliveredAt            DateTime?
   // Set when a design is approved: "PRINTING" or "MILLING", and whether the
   // print goes to the doctor for a try-in before the ceramist.
-  productionMethod String?
-  printForTryIn    Boolean   @default(false)
+  productionMethod       String?
+  printForTryIn          Boolean   @default(false)
   // Last time new scans came back from a try-in (the case is then in the
   // matching -> redesign -> second review round).
-  tryInDoneAt      DateTime?
-  entryDate      DateTime  @default(now())
-  dueDate        DateTime?
-  notes          String?
+  tryInDoneAt            DateTime?
+  entryDate              DateTime  @default(now())
+  dueDate                DateTime?
+  notes                  String?
   // Name of whoever does matching; when set, the designer's submission goes
   // to MATCHING before review.
-  matchingBy           String?
-  needsPhotogrammetry  Boolean   @default(false)
-  photogrammetryDoneAt DateTime?
+  matchingBy             String?
+  needsPhotogrammetry    Boolean   @default(false)
+  photogrammetryDoneAt   DateTime?
   // Whoever marked photogrammetry done; they're credited the photogrammetry cost.
   photogrammetryDoneById String?
-  photogrammetryDoneBy   User?   @relation("PhotogrammetryDoneBy", fields: [photogrammetryDoneById], references: [id])
-  driveFolderId  String?
-  driveFolderUrl String?
+  photogrammetryDoneBy   User?     @relation("PhotogrammetryDoneBy", fields: [photogrammetryDoneById], references: [id])
+  driveFolderId          String?
+  driveFolderUrl         String?
 
   doctorId String
   doctor   Doctor @relation(fields: [doctorId], references: [id])
@@ -170,25 +171,24 @@ model Case {
   ceramistId String?
   ceramist   User?   @relation("CaseCeramist", fields: [ceramistId], references: [id])
 
-  ibarDesignerId String?
-  ibarDesigner   IbarDesigner? @relation(fields: [ibarDesignerId], references: [id])
+  ibarDesignerId  String?
+  ibarDesigner    IbarDesigner? @relation(fields: [ibarDesignerId], references: [id])
   // Ibar cases: the first designer works before the ibar (and the Lab Leader
   // reviews that design); `assignedDesigner` takes over once `ibarDoneAt` is set.
   firstDesignerId String?
-  firstDesigner   User?     @relation("FirstDesigner", fields: [firstDesignerId], references: [id])
+  firstDesigner   User?         @relation("FirstDesigner", fields: [firstDesignerId], references: [id])
   ibarDoneAt      DateTime?
-
 
   // Locked-in amounts, filled in as each fee is actually incurred (see the
   // comment on Material above).
-  totalPrice Float?
-  extraFee    Float?
-  deduction   Float?
-  ceramistFee Float?
-  designerFee Float?
-  firstDesignerFee Float?
-  ibarFee     Float?
-  metalCost   Float?
+  totalPrice         Float?
+  extraFee           Float?
+  deduction          Float?
+  ceramistFee        Float?
+  designerFee        Float?
+  firstDesignerFee   Float?
+  ibarFee            Float?
+  metalCost          Float?
   millingCost        Float?
   photogrammetryCost Float?
 
@@ -198,27 +198,28 @@ model Case {
   assignedDesignerId String?
   assignedDesigner   User?   @relation("AssignedDesigner", fields: [assignedDesignerId], references: [id])
 
-  files         CaseFile[]
-  reviews       CaseReview[]
-  notifications Notification[]
-  units         CaseUnit[]
+  files           CaseFile[]
+  reviews         CaseReview[]
+  notifications   Notification[]
+  units           CaseUnit[]
   // What the case is made of: one line per arch + material (+ optional metal).
-  materials     CaseMaterial[]
+  materials       CaseMaterial[]
   // People from assignable roles (milling, printing, ...), one per role.
-  assignments   CaseAssignment[]
+  assignments     CaseAssignment[]
   // Values for the lab's own fields (see CustomField).
-  fieldValues   CaseFieldValue[]
+  fieldValues     CaseFieldValue[]
   // Files uploaded for review by people working on the case (milling, ...).
   workSubmissions WorkSubmission[]
   checklistItems  CaseChecklistItem[]
-  invoiceLines  InvoiceLine[]
+  invoiceLines    InvoiceLine[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  adjustments    CaseAdjustment[]
-  problems       CaseProblem[]
-  printRecords   PrintRecord[]
-  inventoryUses  InventoryMovement[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  adjustments   CaseAdjustment[]
+  problems      CaseProblem[]
+  printRecords  PrintRecord[]
+  inventoryUses InventoryMovement[]
+  media         CaseMedia[]
 }
 
 model CaseUnit {
@@ -231,10 +232,10 @@ model CaseUnit {
 }
 
 model CaseFile {
-  id          String @id @default(cuid())
+  id          String          @id @default(cuid())
   submission  WorkSubmission?
   caseId      String
-  case        Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case        Case            @relation(fields: [caseId], references: [id], onDelete: Cascade)
   type        String
   fileName    String
   driveFileId String
@@ -242,7 +243,7 @@ model CaseFile {
 
   // Null for files found in Drive (added there directly, not through the app).
   uploadedById String?
-  uploadedBy   User?  @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User?     @relation(fields: [uploadedById], references: [id])
   // The case subfolder it's in (e.g. "scans (for design)"); null = the
   // patient folder itself.
   folder       String?
@@ -261,7 +262,7 @@ model CaseAdjustment {
   id          String   @id @default(cuid())
   caseId      String
   case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  kind        String   // "FEE" or "DEDUCTION"
+  kind        String // "FEE" or "DEDUCTION"
   amount      Float
   reason      String
   createdById String?
@@ -304,7 +305,7 @@ model Notification {
   case   Case?   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   // Where it opens when it isn't about a case (e.g. an inventory item).
-  link   String?
+  link String?
 }
 
 // One per doctor per calendar month. Snapshots line amounts at generation
@@ -350,18 +351,18 @@ model InvoiceLine {
 // One material line on a case, e.g. "Upper: Zirconia, 10 units, Titanium".
 // A case can have several lines per arch; prices and fees are summed over them.
 model CaseMaterial {
-  id        String   @id @default(cuid())
-  caseId    String
-  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  arch      String // "UPPER" | "LOWER"
-  materialId String
-  material   Material @relation(fields: [materialId], references: [id])
-  units      Int
+  id           String     @id @default(cuid())
+  caseId       String
+  case         Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  arch         String // "UPPER" | "LOWER"
+  materialId   String
+  material     Material   @relation(fields: [materialId], references: [id])
+  units        Int
   // The material's price per unit when the case was priced (for invoices).
   pricePerUnit Float?
-  metalTypeId String?
-  metalType   MetalType? @relation(fields: [metalTypeId], references: [id], onDelete: SetNull)
-  createdAt DateTime @default(now())
+  metalTypeId  String?
+  metalType    MetalType? @relation(fields: [metalTypeId], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
 }
 
 // Statuses the Lab Leader adds on top of the built-in workflow (e.g.
@@ -468,18 +469,18 @@ model ChecklistTemplateItem {
 // A checklist item on one case: either a ticked template item (templateItemId)
 // or an extra item added to just this case (text, no template).
 model CaseChecklistItem {
-  id             String    @id @default(cuid())
+  id             String                 @id @default(cuid())
   caseId         String
-  case           Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case           Case                   @relation(fields: [caseId], references: [id], onDelete: Cascade)
   status         String
   templateItemId String?
   templateItem   ChecklistTemplateItem? @relation(fields: [templateItemId], references: [id], onDelete: Cascade)
   text           String?
-  done           Boolean   @default(false)
+  done           Boolean                @default(false)
   doneById       String?
-  doneBy         User?     @relation(fields: [doneById], references: [id])
+  doneBy         User?                  @relation(fields: [doneById], references: [id])
   doneAt         DateTime?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime               @default(now())
 
   @@unique([caseId, templateItemId])
 }
@@ -559,27 +560,27 @@ model PrintRecord {
 // Lab stock (blocks, discs, liquids...). `code` is the manufacturer's
 // barcode/QR on the box, read by the scanner on the Inventory page.
 model InventoryItem {
-  id          String   @id @default(cuid())
-  name        String
-  type        String?
-  colour      String?
-  size        String?
+  id            String   @id @default(cuid())
+  name          String
+  type          String?
+  colour        String?
+  size          String?
   // The system's own code (e.g. INV00012), printed as a QR on the item's label.
-  code        String?  @unique
+  code          String?  @unique
   // No longer shown (was the maker's product number from UDI barcodes).
-  ref         String?
+  ref           String?
   scalingFactor String?
   // Price per block / piece (EGP). Only people who manage the inventory see it.
   price         Float?
   // Blocks/discs: each physical block gets its own QR label and record
   // (InventoryBlock); quantity / minQuantity then count open blocks.
-  trackBlocks Boolean @default(false)
-  quantity    Int      @default(0)
+  trackBlocks   Boolean  @default(false)
+  quantity      Int      @default(0)
   // At or below this, the item shows as low stock and the lab is notified.
-  minQuantity Int?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  minQuantity   Int?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   movements InventoryMovement[]
   blocks    InventoryBlock[]
@@ -587,10 +588,10 @@ model InventoryItem {
 
 // Every change to an item's quantity: stock received, or a correction.
 model InventoryMovement {
-  id            String        @id @default(cuid())
+  id            String          @id @default(cuid())
   itemId        String
-  item          InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  kind          String        // "RECEIVED" | "USED" | "BLOCK_DONE" | "CORRECTION"
+  item          InventoryItem   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  kind          String // "RECEIVED" | "USED" | "BLOCK_DONE" | "CORRECTION"
   // Units milled (block uses); `change` is in blocks / pieces.
   units         Int?
   change        Int
@@ -605,10 +606,10 @@ model InventoryMovement {
   block         InventoryBlock? @relation(fields: [blockId], references: [id], onDelete: SetNull)
   // The case material was used for (kind "USED").
   caseId        String?
-  case          Case?         @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  case          Case?           @relation(fields: [caseId], references: [id], onDelete: SetNull)
   createdById   String?
-  createdBy     User?         @relation("InventoryMovements", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt     DateTime      @default(now())
+  createdBy     User?           @relation("InventoryMovements", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime        @default(now())
 
   @@index([itemId])
 }
@@ -617,18 +618,36 @@ model InventoryMovement {
 // BLK000001...) and the units milled from it. The item's quantity is the
 // number of its blocks not finished yet.
 model InventoryBlock {
-  id         String    @id @default(cuid())
-  itemId     String
-  item       InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  code       String    @unique
+  id          String        @id @default(cuid())
+  itemId      String
+  item        InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  code        String        @unique
   // Optional name the lab leader gives the block; shown instead of the code.
-  name       String?
+  name        String?
   // Units milled from it so far (the miller decides how many it gives).
-  unitsMilled Int      @default(0)
-  finishedAt DateTime?
-  createdAt  DateTime  @default(now())
+  unitsMilled Int           @default(0)
+  finishedAt  DateTime?
+  createdAt   DateTime      @default(now())
 
   movements InventoryMovement[]
 
   @@index([itemId])
+}
+
+// Photos and voice notes added to a case. Kept on the server (not in Drive);
+// the file is saved under MEDIA_DIR as <id>.<ext>.
+model CaseMedia {
+  id          String   @id @default(cuid())
+  caseId      String
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  kind        String // "PHOTO" | "VOICE"
+  ext         String
+  mimeType    String
+  size        Int
+  durationSec Int?
+  createdById String?
+  createdBy   User?    @relation("CaseMediaAdded", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([caseId])
 }

@@ -29,6 +29,10 @@ import {
   reviewCase,
 } from "../actions";
 import type { ApprovalRoute } from "@/lib/constants";
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { can, requireAccess, requireVisibleCase } from "@/lib/access";
+import { removeMediaFile } from "@/lib/media";
 
 export async function assignDesignerAction(formData: FormData) {
   const caseId = formData.get("caseId") as string;
@@ -169,4 +173,18 @@ export async function addPrintRecordAction(formData: FormData) {
 
 export async function deletePrintRecordAction(formData: FormData) {
   await deletePrintRecord(formData.get("caseId") as string, formData.get("recordId") as string);
+}
+
+// Removes a photo or voice note: its own uploader, or people who can delete
+// case files.
+export async function deleteCaseMediaAction(formData: FormData) {
+  const access = await requireAccess();
+  const caseId = String(formData.get("caseId"));
+  await requireVisibleCase(access, caseId);
+  const media = await prisma.caseMedia.findFirst({ where: { id: String(formData.get("mediaId")), caseId } });
+  if (media && (media.createdById === access.userId || can(access, "case.deleteFiles"))) {
+    await prisma.caseMedia.delete({ where: { id: media.id } });
+    await removeMediaFile(media.id, media.ext).catch(() => {});
+  }
+  revalidatePath(`/cases/${caseId}`);
 }

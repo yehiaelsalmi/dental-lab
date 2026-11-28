@@ -16,7 +16,7 @@ export default async function InventoryLabelPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ blocks?: string }>;
 }) {
-  await requirePermission("page.inventory");
+  await requirePermission("page.inventory", "inventory.use");
   const { id } = await params;
   const { blocks: blocksParam } = await searchParams;
   const item = await prisma.inventoryItem.findUnique({ where: { id } });

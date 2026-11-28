@@ -121,9 +121,10 @@ export async function updateItem(formData: FormData) {
   redirect(`${back}?saved=1${blocksQuery(blocks)}`);
 }
 
-// Stock that came in; block items get one new labelled block per block.
+// Stock that came in (inventory managers and the miller); block items get one
+// new labelled block per block.
 export async function receiveStock(formData: FormData) {
-  const session = await requirePermission("page.inventory");
+  const session = await requirePermission("page.inventory", "inventory.use");
   const id = String(formData.get("id"));
   const back = `/inventory/${id}`;
   const amount = count(formData, "amount", "how many came in", back)!;

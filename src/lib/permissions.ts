@@ -26,6 +26,7 @@ export const PERMISSIONS = [
   { key: "case.reviewWork", group: "Workflow steps", label: "Review uploaded work (approve or request changes)" },
   { key: "case.deleteFiles", group: "Cases", label: "Delete files from a case (moves them to Drive's trash)" },
   { key: "case.upload", group: "Cases", label: "Upload files to a case at any time, choosing the Drive subfolder" },
+  { key: "case.media", group: "Cases", label: "Add photos and voice notes to a case (kept in the system, not in Drive)" },
 
   { key: "money.viewAll", group: "Money", label: "See all prices, fees and profit" },
   { key: "money.viewOwn", group: "Money", label: "See their own earnings" },
@@ -45,7 +46,7 @@ export const PERMISSIONS = [
   { key: "page.checklists", group: "Pages", label: "Checklists (items to tick per status, and extra items on a case)" },
   { key: "page.expenses", group: "Pages", label: "Expenses" },
   { key: "page.inventory", group: "Pages", label: "Inventory: manage items (add, edit, receive stock, print QR labels)" },
-  { key: "inventory.use", group: "Cases", label: "Inventory: see stock and take materials for cases (e.g. milling)" },
+  { key: "inventory.use", group: "Cases", label: "Inventory: see stock, add stock that came in, and take materials for cases (e.g. milling)" },
   { key: "page.fields", group: "Pages", label: "Custom fields (add fields to the case form)" },
   { key: "page.settings", group: "Pages", label: "Lab settings (name, logo, invoice details, alerts)" },
   { key: "page.drive", group: "Pages", label: "Drive Settings" },

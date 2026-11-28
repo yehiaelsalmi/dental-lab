@@ -30,6 +30,8 @@ export default async function InventoryItemPage({
   const access = await requireAccess();
   if (!canSeeInventory(access)) redirect("/cases?error=forbidden");
   const manage = can(access, "page.inventory");
+  // The miller can add received stock (and print its labels) too.
+  const canReceive = manage || can(access, "inventory.use");
   const { id } = await params;
   const { scanned, created, saved, received, error, block: scannedBlock, blocks: newBlocks, renamed } = await searchParams;
   const item = await prisma.inventoryItem.findUnique({
@@ -73,7 +75,7 @@ export default async function InventoryItemPage({
           </p>
           <p className="mt-1 flex items-center gap-2 font-mono text-xs text-slate-400">
             {item.code}
-            {manage && (
+            {canReceive && (
               <Link href={`/inventory/${item.id}/label`} className="inline-flex items-center gap-1 font-sans font-medium text-brand hover:text-brand-hover">
                 <Printer size={12} /> Print QR label
               </Link>
@@ -120,7 +122,7 @@ export default async function InventoryItemPage({
         </p>
       )}
 
-      {manage && (
+      {canReceive && (
         <section className="mb-6 rounded-xl border-2 border-emerald-200 bg-white p-5">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
             <PackagePlus size={16} className="text-emerald-600" />
