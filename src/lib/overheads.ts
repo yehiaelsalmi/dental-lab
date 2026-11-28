@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getMoneyStart, getMoneyStartMonth } from "@/lib/moneyStart";
 
 // Months are handled as "YYYY-MM" keys; dates are the first day of the month (UTC).
 export function monthStart(key: string): Date {
@@ -66,6 +67,14 @@ export async function overheadsForMonth(key: string): Promise<Overheads> {
   };
 }
 
+// The month's overheads as counted in Reports: none before the money start
+// month (Lab settings).
+export async function countedOverheadsForMonth(key: string): Promise<Overheads> {
+  const start = await getMoneyStart();
+  if (start && monthStart(key) < start) return { expenses: [], salaries: [], expenseTotal: 0, salaryTotal: 0 };
+  return overheadsForMonth(key);
+}
+
 export type OverheadsAllTime = {
   months: { key: string; expenseTotal: number; salaryTotal: number }[];
   expenseTotal: number;
@@ -73,7 +82,7 @@ export type OverheadsAllTime = {
 };
 
 // Every month's expenses and salaries added up, from the lab's first month
-// with a delivered case or an expense up to this month.
+// with a delivered case or an expense (or the money start month) up to now.
 export async function overheadsAllTime(): Promise<OverheadsAllTime> {
   const [firstCase, firstExpense] = await Promise.all([
     prisma.case.findFirst({ where: { deliveredAt: { not: null } }, orderBy: { deliveredAt: "asc" }, select: { deliveredAt: true } }),
@@ -81,13 +90,15 @@ export async function overheadsAllTime(): Promise<OverheadsAllTime> {
   ]);
   const current = currentMonthKey();
   const starts = [firstCase?.deliveredAt, firstExpense?.month].filter((d): d is Date => !!d).map((d) => d.toISOString().slice(0, 7));
-  const first = starts.length ? starts.sort()[0] : current;
+  const startKey = await getMoneyStartMonth();
+  let first = starts.length ? starts.sort()[0] : current;
+  if (startKey && startKey > first) first = startKey;
 
   const keys: string[] = [];
   for (let key = first; key <= current; key = nextMonthStart(key).toISOString().slice(0, 7)) keys.push(key);
   const months = await Promise.all(
     keys.map(async (key) => {
-      const o = await overheadsForMonth(key);
+      const o = await countedOverheadsForMonth(key);
       return { key, expenseTotal: o.expenseTotal, salaryTotal: o.salaryTotal };
     })
   );

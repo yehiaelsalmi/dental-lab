@@ -157,6 +157,8 @@ model Case {
   // to MATCHING before review.
   matchingBy             String?
   needsPhotogrammetry    Boolean   @default(false)
+  // Ticked on the case form for full arch cases.
+  fullArch               Boolean   @default(false)
   photogrammetryDoneAt   DateTime?
   // Whoever marked photogrammetry done; they're credited the photogrammetry cost.
   photogrammetryDoneById String?

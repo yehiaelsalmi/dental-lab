@@ -5,6 +5,7 @@ import { formatEGP } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { STAFF_PAYMENT_KINDS, doctorBalances, formatPaidAt, staffBalances, type StaffPaymentKind } from "@/lib/payments";
 import { currentMonthKey, isMonthKey, monthLabel, monthStart, nextMonthStart } from "@/lib/overheads";
+import { getMoneyStart, notBeforeStart } from "@/lib/moneyStart";
 import { BalanceText } from "./ui";
 
 function shiftMonth(key: string, by: number) {
@@ -189,7 +190,7 @@ const TH = "px-4 py-3 font-medium";
 // One month for doctors: cases delivered that month (what became owed) and
 // payments received that month, next to each doctor's overall balance.
 async function DoctorsMonth({ month }: { month: string }) {
-  const range = { gte: monthStart(month), lt: nextMonthStart(month) };
+  const range = { gte: notBeforeStart(monthStart(month), await getMoneyStart()), lt: nextMonthStart(month) };
   const [balances, delivered, payments] = await Promise.all([
     doctorBalances(),
     prisma.case.groupBy({ by: ["doctorId"], where: { status: "DELIVERED", deliveredAt: range }, _sum: { totalPrice: true }, _count: { _all: true } }),
@@ -271,7 +272,7 @@ async function DoctorsMonth({ month }: { month: string }) {
 // One month for the team: what was paid to each person that month, next to
 // their overall balance.
 async function TeamMonth({ month }: { month: string }) {
-  const range = { gte: monthStart(month), lt: nextMonthStart(month) };
+  const range = { gte: notBeforeStart(monthStart(month), await getMoneyStart()), lt: nextMonthStart(month) };
   const [balances, payments] = await Promise.all([
     staffBalances(),
     prisma.staffPayment.findMany({ where: { paidAt: range }, include: { user: { select: { name: true } } }, orderBy: { paidAt: "asc" } }),

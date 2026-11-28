@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/access";
 import { getReportCases, allBreakdowns } from "@/lib/reporting";
 import { buildReportExcelBuffer, buildReportPdfBuffer } from "@/lib/reportExport";
-import { isMonthKey, monthLabel, overheadsForMonth } from "@/lib/overheads";
+import { countedOverheadsForMonth, isMonthKey, monthLabel } from "@/lib/overheads";
 
 function dateStamp() {
   return new Date().toISOString().slice(0, 10);
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const cases = await getReportCases(month);
   const breakdowns = allBreakdowns(cases);
   const period = month
-    ? { label: monthLabel(month), overheads: await overheadsForMonth(month) }
+    ? { label: monthLabel(month), overheads: await countedOverheadsForMonth(month) }
     : { label: "All time", overheads: null };
   const fileTag = month ?? dateStamp();
 

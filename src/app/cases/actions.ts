@@ -75,6 +75,7 @@ const createCaseSchema = z.object({
   notes: z.string().optional(),
   matchingBy: z.string().trim().optional(),
   needsPhotogrammetry: z.boolean(),
+  fullArch: z.boolean(),
   assignedDesignerId: z.string().optional(),
   firstDesignerId: z.string().optional(),
 });
@@ -196,6 +197,7 @@ export async function createCase(formData: FormData) {
     notes: emptyToUndefined(formData.get("notes")),
     matchingBy: emptyToUndefined(formData.get("matchingBy")),
     needsPhotogrammetry: formData.get("needsPhotogrammetry") === "on",
+    fullArch: formData.get("fullArch") === "on",
     assignedDesignerId: emptyToUndefined(formData.get("assignedDesignerId")),
     firstDesignerId: emptyToUndefined(formData.get("firstDesignerId")),
   });
@@ -280,6 +282,7 @@ export async function createCase(formData: FormData) {
         notes: data.notes,
         matchingBy: data.matchingBy || null,
         needsPhotogrammetry: data.needsPhotogrammetry,
+        fullArch: data.fullArch,
         assignedDesignerId: data.assignedDesignerId,
         firstDesignerId: firstDesignerId ?? null,
         driveFolderId: folder.id,
@@ -941,6 +944,7 @@ export async function updateCase(formData: FormData) {
     notes: emptyToUndefined(formData.get("notes")),
     matchingBy: emptyToUndefined(formData.get("matchingBy")),
     needsPhotogrammetry: formData.get("needsPhotogrammetry") === "on",
+    fullArch: formData.get("fullArch") === "on",
   });
 
   if (!parsed.success) {
@@ -1053,6 +1057,7 @@ export async function updateCase(formData: FormData) {
         notes: data.notes ?? null,
         matchingBy: data.matchingBy || null,
         needsPhotogrammetry: data.needsPhotogrammetry,
+        fullArch: data.fullArch,
         // Unticking clears "done", so ticking it again starts fresh.
         ...(data.needsPhotogrammetry ? {} : { photogrammetryDoneAt: null, photogrammetryDoneById: null }),
         units: { deleteMany: {}, create: units },

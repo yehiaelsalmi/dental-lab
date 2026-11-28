@@ -25,13 +25,14 @@ import {
   monthStart,
   nextMonthStart,
   overheadsAllTime,
-  overheadsForMonth,
+  countedOverheadsForMonth,
 } from "@/lib/overheads";
 import { prisma } from "@/lib/prisma";
 import { activeFields } from "@/lib/customFields";
 import { StatusBadge } from "@/components/StatusBadge";
 
 import { formatDate } from "@/lib/dates";
+import { getMoneyStartMonth } from "@/lib/moneyStart";
 function shiftMonth(key: string, by: number) {
   const d = monthStart(key);
   d.setUTCMonth(d.getUTCMonth() + by);
@@ -76,7 +77,8 @@ export default async function ReportsPage({
     { units: 0, models: 0, prints: 0 }
   );
   const customFields = await activeFields();
-  const overheads = month ? await overheadsForMonth(month) : null;
+  const overheads = month ? await countedOverheadsForMonth(month) : null;
+  const moneyStart = await getMoneyStartMonth();
   const overheadsAll = month ? null : await overheadsAllTime();
   const totals = computeTotals(cases);
   const breakdowns = allBreakdowns(cases);
@@ -109,6 +111,16 @@ export default async function ReportsPage({
           </a>
         </div>
       </div>
+
+      {moneyStart && (
+        <p className="mb-4 rounded-lg border border-brand/25 bg-brand-soft/60 px-3 py-2 text-sm text-slate-700">
+          Money is counted from <span className="font-semibold text-slate-900">{monthLabel(moneyStart)}</span>; anything before it isn&apos;t
+          included. {""}
+          <Link href="/settings/lab#money-start" className="font-medium text-brand hover:text-brand-hover">
+            Change in Lab settings
+          </Link>
+        </p>
+      )}
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         {month ? (

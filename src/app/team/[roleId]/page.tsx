@@ -1,3 +1,4 @@
+import { countedCasesWhere, getMoneyStart } from "@/lib/moneyStart";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -25,6 +26,7 @@ export default async function TeamRolePage({ params }: { params: Promise<{ roleI
   const ids = role.users.map((u) => u.id);
   const cases = await prisma.case.findMany({
     where: {
+      AND: [countedCasesWhere(await getMoneyStart())],
       OR: [
         { assignedDesignerId: { in: ids } },
         { firstDesignerId: { in: ids } },

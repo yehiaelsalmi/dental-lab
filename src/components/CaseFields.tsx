@@ -18,6 +18,7 @@ export type CaseFieldDefaults = {
   ibarDesignerId?: string | null;
   matchingBy?: string | null;
   needsPhotogrammetry?: boolean;
+  fullArch?: boolean;
   unitCodes?: string[];
 };
 
@@ -77,6 +78,13 @@ export function CaseFields({
             placeholder="Name of who does the matching"
             defaultValue={defaults.matchingBy ?? undefined}
           />
+          <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 sm:col-span-2">
+            <input type="checkbox" name="fullArch" defaultChecked={defaults.fullArch} className="mt-0.5 h-4 w-4 accent-brand" />
+            <span>
+              <span className="font-medium">Full arch</span>
+              <span className="block text-xs text-slate-500">Marks the case as a full arch case.</span>
+            </span>
+          </label>
           <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 sm:col-span-2">
             <input
               type="checkbox"

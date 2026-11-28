@@ -2,7 +2,10 @@ import { requirePermission } from "@/lib/access";
 import { WHATSAPP_TEMPLATE_TEXT, getWhatsAppSettings } from "@/lib/whatsapp";
 import { getLabSettings } from "@/lib/labSettings";
 import { LabMark } from "@/components/LabMark";
-import { saveLabSettings, saveWhatsAppAction, testWhatsAppAction } from "./actions";
+import { getMoneyStartMonth } from "@/lib/moneyStart";
+import { currentMonthKey, monthLabel } from "@/lib/overheads";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { saveLabSettings, saveWhatsAppAction, setMoneyStartAction, testWhatsAppAction } from "./actions";
 
 const INPUT =
   "rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -10,10 +13,15 @@ const INPUT =
 export default async function LabSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string; waSaved?: string; waError?: string; waTest?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; waSaved?: string; waError?: string; waTest?: string; moneyStart?: string }>;
 }) {
   await requirePermission("page.settings");
-  const { error, saved, waSaved, waError, waTest } = await searchParams;
+  const { error, saved, waSaved, waError, waTest, moneyStart: moneyStartSaved } = await searchParams;
+  const moneyStart = await getMoneyStartMonth();
+  const nextMonth = (() => {
+    const [y, m] = currentMonthKey().split("-").map(Number);
+    return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
+  })();
   const whatsapp = await getWhatsAppSettings();
   const lab = await getLabSettings();
 
@@ -134,6 +142,52 @@ export default async function LabSettingsPage({
           Save settings
         </button>
       </form>
+
+      <section id="money-start" className="mt-8 flex scroll-mt-6 flex-col gap-4 rounded-xl border border-amber-200 bg-white p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Count money from</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Start the costs and reports afresh: Reports, payment balances and earnings then ignore cases delivered, payments
+            made and expenses/salaries before this month. Nothing is deleted; &quot;Count everything again&quot; brings it all back.
+          </p>
+        </div>
+        {moneyStartSaved && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Saved.</p>}
+        <p className="text-sm text-slate-700">
+          Now:{" "}
+          <span className="font-semibold text-slate-900">
+            {moneyStart ? `counting from ${monthLabel(moneyStart)}` : "counting everything (no start month)"}
+          </span>
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <form action={setMoneyStartAction}>
+            <input type="hidden" name="mode" value="next" />
+            <ConfirmSubmitButton
+              message={`Start counting money from ${monthLabel(nextMonth)}? Reports, balances and earnings will ignore everything before it (nothing is deleted).`}
+              className="rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700"
+            >
+              Reset from next month ({monthLabel(nextMonth)})
+            </ConfirmSubmitButton>
+          </form>
+          <form action={setMoneyStartAction} className="flex items-end gap-2">
+            <input type="hidden" name="mode" value="month" />
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+              Or pick a month
+              <input type="month" name="month" required defaultValue={moneyStart ?? nextMonth} className={INPUT} />
+            </label>
+            <button type="submit" className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Set
+            </button>
+          </form>
+          {moneyStart && (
+            <form action={setMoneyStartAction}>
+              <input type="hidden" name="mode" value="clear" />
+              <button type="submit" className="px-2 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900">
+                Count everything again
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
 
       <section className="mt-8 flex flex-col gap-4 rounded-xl border border-emerald-200 bg-white p-5">
         <div>

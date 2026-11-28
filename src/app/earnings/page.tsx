@@ -1,3 +1,4 @@
+import { countedCasesWhere, getMoneyStart } from "@/lib/moneyStart";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/access";
@@ -32,6 +33,7 @@ export default async function EarningsPage({
   const myAccount = await prisma.user.findUnique({ where: { id: me }, select: { baseSalary: true } });
   const cases = await prisma.case.findMany({
     where: {
+      AND: [countedCasesWhere(await getMoneyStart())],
       OR: [
         { firstDesignerId: me },
         { assignedDesignerId: me },

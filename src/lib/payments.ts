@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { earningsOnCase } from "@/lib/earnings";
+import { countedCasesWhere, getMoneyStart } from "@/lib/moneyStart";
 
 import { formatDate } from "@/lib/dates";
 export const STAFF_PAYMENT_KINDS = {
@@ -40,7 +41,9 @@ export type DoctorBalance = {
 // Owed = the price of the doctor's delivered cases; paid = payments entered.
 export async function doctorBalances(doctorId?: string): Promise<DoctorBalance[]> {
   const where = doctorId ? { doctorId } : {};
-  const delivered = { ...where, status: "DELIVERED" };
+  // Only what's from the money start month on (Lab settings) counts.
+  const start = await getMoneyStart();
+  const delivered = { ...where, status: "DELIVERED", ...(start ? { deliveredAt: { gte: start } } : {}) };
   const [doctors, priced, unpriced, inProgress, payments] = await Promise.all([
     prisma.doctor.findMany({ where: doctorId ? { id: doctorId } : {}, orderBy: { name: "asc" } }),
     prisma.case.groupBy({ by: ["doctorId"], where: delivered, _sum: { totalPrice: true }, _count: { _all: true } }),
@@ -51,7 +54,7 @@ export async function doctorBalances(doctorId?: string): Promise<DoctorBalance[]
       _sum: { totalPrice: true },
       _count: { _all: true },
     }),
-    prisma.doctorPayment.groupBy({ by: ["doctorId"], where, _sum: { amount: true } }),
+    prisma.doctorPayment.groupBy({ by: ["doctorId"], where: { ...where, ...(start ? { paidAt: { gte: start } } : {}) }, _sum: { amount: true } }),
   ]);
   return doctors.map((d) => {
     const c = priced.find((p) => p.doctorId === d.id);
@@ -87,9 +90,11 @@ export type StaffBalance = {
 
 const caseInclude = { assignments: { include: { role: true } } } as const;
 
-function casesFor(userIds: string[]) {
+async function casesFor(userIds: string[]) {
+  const start = await getMoneyStart();
   return prisma.case.findMany({
     where: {
+      AND: [countedCasesWhere(start)],
       OR: [
         { firstDesignerId: { in: userIds } },
         { assignedDesignerId: { in: userIds } },
@@ -116,7 +121,13 @@ export async function staffBalances(userId?: string): Promise<StaffBalance[]> {
   const ids = users.map((u) => u.id);
   const [cases, payments] = await Promise.all([
     casesFor(ids),
-    prisma.staffPayment.groupBy({ by: ["userId", "kind"], where: { userId: { in: ids } }, _sum: { amount: true } }),
+    getMoneyStart().then((start) =>
+      prisma.staffPayment.groupBy({
+        by: ["userId", "kind"],
+        where: { userId: { in: ids }, ...(start ? { paidAt: { gte: start } } : {}) },
+        _sum: { amount: true },
+      })
+    ),
   ]);
 
   return users.map((u) => {

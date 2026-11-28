@@ -8,6 +8,8 @@ import { setSetting } from "@/lib/settings";
 import { LAB_SETTING_KEYS, parsePaymentMethods } from "@/lib/labSettings";
 import { getWhatsAppSettings, saveWhatsAppSettings, sendWhatsApp, toWhatsAppNumber } from "@/lib/whatsapp";
 import { caseUrl } from "@/lib/email";
+import { MONEY_START_KEY } from "@/lib/moneyStart";
+import { currentMonthKey, isMonthKey } from "@/lib/overheads";
 
 const MAX_LOGO_BYTES = 1024 * 1024;
 
@@ -94,4 +96,25 @@ export async function testWhatsAppAction() {
   });
   if (error) fail(`WhatsApp refused the test: ${error}`);
   redirect(`/settings/lab?waTest=${encodeURIComponent(to as string)}`);
+}
+
+// Start counting money afresh from a month (Reports, payment balances and
+// earnings ignore anything before it), or count everything again. Nothing is
+// deleted.
+export async function setMoneyStartAction(formData: FormData) {
+  await requirePermission("page.settings");
+  const mode = String(formData.get("mode") ?? "");
+  if (mode === "clear") {
+    await prisma.appSetting.deleteMany({ where: { key: MONEY_START_KEY } });
+  } else {
+    let key = String(formData.get("month") ?? "");
+    if (mode === "next") {
+      const [y, m] = currentMonthKey().split("-").map(Number);
+      key = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
+    }
+    if (!isMonthKey(key)) redirect(`/settings/lab?error=${encodeURIComponent("Pick the month to start counting from.")}#money-start`);
+    await setSetting(MONEY_START_KEY, key);
+  }
+  revalidatePath("/", "layout");
+  redirect("/settings/lab?moneyStart=1#money-start");
 }

@@ -225,8 +225,13 @@ export default async function CaseDetailPage({
       <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="mb-2">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <StatusBadge status={status} />
+              {caseRecord.fullArch && (
+                <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                  Full arch
+                </span>
+              )}
             </div>
             <h1 className="break-words text-2xl font-semibold text-slate-900 sm:text-3xl">{caseRecord.patientName}</h1>
             <p className="mt-1 text-sm text-slate-500">

@@ -1,3 +1,4 @@
+import { getMoneyStart, notBeforeStart } from "@/lib/moneyStart";
 import { prisma } from "@/lib/prisma";
 import { materialSummary, metalSummary } from "@/lib/caseMaterials";
 import { monthStart, nextMonthStart } from "@/lib/overheads";
@@ -6,10 +7,13 @@ import { formatFieldValue } from "@/lib/customFields";
 // Cases delivered in a month ("YYYY-MM"), or every delivered case when no
 // month is given. A case's money only counts once it's delivered.
 export async function getReportCases(month?: string) {
+  // Nothing delivered before the money start month (Lab settings) counts.
+  const start = await getMoneyStart();
+  const from = month ? notBeforeStart(monthStart(month), start) : start;
   return prisma.case.findMany({
     where: {
       status: "DELIVERED",
-      deliveredAt: month ? { gte: monthStart(month), lt: nextMonthStart(month) } : { not: null },
+      deliveredAt: month ? { gte: from!, lt: nextMonthStart(month) } : from ? { gte: from } : { not: null },
     },
     orderBy: { deliveredAt: "desc" },
     include: {
